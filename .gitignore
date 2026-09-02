@@ -1,0 +1,21 @@
+# macOS
+.DS_Store
+
+# Environment overrides (defaults live in compose.yaml — see research.md R-11)
+.env
+.env.local
+
+# .NET
+bin/
+obj/
+*.user
+[Tt]est[Rr]esult*/
+
+# Node
+node_modules/
+dist/
+*.log
+
+# Playwright
+playwright-report/
+test-results/
