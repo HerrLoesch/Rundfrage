@@ -1,0 +1,23 @@
+{
+  "app": {
+    "title": "Rundfrage",
+    "subtitle": "Systemstatus"
+  },
+  "message": {
+    "label": "Nachricht vom Backend",
+    "unavailable": "Keine Nachricht verfügbar"
+  },
+  "status": {
+    "loading": "Wird geprüft …",
+    "label": "Datenbank",
+    "database": {
+      "reachable": "Datenbank erreichbar",
+      "unreachable": "Datenbank nicht erreichbar"
+    },
+    "backend": {
+      "unreachable": "Backend nicht erreichbar"
+    },
+    "checkedAt": "Zuletzt geprüft",
+    "duration": "Dauer"
+  }
+}

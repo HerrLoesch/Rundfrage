@@ -1,0 +1,15 @@
+.git/
+.github/
+.specify/
+.claude/
+specs/
+**/node_modules/
+**/bin/
+**/obj/
+**/dist/
+**/test-results/
+**/playwright-report/
+.env
+.env.local
+.DS_Store
+*.log

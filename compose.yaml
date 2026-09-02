@@ -1,0 +1,46 @@
+# Exactly two services (FR-003, SC-010): the application - which serves both the API and the
+# built web assets from one origin - and the database.
+#
+# Every value has an inline default, so `docker compose up` works on a fresh clone with no
+# .env file and no manual setup step (FR-001, SC-002, research.md R-11).
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    ports:
+      - "${APP_PORT:-8080}:8080"
+    environment:
+      ConnectionStrings__Default: >-
+        Host=db;Port=5432;Database=${POSTGRES_DB:-rundfrage};Username=${POSTGRES_USER:-rundfrage};Password=${POSTGRES_PASSWORD:-rundfrage_dev};Timeout=2
+      LOG_LEVEL: ${LOG_LEVEL:-Information}
+    # Start-order only - deliberately NOT `condition: service_healthy`. Gating startup on the
+    # database would make the "database down" path untestable, since stopping the database
+    # would stop the application instead of producing the required failure display
+    # (FR-011, acceptance scenario 2.2, research.md R-6).
+    depends_on:
+      - db
+    restart: unless-stopped
+
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-rundfrage}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-rundfrage_dev}
+      POSTGRES_DB: ${POSTGRES_DB:-rundfrage}
+    # Not used to gate the app (see above); it exists so test tooling can wait for readiness
+    # deterministically instead of sleeping.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-rundfrage} -d ${POSTGRES_DB:-rundfrage}"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+      start_period: 3s
+    volumes:
+      # Named volume so contents survive stop and restart (FR-004, SC-009).
+      - rundfrage-db-data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+volumes:
+  rundfrage-db-data:

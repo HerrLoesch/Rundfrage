@@ -24,12 +24,16 @@ key.
 **Language/Version**: C# 14 on .NET 10 (LTS; SDK 10.0.201 verified locally) + TypeScript on
 Node 24 LTS (24.14.1 verified locally)
 **Primary Dependencies**: ASP.NET Core 10 Minimal APIs, EF Core 10 with
-Npgsql.EntityFrameworkCore.PostgreSQL; Vue 3, Vuetify 3, Pinia 3, vue-i18n 11, Vite 7
+Npgsql.EntityFrameworkCore.PostgreSQL 10.0.3; Vue 3.5, Vuetify 4, Pinia 4, vue-i18n 11,
+Vite 8 (versions as resolved at implementation time — the constitution pins the libraries,
+not their major versions)
 **Storage**: PostgreSQL 17 (`postgres:17-alpine`), self-hosted, named volume for persistence
 **Testing**: xUnit + Microsoft.AspNetCore.Mvc.Testing + Testcontainers.PostgreSql (backend);
 Vitest + Vue Test Utils (frontend); Playwright (end-to-end against the real container set)
-**Logging**: Serilog with `Serilog.AspNetCore`, `Serilog.Sinks.Console` and
-`Serilog.Formatting.Compact` — structured to stdout, level via `LOG_LEVEL`
+**Logging**: Serilog with `Serilog.AspNetCore`, `Serilog.Sinks.TextWriter` and
+`Serilog.Formatting.Compact` — structured to stdout, level via `LOG_LEVEL`. The TextWriter
+sink replaced the Console sink during implementation: `Console.Out` is itself a TextWriter, so
+one sink serves both production and tests, and the tested code path is the production one
 **Target Platform**: Linux containers (Docker 29.7.2 / Compose v5.4.0 verified) + modern
 browsers
 **Project Type**: Web application — single ASP.NET Core host serving API and SPA, plus a
@@ -90,6 +94,7 @@ specs/001-platform-scaffold/
 
 ```text
 backend/
+├── Rundfrage.slnx
 ├── src/
 │   └── Rundfrage.Api/
 │       ├── Program.cs                  # Host, Serilog, EF Core, static files, SPA fallback
@@ -174,3 +179,16 @@ feature must therefore run with `SPECIFY_FEATURE=001-platform-scaffold`**, which
 
 All three are additive and confined; none introduces an architectural layer. No repository
 pattern, service layer, or mediator is introduced — the endpoints call the probe directly.
+Verified against the built code on 2026-09-02: a scan for `IRepository`, `MediatR`,
+`AutoMapper` and service-layer interfaces finds nothing.
+
+**As-built additions not present in the table above.** None adds a capability or a layer;
+they are recorded here so the table matches reality:
+
+| Addition | Why it appeared |
+|---|---|
+| `Microsoft.EntityFrameworkCore.Design` | Required by `dotnet ef migrations add`. Part of the constitution-mandated EF Core toolchain, not a new capability. |
+| `Serilog.Sinks.TextWriter` (replacing `Serilog.Sinks.Console`) | `WriteTo.TextWriter` does not exist in the Console sink. `Console.Out` is itself a TextWriter, so one sink now serves both production and tests — the tested code path *is* the production path. Sink count unchanged. |
+| `Microsoft.EntityFrameworkCore`, `.Relational`, `Microsoft.Extensions.Logging.Abstractions` in the test projects | Version alignment only. Npgsql pins EF Core 10.0.4 while Design pins 10.0.11, which produced MSB3277 conflict warnings; explicit references resolve them. All three were already present transitively. |
+
+The build is warning-free after these alignments.

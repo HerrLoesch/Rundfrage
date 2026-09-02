@@ -1,0 +1,128 @@
+# Builds the system and runs every automated test suite (FR-016, FR-017).
+#
+# Scope is deliberately limited to build-and-test: no image is built for publication, no
+# tag is pushed, no release artifact is produced, and no deployment happens (FR-018, FR-019).
+# Deployment on `main` is triggered separately and is outside this feature.
+#
+# The three jobs run in parallel so wall-clock feedback stays inside the 10-minute budget
+# from SC-006; the e2e job is the long pole because it builds the images (research.md R-7).
+
+name: CI
+
+on:
+  push:
+    branches: [dev, main]
+  pull_request:
+    branches: [dev, main]
+
+# A newer push supersedes an in-flight run on the same ref.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend (xUnit)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore
+        run: dotnet restore backend/Rundfrage.slnx
+
+      - name: Build
+        run: dotnet build backend/Rundfrage.slnx --no-restore --configuration Release
+
+      # Integration tests start a disposable PostgreSQL via Testcontainers, which needs the
+      # Docker daemon the GitHub-hosted runner already provides (FR-020).
+      - name: Test
+        run: dotnet test backend/Rundfrage.slnx --no-build --configuration Release --verbosity normal
+
+  frontend:
+    name: Frontend (Vitest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install
+        run: npm ci
+        working-directory: frontend
+
+      - name: Build
+        run: npm run build
+        working-directory: frontend
+
+      - name: Unit tests
+        run: npm run test:unit
+        working-directory: frontend
+
+  e2e:
+    name: End-to-end (Playwright)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: e2e/package-lock.json
+
+      - name: Install test dependencies
+        run: npm ci
+        working-directory: e2e
+
+      - name: Install browser
+        run: npx playwright install --with-deps chromium
+        working-directory: e2e
+
+      # Runs against the same two-container set developers start locally (FR-021).
+      - name: Start the system
+        run: docker compose up -d --build
+
+      - name: Wait for the database to become healthy
+        run: |
+          for i in $(seq 1 60); do
+            status=$(docker inspect --format '{{.State.Health.Status}}' "$(docker compose ps -q db)" 2>/dev/null || echo starting)
+            [ "$status" = "healthy" ] && echo "database healthy after ${i}s" && exit 0
+            sleep 1
+          done
+          echo "database did not become healthy in time" >&2
+          docker compose logs db
+          exit 1
+
+      - name: Wait for the application to answer
+        run: |
+          for i in $(seq 1 60); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/api/v1/message || true)
+            [ "$code" = "200" ] && echo "application ready after ${i}s" && exit 0
+            sleep 1
+          done
+          echo "application did not become ready in time" >&2
+          docker compose logs app
+          exit 1
+
+      - name: End-to-end tests
+        run: npx playwright test
+        working-directory: e2e
+
+      - name: Application logs on failure
+        if: failure()
+        run: docker compose logs
+
+      - name: Stop the system
+        if: always()
+        run: docker compose down -v

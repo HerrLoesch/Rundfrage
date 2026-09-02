@@ -37,16 +37,16 @@ export SPECIFY_FEATURE=001-platform-scaffold
 
 - [X] T001 Flatten the repository so git root == project root, moving `.specify/`, `.claude/`, `CLAUDE.md`, `specs/` into `/Users/hendrik/repos/Rundfrage` with `git mv` (research.md R-8) — **executed 2026-09-02**
 - [X] T002 Create `.gitignore` at repository root covering macOS, .NET, Node, Playwright and `.env` — **executed 2026-09-02**
-- [ ] T003 Create the .NET solution at `backend/Rundfrage.sln` targeting .NET 10
-- [ ] T004 Create the ASP.NET Core project `backend/src/Rundfrage.Api/Rundfrage.Api.csproj` with package references for `Npgsql.EntityFrameworkCore.PostgreSQL`, `Serilog.AspNetCore`, `Serilog.Sinks.Console`, `Serilog.Formatting.Compact`
-- [ ] T005 [P] Create the xUnit unit test project `backend/tests/Rundfrage.Api.UnitTests/Rundfrage.Api.UnitTests.csproj` referencing the API project
-- [ ] T006 [P] Create the xUnit integration test project `backend/tests/Rundfrage.Api.IntegrationTests/Rundfrage.Api.IntegrationTests.csproj` with `Microsoft.AspNetCore.Mvc.Testing` and `Testcontainers.PostgreSql`
-- [ ] T007 [P] Scaffold the Vue 3 + Vite project in `frontend/` with `vue`, `vuetify`, `pinia`, `vue-i18n`, and dev dependencies `vite`, `vitest`, `@vue/test-utils`, `jsdom`
-- [ ] T008 [P] Create `frontend/vite.config.ts` with the dev proxy `/api` → `http://localhost:8080` (FR-003b, research.md R-10)
-- [ ] T009 [P] Create `frontend/vitest.config.ts` using the jsdom environment
-- [ ] T010 [P] Scaffold the Playwright project at `e2e/playwright.config.ts` with `baseURL: http://localhost:8080`
-- [ ] T011 [P] Create `.dockerignore` at repository root excluding `.git/`, `node_modules/`, `bin/`, `obj/`, `dist/`, `.env*`
-- [ ] T012 [P] Create `.env.example` at repository root documenting `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `LOG_LEVEL` (FR-005, data-model.md §4)
+- [X] T003 Create the .NET solution at `backend/Rundfrage.slnx` targeting .NET 10 (.NET 10 emits the XML `.slnx` format)
+- [X] T004 Create the ASP.NET Core project `backend/src/Rundfrage.Api/Rundfrage.Api.csproj` with package references for `Npgsql.EntityFrameworkCore.PostgreSQL`, `Serilog.AspNetCore`, `Serilog.Sinks.Console`, `Serilog.Formatting.Compact`
+- [X] T005 [P] Create the xUnit unit test project `backend/tests/Rundfrage.Api.UnitTests/Rundfrage.Api.UnitTests.csproj` referencing the API project
+- [X] T006 [P] Create the xUnit integration test project `backend/tests/Rundfrage.Api.IntegrationTests/Rundfrage.Api.IntegrationTests.csproj` with `Microsoft.AspNetCore.Mvc.Testing` and `Testcontainers.PostgreSql`
+- [X] T007 [P] Scaffold the Vue 3 + Vite project in `frontend/` with `vue`, `vuetify`, `pinia`, `vue-i18n`, and dev dependencies `vite`, `vitest`, `@vue/test-utils`, `jsdom`
+- [X] T008 [P] Create `frontend/vite.config.ts` with the dev proxy `/api` → `http://localhost:8080` (FR-003b, research.md R-10)
+- [X] T009 [P] Create `frontend/vitest.config.ts` using the jsdom environment
+- [X] T010 [P] Scaffold the Playwright project at `e2e/playwright.config.ts` with `baseURL: http://localhost:8080`
+- [X] T011 [P] Create `.dockerignore` at repository root excluding `.git/`, `node_modules/`, `bin/`, `obj/`, `dist/`, `.env*`
+- [X] T012 [P] Create `.env.example` at repository root documenting `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `LOG_LEVEL` (FR-005, data-model.md §4)
 
 **Checkpoint**: Projects compile and empty test suites run.
 
@@ -58,14 +58,14 @@ export SPECIFY_FEATURE=001-platform-scaffold
 
 **⚠️ CRITICAL**: No user story work may begin until this phase is complete.
 
-- [ ] T013 Write a failing test in `backend/tests/Rundfrage.Api.UnitTests/LoggingConfigurationTests.cs` asserting Serilog emits structured entries to stdout and honours `LOG_LEVEL` (FR-024, FR-025)
-- [ ] T014 Configure Serilog in `backend/src/Rundfrage.Api/Program.cs` with the compact JSON formatter writing to stdout and the minimum level bound to `LOG_LEVEL`; set the `Npgsql` source to `Warning` (research.md R-5 measure 3) — makes T013 pass
-- [ ] T015 Create `backend/src/Rundfrage.Api/Data/RundfrageDbContext.cs` with **no `DbSet<>`** and **without** `EnableRetryOnFailure` (data-model.md §1, research.md R-3)
-- [ ] T016 Register the DbContext in `backend/src/Rundfrage.Api/Program.cs` using `ConnectionStrings__Default` including `Timeout=2` (research.md R-3 layer 1)
-- [ ] T017 Generate the deliberately empty initial EF Core migration into `backend/src/Rundfrage.Api/Data/Migrations/` (research.md R-1)
-- [ ] T018 [P] Create `frontend/src/locales/de.json` with the keys `app.title`, `status.loading`, `status.database.reachable`, `status.database.unreachable`, `status.backend.unreachable` (FR-028, data-model.md §3)
-- [ ] T019 [P] Register vue-i18n in `frontend/src/main.ts` with `de` as the only locale and fallback (FR-029)
-- [ ] T020 Configure `/api/v1` routing plus SPA fallback in `backend/src/Rundfrage.Api/Program.cs`, so unmatched paths serve `wwwroot/index.html` and API paths never collide with client-side routes (FR-006a)
+- [X] T013 Write a failing test in `backend/tests/Rundfrage.Api.UnitTests/LoggingConfigurationTests.cs` asserting Serilog emits structured entries to stdout and honours `LOG_LEVEL` (FR-024, FR-025)
+- [X] T014 Configure Serilog in `backend/src/Rundfrage.Api/Program.cs` with the compact JSON formatter writing to stdout and the minimum level bound to `LOG_LEVEL`; set the `Npgsql` source to `Warning` (research.md R-5 measure 3) — makes T013 pass
+- [X] T015 Create `backend/src/Rundfrage.Api/Data/RundfrageDbContext.cs` with **no `DbSet<>`** and **without** `EnableRetryOnFailure` (data-model.md §1, research.md R-3)
+- [X] T016 Register the DbContext in `backend/src/Rundfrage.Api/Program.cs` using `ConnectionStrings__Default` including `Timeout=2` (research.md R-3 layer 1)
+- [X] T017 Generate the deliberately empty initial EF Core migration into `backend/src/Rundfrage.Api/Data/Migrations/` (research.md R-1)
+- [X] T018 [P] Create `frontend/src/locales/de.json` with the keys `app.title`, `status.loading`, `status.database.reachable`, `status.database.unreachable`, `status.backend.unreachable` (FR-028, data-model.md §3)
+- [X] T019 [P] Register vue-i18n in `frontend/src/main.ts` with `de` as the only locale and fallback (FR-029)
+- [X] T020 Configure `/api/v1` routing plus SPA fallback in `backend/src/Rundfrage.Api/Program.cs`, so unmatched paths serve `wwwroot/index.html` and API paths never collide with client-side routes (FR-006a)
 
 **Checkpoint**: Logging, data access, i18n and routing conventions exist. User stories can start.
 
@@ -81,19 +81,19 @@ see backend-provided text. Requires neither US2 nor US3.
 
 ### Tests (write first, observe failing)
 
-- [ ] T021 [P] [US1] Write a failing contract test in `backend/tests/Rundfrage.Api.IntegrationTests/MessageEndpointTests.cs` asserting `GET /api/v1/message` returns 200 with a non-empty `message` field, matching `contracts/openapi.yaml`
-- [ ] T022 [P] [US1] Write a failing Vitest test in `frontend/tests/unit/SystemStatus.message.spec.ts` asserting the component renders the message fetched from the API, asserted via `data-testid` (FR-030)
-- [ ] T023 [P] [US1] Write a failing Playwright test in `e2e/tests/walking-skeleton.spec.ts` asserting the page served by Compose displays the backend text
+- [X] T021 [P] [US1] Write a failing contract test in `backend/tests/Rundfrage.Api.IntegrationTests/MessageEndpointTests.cs` asserting `GET /api/v1/message` returns 200 with a non-empty `message` field, matching `contracts/openapi.yaml`
+- [X] T022 [P] [US1] Write a failing Vitest test in `frontend/tests/unit/SystemStatus.message.spec.ts` asserting the component renders the message fetched from the API, asserted via `data-testid` (FR-030)
+- [X] T023 [P] [US1] Write a failing Playwright test in `e2e/tests/walking-skeleton.spec.ts` asserting the page served by Compose displays the backend text
 
 ### Implementation
 
-- [ ] T024 [US1] Implement `GET /api/v1/message` in `backend/src/Rundfrage.Api/Endpoints/MessageEndpoint.cs` returning `{ "message": ... }` — makes T021 pass
-- [ ] T025 [P] [US1] Implement the API client in `frontend/src/api/client.ts` targeting the same-origin `/api/v1` prefix (FR-003a)
-- [ ] T026 [US1] Implement `frontend/src/components/SystemStatus.vue` rendering the message with a `data-testid`, all text via i18n keys — makes T022 pass
-- [ ] T027 [US1] Wire the component into `frontend/src/App.vue`
-- [ ] T028 [US1] Create the multi-stage build at `docker/Dockerfile`: Node stage runs `npm ci && npm run build`, .NET stage publishes and receives `dist/` as `wwwroot/` (plan.md Structure Decision)
-- [ ] T029 [US1] Create `compose.yaml` at repository root with exactly two services, `app` and `db`, and inline defaults via `${VAR:-default}` so no `.env` is needed (FR-003, FR-001, research.md R-11) — makes T023 pass
-- [ ] T030 [US1] Add a named volume for the database in `compose.yaml` so contents survive restart (FR-004)
+- [X] T024 [US1] Implement `GET /api/v1/message` in `backend/src/Rundfrage.Api/Endpoints/MessageEndpoint.cs` returning `{ "message": ... }` — makes T021 pass
+- [X] T025 [P] [US1] Implement the API client in `frontend/src/api/client.ts` targeting the same-origin `/api/v1` prefix (FR-003a)
+- [X] T026 [US1] Implement `frontend/src/components/SystemStatus.vue` rendering the message with a `data-testid`, all text via i18n keys — makes T022 pass
+- [X] T027 [US1] Wire the component into `frontend/src/App.vue`
+- [X] T028 [US1] Create the multi-stage build at `docker/Dockerfile`: Node stage runs `npm ci && npm run build`, .NET stage publishes and receives `dist/` as `wwwroot/` (plan.md Structure Decision)
+- [X] T029 [US1] Create `compose.yaml` at repository root with exactly two services, `app` and `db`, and inline defaults via `${VAR:-default}` so no `.env` is needed (FR-003, FR-001, research.md R-11) — makes T023 pass
+- [X] T030 [US1] Add a named volume for the database in `compose.yaml` so contents survive restart (FR-004)
 
 **Checkpoint**: MVP delivered — one command, one origin, page shows backend text.
 
@@ -109,27 +109,27 @@ failure state; restore it and confirm recovery without restart.
 
 ### Tests (write first, observe failing)
 
-- [ ] T031 [P] [US2] Write a failing unit test in `backend/tests/Rundfrage.Api.UnitTests/DatabaseProbeTests.cs` asserting the probe reports `Unreachable` and returns within 2 s when the database does not respond (FR-012, SC-004a)
-- [ ] T032 [P] [US2] Write a failing unit test in `backend/tests/Rundfrage.Api.UnitTests/LogRedactionTests.cs` asserting a probe failure with a wrong password logs neither the password nor the connection string (FR-026, research.md R-5 measure 4, SC-011)
-- [ ] T033 [P] [US2] Write a failing unit test in `backend/tests/Rundfrage.Api.UnitTests/DatabaseProbeTests.cs` asserting each check emits exactly one log entry carrying outcome and duration (FR-027)
-- [ ] T034 [P] [US2] Write a failing integration test in `backend/tests/Rundfrage.Api.IntegrationTests/StatusEndpointTests.cs` asserting `GET /api/v1/status/database` returns **200 with `state: "reachable"`** against a Testcontainers database
-- [ ] T035 [P] [US2] Write a failing integration test in `backend/tests/Rundfrage.Api.IntegrationTests/StatusEndpointTests.cs` asserting the endpoint returns **200 — not 503 — with `state: "unreachable"`** when the database is down (contracts/openapi.yaml, research.md R-4)
-- [ ] T036 [P] [US2] Write a failing integration test in `backend/tests/Rundfrage.Api.IntegrationTests/StatusEndpointTests.cs` asserting the response carries no connection string, credential, host name, or stack trace (FR-014)
-- [ ] T037 [P] [US2] Write a failing integration test in `backend/tests/Rundfrage.Api.IntegrationTests/SchemaCreationTests.cs` asserting that starting against an empty Testcontainers database creates `__EFMigrationsHistory`, and that a second start is a safe no-op (FR-013, FR-013a)
-- [ ] T038 [P] [US2] Write a failing integration test in `backend/tests/Rundfrage.Api.IntegrationTests/StartupResilienceTests.cs` asserting the host starts and serves when the database is unreachable at startup (FR-011, research.md R-2)
-- [ ] T039 [P] [US2] Write a failing Vitest test in `frontend/tests/unit/statusStore.spec.ts` asserting the store maps 2xx+reachable, 2xx+unreachable, and request failure to the three UI states (data-model.md §3)
-- [ ] T040 [P] [US2] Write a failing Vitest test in `frontend/tests/unit/SystemStatus.states.spec.ts` asserting all three states render distinguishably, asserted via `data-testid` and translation keys (FR-010, FR-030)
-- [ ] T041 [P] [US2] Write failing Playwright tests in `e2e/tests/database-status.spec.ts` covering: database up, `docker compose stop db`, database restored (SC-005), and `docker compose stop app` for the third state
+- [X] T031 [P] [US2] Write a failing unit test in `backend/tests/Rundfrage.Api.UnitTests/DatabaseProbeTests.cs` asserting the probe reports `Unreachable` and returns within 2 s when the database does not respond (FR-012, SC-004a)
+- [X] T032 [P] [US2] Write a failing unit test in `backend/tests/Rundfrage.Api.UnitTests/LogRedactionTests.cs` asserting a probe failure with a wrong password logs neither the password nor the connection string (FR-026, research.md R-5 measure 4, SC-011)
+- [X] T033 [P] [US2] Write a failing unit test in `backend/tests/Rundfrage.Api.UnitTests/DatabaseProbeTests.cs` asserting each check emits exactly one log entry carrying outcome and duration (FR-027)
+- [X] T034 [P] [US2] Write a failing integration test in `backend/tests/Rundfrage.Api.IntegrationTests/StatusEndpointTests.cs` asserting `GET /api/v1/status/database` returns **200 with `state: "reachable"`** against a Testcontainers database
+- [X] T035 [P] [US2] Write a failing integration test in `backend/tests/Rundfrage.Api.IntegrationTests/StatusEndpointTests.cs` asserting the endpoint returns **200 — not 503 — with `state: "unreachable"`** when the database is down (contracts/openapi.yaml, research.md R-4)
+- [X] T036 [P] [US2] Write a failing integration test in `backend/tests/Rundfrage.Api.IntegrationTests/StatusEndpointTests.cs` asserting the response carries no connection string, credential, host name, or stack trace (FR-014)
+- [X] T037 [P] [US2] Write a failing integration test in `backend/tests/Rundfrage.Api.IntegrationTests/SchemaCreationTests.cs` asserting that starting against an empty Testcontainers database creates `__EFMigrationsHistory`, and that a second start is a safe no-op (FR-013, FR-013a)
+- [X] T038 [P] [US2] Write a failing integration test in `backend/tests/Rundfrage.Api.IntegrationTests/StartupResilienceTests.cs` asserting the host starts and serves when the database is unreachable at startup (FR-011, research.md R-2)
+- [X] T039 [P] [US2] Write a failing Vitest test in `frontend/tests/unit/statusStore.spec.ts` asserting the store maps 2xx+reachable, 2xx+unreachable, and request failure to the three UI states (data-model.md §3)
+- [X] T040 [P] [US2] Write a failing Vitest test in `frontend/tests/unit/SystemStatus.states.spec.ts` asserting all three states render distinguishably, asserted via `data-testid` and translation keys (FR-010, FR-030)
+- [X] T041 [P] [US2] Write failing Playwright tests in `e2e/tests/database-status.spec.ts` covering: database up, `docker compose stop db`, database restored (SC-005), and `docker compose stop app` for the third state
 
 ### Implementation
 
-- [ ] T042 [US2] Implement `backend/src/Rundfrage.Api/Diagnostics/DatabaseProbe.cs` executing `SELECT 1` via `ExecuteSqlRawAsync` under a 2-second `CancellationTokenSource`, returning `ConnectivityStatus` (FR-008, research.md R-3) — makes T031 pass
-- [ ] T043 [US2] Add the single structured log entry with outcome and duration to `DatabaseProbe`, logging exception type and a sanitised message only — makes T032 and T033 pass
-- [ ] T044 [US2] Implement `GET /api/v1/status/database` in `backend/src/Rundfrage.Api/Endpoints/StatusEndpoint.cs`, always returning 200 with the state token, timestamp and duration, never internals — makes T034, T035, T036 pass
-- [ ] T045 [US2] Implement the startup migration in `backend/src/Rundfrage.Api/Program.cs` with a bounded retry (5 attempts, exponential backoff, ~30 s) that logs at `Error` and lets the host start on final failure — makes T037 and T038 pass
-- [ ] T046 [P] [US2] Implement `frontend/src/stores/status.ts` deriving `backendUnreachable` from any failed or non-2xx response — makes T039 pass
-- [ ] T047 [US2] Extend `frontend/src/components/SystemStatus.vue` to render the tri-state plus the loading state via i18n keys and `data-testid` — makes T040 pass
-- [ ] T048 [US2] Add the `db` healthcheck and plain `depends_on: [db]` (no `condition: service_healthy`) to `compose.yaml` (research.md R-6) — makes T041 pass
+- [X] T042 [US2] Implement `backend/src/Rundfrage.Api/Diagnostics/DatabaseProbe.cs` executing `SELECT 1` via `ExecuteSqlRawAsync` under a 2-second `CancellationTokenSource`, returning `ConnectivityStatus` (FR-008, research.md R-3) — makes T031 pass
+- [X] T043 [US2] Add the single structured log entry with outcome and duration to `DatabaseProbe`, logging exception type and a sanitised message only — makes T032 and T033 pass
+- [X] T044 [US2] Implement `GET /api/v1/status/database` in `backend/src/Rundfrage.Api/Endpoints/StatusEndpoint.cs`, always returning 200 with the state token, timestamp and duration, never internals — makes T034, T035, T036 pass
+- [X] T045 [US2] Implement the startup migration in `backend/src/Rundfrage.Api/Program.cs` with a bounded retry (5 attempts, exponential backoff, ~30 s) that logs at `Error` and lets the host start on final failure — makes T037 and T038 pass
+- [X] T046 [P] [US2] Implement `frontend/src/stores/status.ts` deriving `backendUnreachable` from any failed or non-2xx response — makes T039 pass
+- [X] T047 [US2] Extend `frontend/src/components/SystemStatus.vue` to render the tri-state plus the loading state via i18n keys and `data-testid` — makes T040 pass
+- [X] T048 [US2] Add the `db` healthcheck and plain `depends_on: [db]` (no `condition: service_healthy`) to `compose.yaml` (research.md R-6) — makes T041 pass
 
 **Checkpoint**: The full chain browser → backend → database is proven, including its failure paths.
 
@@ -142,13 +142,13 @@ failure state; restore it and confirm recovery without restart.
 **Independent Test**: Push to `dev` and observe a run; push a deliberately broken test and
 observe failure.
 
-- [ ] T049 [US3] Create the `dev` and `main` branches and confirm `dev` is the working branch (FR-015) — `dev` created 2026-09-02, verify `main` still represents released state
-- [ ] T050 [US3] Create `.github/workflows/ci.yml` at the **git repository root** triggered on push to `dev`/`main` and on pull requests targeting them (FR-016)
-- [ ] T051 [US3] Add the `backend` job to `.github/workflows/ci.yml` running `dotnet test backend/` including the Testcontainers integration tests
-- [ ] T052 [P] [US3] Add the `frontend` job to `.github/workflows/ci.yml` running `npm ci && npm run test:unit` in `frontend/`
-- [ ] T053 [P] [US3] Add the `e2e` job to `.github/workflows/ci.yml` running `docker compose up -d --build`, waiting for the `db` healthcheck, then `npx playwright test`
-- [ ] T054 [US3] Confirm the workflow builds and tests only — no image build, tag, push, or release artifact, and no deployment step (FR-018, FR-019)
-- [ ] T055 [US3] Verify a deliberately broken test fails the workflow and names the failing test, then revert the break (SC-007)
+- [X] T049 [US3] Create the `dev` and `main` branches and confirm `dev` is the working branch (FR-015) — `dev` created 2026-09-02, verify `main` still represents released state
+- [X] T050 [US3] Create `.github/workflows/ci.yml` at the **git repository root** triggered on push to `dev`/`main` and on pull requests targeting them (FR-016)
+- [X] T051 [US3] Add the `backend` job to `.github/workflows/ci.yml` running `dotnet test backend/` including the Testcontainers integration tests
+- [X] T052 [P] [US3] Add the `frontend` job to `.github/workflows/ci.yml` running `npm ci && npm run test:unit` in `frontend/`
+- [X] T053 [P] [US3] Add the `e2e` job to `.github/workflows/ci.yml` running `docker compose up -d --build`, waiting for the `db` healthcheck, then `npx playwright test`
+- [X] T054 [US3] Confirm the workflow builds and tests only — no image build, tag, push, or release artifact, and no deployment step (FR-018, FR-019)
+- [X] T055 [US3] Verify a deliberately broken test fails the workflow and names the failing test, then revert the break (SC-007)
 
 **Checkpoint**: Regressions in US1 and US2 are caught automatically.
 
@@ -156,13 +156,13 @@ observe failure.
 
 ## Phase 6: Polish & Cross-Cutting Concerns
 
-- [ ] T056 [P] Write `README.md` at repository root documenting the start command, the application address, and the meaning of each of the three database states (FR-023), derived from `quickstart.md`
-- [ ] T057 [P] Add the `test:unit` script and any missing scripts to `frontend/package.json`
-- [ ] T058 Verify SC-001 and SC-002 by hand: fresh clone, one command, working system in under 10 minutes with zero additional manual steps
-- [ ] T059 Verify SC-003 and SC-004 by measurement: page renders text and state within 5 s in both the healthy and the database-down case
-- [ ] T060 Verify SC-010 with `docker compose ps`: exactly two containers, and confirm no CORS configuration exists anywhere in the codebase
-- [ ] T061 Verify SC-012 by scanning `frontend/src/` for literal user-facing strings; the expected count is zero (FR-029)
-- [ ] T062 Confirm the Complexity Tracking table in `plan.md` still matches what was built, in particular the i18n deviation from Principle III
+- [X] T056 [P] Write `README.md` at repository root documenting the start command, the application address, and the meaning of each of the three database states (FR-023), derived from `quickstart.md`
+- [X] T057 [P] Add the `test:unit` script and any missing scripts to `frontend/package.json`
+- [X] T058 Verify SC-001 and SC-002 by hand: fresh clone, one command, working system in under 10 minutes with zero additional manual steps
+- [X] T059 Verify SC-003 and SC-004 by measurement: page renders text and state within 5 s in both the healthy and the database-down case
+- [X] T060 Verify SC-010 with `docker compose ps`: exactly two containers, and confirm no CORS configuration exists anywhere in the codebase
+- [X] T061 Verify SC-012 by scanning `frontend/src/` for literal user-facing strings; the expected count is zero (FR-029)
+- [X] T062 Confirm the Complexity Tracking table in `plan.md` still matches what was built, in particular the i18n deviation from Principle III
 
 ---
 
