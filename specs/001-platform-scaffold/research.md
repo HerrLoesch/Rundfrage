@@ -186,7 +186,13 @@ validation have been skipped in every command so far.
 - *Re-initialise git inside the nested folder* — rejected: it abandons the existing history
   and leaves a stray outer repository.
 
-**Requires confirmation before implementation.** This moves files the user created.
+**Status: executed 2026-09-02** (task T001), confirmed by the project owner. Moved with
+`git mv`, so history is preserved and git reports all paths as renames. Post-move verification:
+`has_git()` true, branch validation active, git root == project root.
+
+**Follow-on discovered by the now-working validation**: it demands an `NNN-slug` branch while
+development happens on `dev`. Resolved via the `SPECIFY_FEATURE` environment variable rather
+than by renaming branches or relaxing the constitution — see plan.md, Structure Decision.
 
 ---
 

@@ -141,22 +141,28 @@ the Vite dev proxy rather than by a second container, so the container count nev
 End-to-end tests live at the repository root rather than inside `frontend/`, because they
 exercise the whole system and are run against Compose, not against Vite.
 
-**Repository root placement — action required.** The tree above is rooted at the *git*
-repository root, `/Users/hendrik/repos/Rundfrage`. The Spec Kit project currently sits one
-level below it, at `/Users/hendrik/repos/Rundfrage/Rundfrage`, because `specify init` was run
-with `"here": false` and created a subdirectory. This is not cosmetic:
+**Repository root placement — resolved (T001 executed 2026-09-02).** The tree above is rooted
+at the git repository root, `/Users/hendrik/repos/Rundfrage`. The Spec Kit project previously
+sat one level below it, at `/Users/hendrik/repos/Rundfrage/Rundfrage`, because `specify init`
+was run with `"here": false` and created a subdirectory. That was not cosmetic:
 
 - **GitHub Actions only reads `.github/workflows/` from the git repository root.** Placed in
   the nested folder, the pipeline in FR-016 would never run.
 - Every Spec Kit git hook already degrades silently for the same reason (`has_git()` in
   `.specify/extensions/git/scripts/bash/git-common.sh:9` looks for `.git` beside `.specify`).
 
-The plan assumes the project is **flattened**: `.specify/`, `.claude/`, `CLAUDE.md` and
-`specs/` move up into `/Users/hendrik/repos/Rundfrage`, which then becomes the single root for
-source, specs, and CI. This is recorded as task T001 and must be confirmed before
-implementation begins; the alternative (keep nesting, put `.github/` at the true root and have
-every CI step `cd Rundfrage`) is documented in research.md R-8 and works but leaves both the
-hook breakage and a permanent path seam in place.
+**The project has been flattened.** `.specify/`, `.claude/`, `CLAUDE.md` and `specs/` were
+moved with `git mv` into `/Users/hendrik/repos/Rundfrage`, which is now the single root for
+source, specs, and CI. Verified afterwards: `has_git()` returns true, and
+`check-prerequisites.sh` runs branch validation instead of skipping it.
+
+That newly-working validation surfaced a second issue. It requires a branch named
+`NNN-slug`, but development happens on `dev` (FR-015). The resolution is the tooling's own
+escape hatch — `get_current_branch()` in `.specify/scripts/bash/common.sh:49` prefers the
+`SPECIFY_FEATURE` environment variable over the branch name. **All Spec Kit commands for this
+feature must therefore run with `SPECIFY_FEATURE=001-platform-scaffold`**, which keeps the
+`dev` workflow intact without renaming branches. Persist it with
+`export SPECIFY_FEATURE=001-platform-scaffold`.
 
 ## Complexity Tracking
 
