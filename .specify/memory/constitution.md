@@ -2,6 +2,20 @@
 SYNC IMPACT REPORT
 ==================
 
+--- Amendment 2026-09-02: v1.1.0 → v1.1.1 (PATCH) ---
+Bump rationale: PATCH — corrects wording that never matched practice. No principle
+added, removed, or redefined.
+
+Changed:
+  - Development Workflow: "on a feature branch per specification" → development happens
+    on `dev`, feature branches optional. Documents the required
+    `export SPECIFY_FEATURE=<NNN-name>` for branch validation.
+
+Reason: The project owner develops exclusively on `dev` (feature 001, FR-015). The old
+wording described a workflow nobody follows and put the constitution in conflict with the
+specification it governs.
+
+
 --- Amendment 2026-09-02: v1.0.0 → v1.1.0 (MINOR) ---
 Bump rationale: MINOR — Technology Constraints materially expanded with a logging
 entry. No principle removed or redefined; existing constraints unchanged.
@@ -158,7 +172,16 @@ MUST NOT introduce a language, framework, or datastore outside this list.
 ## Development Workflow & Quality Gates
 
 Work follows the Spec Kit flow: `/speckit-specify` → `/speckit-plan` → `/speckit-tasks` →
-`/speckit-implement`, on a feature branch per specification.
+`/speckit-implement`. All development happens on the `dev` branch; `main` represents released
+state. Feature branches are optional, not required — the earlier wording ("on a feature branch
+per specification") contradicted the project's actual workflow and was corrected in v1.1.1.
+
+Because Spec Kit's branch validation expects an `NNN-slug` branch name, every Spec Kit command
+MUST be run with the feature set explicitly:
+
+```bash
+export SPECIFY_FEATURE=<NNN-feature-name>
+```
 
 Gates that MUST pass before a change is considered complete:
 
@@ -200,4 +223,4 @@ corrected first and the dependent artifacts are brought back into line in the sa
 For per-feature runtime guidance, read the plan for the feature currently being built, as
 directed by `CLAUDE.md`.
 
-**Version**: 1.1.0 | **Ratified**: 2026-09-02 | **Last Amended**: 2026-09-02
+**Version**: 1.1.1 | **Ratified**: 2026-09-02 | **Last Amended**: 2026-09-02

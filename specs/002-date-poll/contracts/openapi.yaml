@@ -1,0 +1,570 @@
+openapi: 3.1.0
+info:
+  title: Rundfrage API
+  version: "2.0.0"
+  description: |
+    Adds the date poll to the walking-skeleton contract of feature 001. Three rules govern every
+    path below, and each is load-bearing rather than stylistic:
+
+    1. **Language-neutral.** No endpoint returns German text. States are tokens; the frontend
+       maps them to translation keys (FR-029, FR-030).
+    2. **No internals.** No response carries a connection string, credential, host name, stack
+       trace, or link token belonging to anyone else (FR-014 of 001, FR-002).
+    3. **Two access rules, split by prefix.** Everything under `/admin` requires the operator
+       session and must refuse without one (FR-001, FR-048). Everything else must never require
+       a session (Principle I) — the capability is the token in the path.
+
+    **The neutral not-found.** Unknown, malformed, expired and deleted tokens all produce the
+    identical 404 defined in `NotFound` (FR-027, FR-040, SC-012). The four cases are
+    indistinguishable by body, by headers and — because malformed tokens are not short-circuited
+    — approximately by timing too (research.md R-4). No endpoint returns 410 for an expired
+    poll; that would be better HTTP and exactly the disclosure SC-012 forbids.
+
+servers:
+  - url: /api/v1
+    description: Same origin as the web application (FR-003a of 001).
+
+tags:
+  - name: participant
+    description: Requires no account, no session, no email. Principle I governs every path here.
+  - name: admin
+    description: Requires the operator session cookie.
+  - name: scaffold
+    description: Unchanged from feature 001.
+
+paths:
+  # ------------------------------------------------------------------ participant
+  /polls/{pollToken}:
+    get:
+      operationId: getPoll
+      tags: [participant]
+      summary: Read a poll, its days, its results grid, and answer it
+      description: |
+        Returns everything the participant page needs in one request (FR-019): title, message,
+        candidate days, the per-day totals, and a page of responses. Requires no session of any
+        kind, and no step may precede it (FR-021).
+
+        The response grid is visible before answering (FR-036b) and shows every response with its
+        display name (FR-036) — which is why FR-036a requires the page to say so before a name is
+        entered.
+      parameters:
+        - $ref: "#/components/parameters/PollToken"
+        - name: page
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1, default: 1 }
+          description: Page of response rows. 50 per page (research.md R-7).
+      responses:
+        "200":
+          description: The poll.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PollView" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /polls/{pollToken}/responses:
+    post:
+      operationId: submitResponse
+      tags: [participant]
+      summary: Submit a response
+      description: |
+        Records one participant's answers and returns the personal token with which that response
+        — and only that response — can later be revised (FR-026, FR-029).
+
+        Days omitted from `answers` are *no answer*: nothing is stored for them (research.md R-8).
+        Sending every day is not required.
+      parameters:
+        - $ref: "#/components/parameters/PollToken"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ResponseSubmission" }
+      responses:
+        "201":
+          description: Recorded. The body carries the revision capability — show it to the participant.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SubmissionAccepted" }
+        "400":
+          description: Missing display name, unknown day, or a limit from FR-015 exceeded.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Problem" }
+        "409":
+          description: |
+            The poll already holds 1000 responses (FR-015a). The answer is refused, never accepted
+            and then discarded. Enforced under a row lock so the cap is exact (research.md R-9).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Problem" }
+        "429":
+          description: |
+            More than 10 submissions from this source within an hour (FR-027a). `retryAfter`
+            states when to try again (FR-027c). The source is held in memory only and is never
+            stored or logged (FR-027b, FR-042).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RateLimited" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /responses/{editToken}:
+    get:
+      operationId: getOwnResponse
+      tags: [participant]
+      summary: Read one's own response for revision
+      parameters:
+        - $ref: "#/components/parameters/EditToken"
+      responses:
+        "200":
+          description: The response, prefilled for editing.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OwnResponse" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    put:
+      operationId: reviseOwnResponse
+      tags: [participant]
+      summary: Revise one's own response
+      description: |
+        Updates the existing response in place. It never creates a second (FR-030), and it grants
+        no access to any other response (FR-029). Omitting a day clears any answer for it.
+      parameters:
+        - $ref: "#/components/parameters/EditToken"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ResponseSubmission" }
+      responses:
+        "200":
+          description: Updated.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OwnResponse" }
+        "400":
+          description: Validation failed.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Problem" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  # ------------------------------------------------------------------ admin
+  /admin/session:
+    post:
+      operationId: signIn
+      tags: [admin]
+      summary: Sign the operator in
+      description: |
+        On success, sets the session cookie: HttpOnly, Secure, SameSite=Strict, sliding expiry of
+        8 hours (FR-006, research.md R-1).
+
+        A failure never says which part was wrong (FR-004). After 5 consecutive failures the
+        account is locked for 15 minutes, during which even the correct password is refused, so
+        the lockout cannot be used as an oracle (FR-005, FR-005a).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/Credentials" }
+      responses:
+        "204": { description: Signed in. The session cookie is set. }
+        "401":
+          description: Refused. Identical for a wrong name and a wrong password (FR-004).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Problem" }
+        "429":
+          description: Locked out (FR-005). Also returned for a correct password during a lockout.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RateLimited" }
+    delete:
+      operationId: signOut
+      tags: [admin]
+      summary: End the session deliberately (FR-007)
+      responses:
+        "204": { description: Signed out. The cookie is cleared. }
+
+  /admin/polls:
+    get:
+      operationId: listPolls
+      tags: [admin]
+      summary: List every poll with its link and retention deadline (FR-018)
+      responses:
+        "200":
+          description: All polls. With one operator account there is no ownership filter.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/PollSummary" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    post:
+      operationId: createPoll
+      tags: [admin]
+      summary: Create a poll
+      responses:
+        "201":
+          description: Created. The body carries the participant link to share (FR-016).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PollSummary" }
+        "400":
+          description: |
+            No title, no candidate day, or a limit from FR-015 exceeded. The message names the
+            limit that was passed.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Problem" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PollCreation" }
+
+  /admin/polls/{pollId}:
+    get:
+      operationId: getPollResults
+      tags: [admin]
+      summary: Read the results grid as the operator
+      parameters:
+        - $ref: "#/components/parameters/PollId"
+        - name: page
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1, default: 1 }
+      responses:
+        "200":
+          description: |
+            The same grid participants see (FR-036). What the admin area adds is the poll list and
+            deletion — not privileged sight of the answers.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PollView" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      operationId: deletePoll
+      tags: [admin]
+      summary: Delete a poll and every response in it (FR-037)
+      description: Removes the data; it does not hide it. Principle IV requires the real deletion.
+      parameters:
+        - $ref: "#/components/parameters/PollId"
+      responses:
+        "204": { description: Deleted. Both link kinds now produce the neutral not-found (FR-040). }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /admin/polls/{pollId}/responses/{responseId}:
+    delete:
+      operationId: deleteResponse
+      tags: [admin]
+      summary: Delete a single response (FR-037a)
+      description: |
+        Removes one response without touching the poll or any other response, and updates the
+        per-day totals (FR-037b). This is the remediation half of the abuse answer: junk that got
+        past the rate limit can be removed one row at a time instead of by destroying the poll.
+      parameters:
+        - $ref: "#/components/parameters/PollId"
+        - name: responseId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "204": { description: Deleted. Its personal link now produces the neutral not-found. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  # ------------------------------------------------------------------ scaffold
+  /message:
+    get:
+      operationId: getMessage
+      tags: [scaffold]
+      summary: Walking-skeleton text (feature 001, unchanged)
+      responses:
+        "200":
+          description: The text value.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [message]
+                properties: { message: { type: string } }
+
+  /status/database:
+    get:
+      operationId: getDatabaseStatus
+      tags: [scaffold]
+      summary: Database reachability (feature 001, unchanged)
+      description: Still answers 200 when the database is down; the state lives in the body.
+      responses:
+        "200":
+          description: The check ran. Inspect `state`.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [state, checkedAt, durationMs]
+                properties:
+                  state: { type: string, enum: [reachable, unreachable] }
+                  checkedAt: { type: string, format: date-time }
+                  durationMs: { type: integer }
+
+components:
+  parameters:
+    PollToken:
+      name: pollToken
+      in: path
+      required: true
+      description: The participant capability, 22 base64url characters (research.md R-3).
+      schema: { type: string, minLength: 22, maxLength: 22 }
+    EditToken:
+      name: editToken
+      in: path
+      required: true
+      description: The capability to revise one specific response.
+      schema: { type: string, minLength: 22, maxLength: 22 }
+    PollId:
+      name: pollId
+      in: path
+      required: true
+      description: Internal identifier. Admin routes only — never appears in a participant link.
+      schema: { type: string, format: uuid }
+
+  responses:
+    NotFound:
+      description: |
+        The single neutral not-found. Returned identically for an unknown token, a malformed
+        token, an expired poll and a deleted poll (FR-027, FR-040, SC-012). It reveals nothing
+        about whether such a poll ever existed.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Problem" }
+          example: { code: "not_found" }
+    Unauthorized:
+      description: |
+        No valid operator session. Discloses nothing about whether the requested poll,
+        participant or account exists (FR-002).
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Problem" }
+          example: { code: "unauthorized" }
+
+  schemas:
+    Availability:
+      type: string
+      enum: ["yes", "maybe", "no"]
+      description: |
+        Three values, not four. *No answer* is the absence of an entry, never a value
+        (research.md R-8, FR-024).
+
+    PollView:
+      type: object
+      required: [title, days, totals, responses, page, pageCount, responseCount]
+      additionalProperties: false
+      properties:
+        title: { type: string, maxLength: 300 }
+        message: { type: string, maxLength: 2000, nullable: true }
+        days:
+          type: array
+          maxItems: 100
+          description: Chronological regardless of selection order (FR-013).
+          items: { $ref: "#/components/schemas/Day" }
+        totals:
+          type: array
+          description: |
+            Per-day counts of the three answered states. These need not sum to `responseCount`,
+            because *no answer* is deliberately not counted (FR-033).
+          items: { $ref: "#/components/schemas/DayTotals" }
+        responses:
+          type: array
+          maxItems: 50
+          description: One page of rows (research.md R-7).
+          items: { $ref: "#/components/schemas/ResponseRow" }
+        page: { type: integer, minimum: 1 }
+        pageCount: { type: integer, minimum: 1 }
+        responseCount:
+          type: integer
+          minimum: 0
+          maximum: 1000
+          description: |
+            Total responses across all pages. This is what makes the uncounted *no answer* state
+            legible: without it, "5 yes" could be 5 of 6 or 5 of 40 (FR-033a).
+
+    Day:
+      type: object
+      required: [id, date]
+      additionalProperties: false
+      properties:
+        id: { type: string, format: uuid }
+        date:
+          type: string
+          format: date
+          description: A whole calendar day, resolved against Europe/Berlin (FR-011a).
+
+    DayTotals:
+      type: object
+      required: [dayId, "yes", "maybe", "no"]
+      additionalProperties: false
+      properties:
+        # Quoted deliberately: unquoted yes/no are booleans in YAML 1.1, so an unquoted
+        # contract would mean different things to a 1.1 and a 1.2 parser.
+        "yes": { type: integer, minimum: 0 }
+        "maybe": { type: integer, minimum: 0 }
+        "no": { type: integer, minimum: 0 }
+        dayId: { type: string, format: uuid }
+
+    ResponseRow:
+      type: object
+      required: [id, displayName, answers]
+      additionalProperties: false
+      description: |
+        Carries no token. A row never exposes anyone's revision capability, not even to the
+        operator (FR-029).
+      properties:
+        id: { type: string, format: uuid }
+        displayName: { type: string, maxLength: 100 }
+        answers:
+          type: array
+          description: Only answered days appear. A missing day is *no answer*.
+          items:
+            type: object
+            required: [dayId, availability]
+            additionalProperties: false
+            properties:
+              dayId: { type: string, format: uuid }
+              availability: { $ref: "#/components/schemas/Availability" }
+
+    ResponseSubmission:
+      type: object
+      required: [displayName, answers]
+      additionalProperties: false
+      properties:
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: A label, never an identity. Duplicates are permitted (FR-022).
+        answers:
+          type: array
+          maxItems: 100
+          description: Omit a day to leave it unanswered. Omission is the *no answer* state.
+          items:
+            type: object
+            required: [dayId, availability]
+            additionalProperties: false
+            properties:
+              dayId: { type: string, format: uuid }
+              availability: { $ref: "#/components/schemas/Availability" }
+
+    SubmissionAccepted:
+      type: object
+      required: [responseId, editToken]
+      additionalProperties: false
+      properties:
+        responseId: { type: string, format: uuid }
+        editToken:
+          type: string
+          description: |
+            Show this to the participant — it is the only way back to their answer, because no
+            account exists to look it up with (FR-026, Principle I).
+
+    OwnResponse:
+      type: object
+      required: [responseId, displayName, answers, poll]
+      additionalProperties: false
+      properties:
+        responseId: { type: string, format: uuid }
+        displayName: { type: string, maxLength: 100 }
+        answers:
+          type: array
+          items:
+            type: object
+            required: [dayId, availability]
+            additionalProperties: false
+            properties:
+              dayId: { type: string, format: uuid }
+              availability: { $ref: "#/components/schemas/Availability" }
+        poll:
+          $ref: "#/components/schemas/PollView"
+
+    PollCreation:
+      type: object
+      required: [title, days]
+      additionalProperties: false
+      properties:
+        title: { type: string, minLength: 1, maxLength: 300 }
+        message: { type: string, maxLength: 2000, nullable: true }
+        days:
+          type: array
+          minItems: 1
+          maxItems: 100
+          description: |
+            Duplicates are accepted and stored once (FR-012). Past days are permitted (FR-014).
+          items: { type: string, format: date }
+
+    PollSummary:
+      type: object
+      required: [id, title, participantToken, retentionDeadline, responseCount, dayCount]
+      additionalProperties: false
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string }
+        participantToken:
+          type: string
+          description: The link to share (FR-016).
+        retentionDeadline:
+          type: string
+          format: date-time
+          description: |
+            When this poll disappears — last candidate day 23:59:59 Europe/Berlin plus 30 days
+            (FR-039, FR-039a). Shown so the disappearance is never a surprise.
+        responseCount: { type: integer, minimum: 0, maximum: 1000 }
+        dayCount: { type: integer, minimum: 1, maximum: 100 }
+
+    Credentials:
+      type: object
+      required: [user, password]
+      additionalProperties: false
+      properties:
+        user: { type: string }
+        password: { type: string }
+
+    Problem:
+      type: object
+      required: [code]
+      additionalProperties: false
+      description: |
+        A machine-readable code only. No German text, so the frontend translates (FR-029); no
+        internals, so nothing leaks (FR-014 of 001).
+      properties:
+        code:
+          type: string
+          enum:
+            - not_found
+            - unauthorized
+            - title_required
+            - title_too_long
+            - message_too_long
+            - display_name_required
+            - display_name_too_long
+            - days_required
+            - too_many_days
+            - unknown_day
+            - poll_full
+        limit:
+          type: integer
+          description: Present on limit codes, naming the limit that was exceeded (FR-015).
+
+    RateLimited:
+      type: object
+      required: [code, retryAfterSeconds]
+      additionalProperties: false
+      properties:
+        code: { type: string, enum: [too_many_requests, account_locked] }
+        retryAfterSeconds:
+          type: integer
+          minimum: 1
+          description: When to try again (FR-027c, FR-005).
