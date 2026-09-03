@@ -1,0 +1,121 @@
+openapi: 3.1.0
+info:
+  title: Rundfrage API
+  version: "1.0.0"
+  description: |
+    Walking-skeleton contract for feature 001-platform-scaffold.
+
+    Two rules govern this contract and both are load-bearing:
+
+    1. **Language-neutral.** No endpoint returns human-readable German text. States are
+       returned as tokens; the frontend maps them to translation keys (FR-029, FR-030).
+    2. **No internals.** No response carries a connection string, credential, host name, or
+       stack trace, in any status code (FR-014).
+
+servers:
+  - url: /api/v1
+    description: |
+      Served from the same origin as the web application (FR-003a). In development the Vite
+      dev server proxies this prefix to the container (FR-003b), so the browser sees one
+      origin in both modes and CORS is never configured.
+
+paths:
+  /message:
+    get:
+      operationId: getMessage
+      summary: Return the walking-skeleton text
+      description: |
+        Returns a text value that the web page displays (FR-006, FR-007). The value is a
+        placeholder with no product meaning; its purpose is to prove the page receives data
+        from the backend at runtime. Changing it here MUST change what the page shows without
+        any frontend change.
+      responses:
+        "200":
+          description: The text value.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+              examples:
+                default:
+                  value:
+                    message: "Rundfrage läuft."
+
+  /status/database:
+    get:
+      operationId: getDatabaseStatus
+      summary: Report whether the database is reachable
+      description: |
+        Executes a trivial scalar query (`SELECT 1`) through Entity Framework Core and reports
+        the outcome (FR-008). The check completes or aborts within 2 seconds; on timeout it
+        reports `unreachable` rather than an error (FR-012).
+
+        **This endpoint always responds 200 while the application is running — including when
+        the database is unreachable.** The frontend derives its third UI state,
+        `backendUnreachable`, from any failed or non-2xx response (research.md R-4), so
+        answering 503 for a database outage would render as a backend outage and break the
+        distinction FR-010 requires. The database's condition belongs in the body, not the
+        status code.
+
+        The result is never cached; each call performs a fresh check (acceptance scenario 2.4)
+        and produces exactly one log entry carrying outcome and duration (FR-027).
+      responses:
+        "200":
+          description: |
+            The check ran. Inspect `state` — a 200 does **not** mean the database is reachable.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DatabaseStatusResponse"
+              examples:
+                reachable:
+                  summary: Database reachable
+                  value:
+                    state: "reachable"
+                    checkedAt: "2026-09-02T09:14:22.117Z"
+                    durationMs: 14
+                unreachable:
+                  summary: Database down or timed out — still 200
+                  value:
+                    state: "unreachable"
+                    checkedAt: "2026-09-02T09:15:01.004Z"
+                    durationMs: 2000
+
+components:
+  schemas:
+    MessageResponse:
+      type: object
+      required: [message]
+      additionalProperties: false
+      properties:
+        message:
+          type: string
+          minLength: 1
+          description: The text to display. Opaque to the frontend.
+
+    DatabaseStatusResponse:
+      type: object
+      required: [state, checkedAt, durationMs]
+      additionalProperties: false
+      properties:
+        state:
+          $ref: "#/components/schemas/DatabaseState"
+        checkedAt:
+          type: string
+          format: date-time
+          description: UTC instant at which this result was determined.
+        durationMs:
+          type: integer
+          minimum: 0
+          maximum: 2000
+          description: |
+            Elapsed time of the check. Bounded by the 2-second budget (FR-012), so a value of
+            2000 indicates the budget was exhausted.
+
+    DatabaseState:
+      type: string
+      enum: [reachable, unreachable]
+      description: |
+        The backend has exactly two states — it cannot report its own absence. The UI's third
+        state, `backendUnreachable`, is derived client-side when this endpoint cannot be
+        reached at all (research.md R-4, data-model.md §3).

@@ -1,0 +1,41 @@
+# One service (003 FR-001, SC-001): the application, which serves both the API and the built web
+# assets from one origin. The database container is gone with the database - all persistent state
+# is one file in the mounted volume below (003 FR-002).
+#
+# Every value has an inline default, so `docker compose up` works on a fresh clone with no .env
+# file and no manual setup step (001 FR-001, 003 SC-003).
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    ports:
+      - "${APP_PORT:-8080}:8080"
+    environment:
+      # Where the storage file lives inside the container. The volume below is mounted here, so
+      # the data survives `docker compose down` and is copied by copying the volume.
+      DATA_DIR: ${DATA_DIR:-/data}
+      LOG_LEVEL: ${LOG_LEVEL:-Information}
+      # FR-027a's ten per hour is the default. Raised only for end-to-end runs, which submit
+      # far more than that from one machine; leave it unset for anything resembling production.
+      SUBMISSION_LIMIT_PER_HOUR: ${SUBMISSION_LIMIT_PER_HOUR:-10}
+      # Deliberately WITHOUT defaults. Feature 001 could start on built-in values because it
+      # exposed nothing; an admin area that creates polls must not (002 FR-045, FR-045a).
+      #
+      # Passed through empty rather than declared required here: the refusal belongs to the
+      # application (002 SC-015), so that `docker compose config` stays usable and the failure
+      # arrives as one clear application error instead of a substitution error.
+      ADMIN_USER: ${ADMIN_USER:-}
+      ADMIN_PASSWORD_HASH: ${ADMIN_PASSWORD_HASH:-}
+    volumes:
+      # Named volume so the storage survives stop and restart (003 FR-006).
+      #
+      # Take backups through the admin area, not by copying the file out of here: while the
+      # system is running, a copy of the main file alone is silently short - sometimes by a few
+      # answers, sometimes by every one of them including the schema (003 FR-003b, research R-3).
+      - rundfrage-data:/data
+    restart: unless-stopped
+
+volumes:
+  rundfrage-data:

@@ -1,0 +1,146 @@
+# Builds the system and runs every automated test suite (FR-016, FR-017).
+#
+# Scope is deliberately limited to build-and-test: no image is built for publication, no
+# tag is pushed, no release artifact is produced, and no deployment happens (FR-018, FR-019).
+# Deployment on `main` is triggered separately and is outside this feature.
+#
+# The three jobs run in parallel so wall-clock feedback stays inside the 10-minute budget
+# from SC-006; the e2e job is the long pole because it builds the images (research.md R-7).
+
+name: CI
+
+on:
+  push:
+    branches: [dev, main]
+  pull_request:
+    branches: [dev, main]
+
+# A newer push supersedes an in-flight run on the same ref.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend (xUnit)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore
+        run: dotnet restore backend/Rundfrage.slnx
+
+      - name: Build
+        run: dotnet build backend/Rundfrage.slnx --no-restore --configuration Release
+
+      # Integration tests give each test class its own temporary storage file, so this job no
+      # longer needs a Docker daemon at all (003 research.md R-6).
+      - name: Test
+        run: dotnet test backend/Rundfrage.slnx --no-build --configuration Release --verbosity normal
+
+  frontend:
+    name: Frontend (Vitest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install
+        run: npm ci
+        working-directory: frontend
+
+      - name: Build
+        run: npm run build
+        working-directory: frontend
+
+      - name: Unit tests
+        run: npm run test:unit
+        working-directory: frontend
+
+  e2e:
+    name: End-to-end (Playwright)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: e2e/package-lock.json
+
+      # Needed only to produce the password hash above.
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Install test dependencies
+        run: npm ci
+        working-directory: e2e
+
+      - name: Install browser
+        run: npx playwright install --with-deps chromium
+        working-directory: e2e
+
+      # The application refuses to start without an operator account (FR-045), and the suite
+      # submits far more than ten answers per hour from one runner - so both must be set here.
+      # A throwaway credential generated per run: nothing secret is stored in the repository or
+      # in repository settings, because nothing here outlives the job.
+      - name: Prepare a throwaway operator account
+        run: |
+          PASSWORD="ci-$(openssl rand -hex 16)"
+          HASH=$(dotnet run --project backend/src/Rundfrage.Api -- --hash-password <<< "$PASSWORD" 2>/dev/null | tail -1)
+          {
+            echo "ADMIN_USER=ci-operator"
+            echo "ADMIN_PASSWORD_HASH=$HASH"
+            echo "E2E_ADMIN_USER=ci-operator"
+            echo "E2E_ADMIN_PASSWORD=$PASSWORD"
+            echo "SUBMISSION_LIMIT_PER_HOUR=1000"
+          } >> "$GITHUB_ENV"
+
+      # Runs against the same single-container set developers start locally (FR-021).
+      - name: Start the system
+        run: docker compose up -d --build
+
+      # There is no database container left to wait for.
+      #
+      # The readiness probe used to call /api/v1/message, which feature 003 removes with the rest
+      # of the walking skeleton. It now asks a route that belongs to the product: the sign-in
+      # endpoint refuses an empty request, and a refusal proves the application is answering.
+      # A route that exists only so CI can poll it would be the walking skeleton again.
+      - name: Wait for the application to answer
+        run: |
+          for i in $(seq 1 60); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' \
+              -X POST -H 'Content-Type: application/json' -d '{}' \
+              http://localhost:8080/api/v1/admin/session || true)
+            [ "$code" = "401" ] && echo "application ready after ${i}s" && exit 0
+            sleep 1
+          done
+          echo "application did not become ready in time" >&2
+          docker compose logs app
+          exit 1
+
+      - name: End-to-end tests
+        run: npx playwright test
+        working-directory: e2e
+
+      - name: Application logs on failure
+        if: failure()
+        run: docker compose logs
+
+      - name: Stop the system
+        if: always()
+        run: docker compose down -v

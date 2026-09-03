@@ -1,0 +1,100 @@
+{
+  "app": {
+    "title": "Rundfrage"
+  },
+  "signIn": {
+    "title": "Anmelden",
+    "user": "Benutzername",
+    "password": "Passwort",
+    "submit": "Anmelden",
+    "failed": "Anmeldung fehlgeschlagen.",
+    "locked": "Zu viele Fehlversuche. Bitte in {minutes} Minuten erneut versuchen.",
+    "signOut": "Abmelden"
+  },
+  "poll": {
+    "createTitle": "Neue Terminfindung",
+    "title": "Titel",
+    "message": "Kurze Nachricht (optional)",
+    "days": "Tage zur Auswahl",
+    "addDay": "Tag hinzufügen",
+    "removeDay": "Tag entfernen",
+    "submit": "Anlegen",
+    "shareLink": "Link zum Teilen",
+    "retention": "Wird gelöscht am",
+    "listTitle": "Terminfindungen",
+    "empty": "Noch keine Terminfindung angelegt.",
+    "responseCount": "Antworten",
+    "dayCount": "Tage",
+    "dayRequired": "Bitte zuerst einen Tag auswählen.",
+    "dayDuplicate": "Dieser Tag ist bereits ausgewählt."
+  },
+  "error": {
+    "title_required": "Bitte einen Titel angeben.",
+    "title_too_long": "Der Titel darf höchstens {limit} Zeichen lang sein.",
+    "message_too_long": "Die Nachricht darf höchstens {limit} Zeichen lang sein.",
+    "display_name_required": "Bitte einen Namen angeben.",
+    "display_name_too_long": "Der Name darf höchstens {limit} Zeichen lang sein.",
+    "days_required": "Bitte mindestens einen Tag auswählen.",
+    "too_many_days": "Es sind höchstens {limit} Tage möglich.",
+    "unknown_day": "Ein ausgewählter Tag gehört nicht zu dieser Terminfindung.",
+    "poll_full": "Diese Terminfindung hat die maximale Anzahl an Antworten erreicht.",
+    "not_found": "Nicht gefunden.",
+    "unauthorized": "Nicht angemeldet.",
+    "too_many_requests": "Zu viele Anfragen. Bitte in {minutes} Minuten erneut versuchen.",
+    "unexpected": "Es ist ein Fehler aufgetreten."
+  },
+  "participate": {
+    "answerTitle": "Deine Rückmeldung",
+    "name": "Dein Name",
+    "visibilityNotice": "Dein Name und deine Antworten sind für alle sichtbar, die diesen Link haben.",
+    "submit": "Antwort abschicken",
+    "save": "Änderung speichern",
+    "yes": "Ja",
+    "maybe": "Vielleicht",
+    "no": "Nein",
+    "noAnswer": "keine Angabe",
+    "availabilityFor": "Verfügbarkeit am {date}",
+    "submitted": "Danke! Deine Antwort ist gespeichert.",
+    "editHint": "Mit diesem persönlichen Link kannst du deine Antwort später ändern. Es gibt keinen anderen Weg zurück — bewahre ihn auf.",
+    "revised": "Deine Änderung ist gespeichert.",
+    "notFound": "Diese Terminfindung gibt es nicht (mehr).",
+    "loading": "Wird geladen …"
+  },
+  "results": {
+    "title": "Antworten",
+    "empty": "Noch hat niemand geantwortet.",
+    "participant": "Name",
+    "totalYes": "Ja",
+    "totalMaybe": "Vielleicht",
+    "totalNo": "Nein",
+    "responseCount": "{count} Antworten insgesamt",
+    "page": "Seite {page} von {pageCount}",
+    "previous": "Zurück",
+    "next": "Weiter",
+    "deleteResponse": "Antwort löschen",
+    "summary": "Zusammenfassung je Tag",
+    "summaryShow": "einblenden",
+    "summaryHide": "ausblenden"
+  },
+  "delete": {
+    "poll": "Terminfindung löschen",
+    "confirmTitle": "Wirklich löschen?",
+    "confirmBody": "„{title}“ und {count} Antworten werden endgültig entfernt. Das lässt sich nicht rückgängig machen.",
+    "confirm": "Endgültig löschen",
+    "cancel": "Abbrechen"
+  },
+  "share": {
+    "copy": "Kopieren",
+    "copied": "Kopiert",
+    "newTab": "(öffnet in neuem Tab)"
+  },
+  "storage": {
+    "unavailable": "Die Daten sind derzeit nicht erreichbar. Die Umfragen sind nicht verloren — sie können gerade nur nicht gelesen werden. Bitte später neu laden."
+  },
+  "backup": {
+    "download": "Sicherung herunterladen"
+  },
+  "export": {
+    "poll": "Als JSON exportieren"
+  }
+}

@@ -1,0 +1,140 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { mountComponent, de } from '../support/mount'
+
+vi.mock('../../src/api/client', () => ({
+  signIn: vi.fn(),
+  signOut: vi.fn(),
+  listPolls: vi.fn(),
+  createPoll: vi.fn(),
+  deletePoll: vi.fn(),
+  deleteResponse: vi.fn(),
+  fetchPollResults: vi.fn(),
+  backupUrl: '/api/v1/admin/backup',
+  exportUrl: (pollId: string) => `/api/v1/admin/polls/${pollId}/export`,
+}))
+
+vi.mock('vue-router', () => ({ useRouter: () => ({ push: vi.fn() }) }))
+
+import { createPoll, listPolls } from '../../src/api/client'
+import { usePollsStore } from '../../src/stores/polls'
+import PollList from '../../src/components/admin/PollList.vue'
+
+const flush = () => new Promise((resolve) => setTimeout(resolve, 0))
+
+const aPoll = (id = 'p1') => ({
+  id,
+  title: 'Grillabend',
+  participantToken: 'tok',
+  retentionDeadline: '2026-12-24T00:00:00Z',
+  responseCount: 2,
+  dayCount: 3,
+})
+
+describe('PollList (FR-024a, FR-003, FR-013)', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('says storage is unavailable rather than showing an empty list', async () => {
+    // FR-024a. Both states show no polls, and they mean opposite things: one says "you have not
+    // created any yet", the other says "your data cannot be reached right now". Showing the
+    // first when the second is true is the kind of quiet lie this requirement exists to prevent.
+    vi.mocked(listPolls).mockRejectedValue({ code: 'storage_unavailable' })
+
+    const wrapper = mountComponent(PollList)
+    await flush()
+
+    expect(wrapper.find('[data-testid="storage-unavailable"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="poll-list-empty"]').exists()).toBe(false)
+  })
+
+  it('says the list is empty only when the list really is empty', async () => {
+    vi.mocked(listPolls).mockResolvedValue([])
+
+    const wrapper = mountComponent(PollList)
+    await flush()
+
+    expect(wrapper.find('[data-testid="poll-list-empty"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="storage-unavailable"]').exists()).toBe(false)
+  })
+
+  it('does not call a rejected form entry a storage failure', async () => {
+    // Both used to read one field on the store. A poll created with an empty title therefore
+    // produced the validation message *and* "your data cannot be reached" above it - two
+    // different accounts of the same event, one of them false and alarming.
+    vi.mocked(listPolls).mockResolvedValue([])
+    vi.mocked(createPoll).mockRejectedValue({ code: 'title_required' })
+
+    const wrapper = mountComponent(PollList)
+    await flush()
+
+    await usePollsStore().create('', null, ['2026-11-20'])
+    await flush()
+
+    expect(wrapper.find('[data-testid="storage-unavailable"]').exists()).toBe(false)
+  })
+
+  it('shows the poll address as a link that can be followed', async () => {
+    // 004 FR-015, FR-016, FR-016b. It looked like a link and behaved like a paragraph.
+    vi.mocked(listPolls).mockResolvedValue([aPoll()])
+
+    const wrapper = mountComponent(PollList)
+    await flush()
+
+    const link = wrapper.get('[data-testid="poll-list-link"]')
+    expect(link.element.tagName).toBe('A')
+    expect(link.attributes('href')).toContain('/u/tok')
+    expect(link.attributes('target')).toBe('_blank')
+
+    // The opened page gets no handle on the tab that opened it.
+    const rel = link.attributes('rel') ?? ''
+    expect(rel).toContain('noopener')
+    expect(rel).toContain('noreferrer')
+  })
+
+  it('keeps the address itself as plain text beside the hidden new-tab note', async () => {
+    // 004 FR-016a and FR-017. These addresses are pasted into chat windows far more often than
+    // they are clicked, so the visible text must stay the bare address - while a screen reader
+    // still hears that a new tab is about to open.
+    vi.mocked(listPolls).mockResolvedValue([aPoll()])
+
+    const wrapper = mountComponent(PollList)
+    await flush()
+
+    const link = wrapper.get('[data-testid="poll-list-link"]')
+
+    // The link's own text is the address and nothing else. The note is a *description* beside
+    // it, not part of it - inside the link it would become part of the address every test and
+    // every person copies out of here.
+    expect(link.text()).toBe(link.attributes('href'))
+    expect(link.find('.d-sr-only').exists()).toBe(false)
+
+    const note = wrapper.get(`#${link.attributes('aria-describedby')}`)
+    expect(note.text()).toBe(de.share.newTab)
+    expect(note.classes()).toContain('d-sr-only')
+  })
+
+  it('offers a backup download that carries no poll with it', async () => {
+    // FR-003: the backup is the whole storage, not one poll, so it belongs beside the list
+    // rather than on a card.
+    vi.mocked(listPolls).mockResolvedValue([aPoll()])
+
+    const wrapper = mountComponent(PollList)
+    await flush()
+
+    const backup = wrapper.get('[data-testid="download-backup"]')
+    expect(backup.attributes('href')).toBe('/api/v1/admin/backup')
+  })
+
+  it('offers an export per poll, addressed to that poll', async () => {
+    // FR-013: one document per poll. A single "export everything" button would be a different
+    // requirement, and a link that ignored the poll id would export the wrong one.
+    vi.mocked(listPolls).mockResolvedValue([aPoll('abc'), aPoll('def')])
+
+    const wrapper = mountComponent(PollList)
+    await flush()
+
+    const exports = wrapper.findAll('[data-testid="export-poll"]')
+    expect(exports).toHaveLength(2)
+    expect(exports[0].attributes('href')).toBe('/api/v1/admin/polls/abc/export')
+    expect(exports[1].attributes('href')).toBe('/api/v1/admin/polls/def/export')
+  })
+})
