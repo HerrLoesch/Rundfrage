@@ -71,7 +71,10 @@
     "page": "Seite {page} von {pageCount}",
     "previous": "Zurück",
     "next": "Weiter",
-    "deleteResponse": "Antwort löschen"
+    "deleteResponse": "Antwort löschen",
+    "summary": "Zusammenfassung je Tag",
+    "summaryShow": "einblenden",
+    "summaryHide": "ausblenden"
   },
   "delete": {
     "poll": "Terminfindung löschen",
@@ -82,7 +85,8 @@
   },
   "share": {
     "copy": "Kopieren",
-    "copied": "Kopiert"
+    "copied": "Kopiert",
+    "newTab": "(öffnet in neuem Tab)"
   },
   "storage": {
     "unavailable": "Die Daten sind derzeit nicht erreichbar. Die Umfragen sind nicht verloren — sie können gerade nur nicht gelesen werden. Bitte später neu laden."

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { mountComponent } from '../support/mount'
+import { mountComponent, de } from '../support/mount'
 
 vi.mock('../../src/api/client', () => ({
   signIn: vi.fn(),
@@ -70,6 +70,46 @@ describe('PollList (FR-024a, FR-003, FR-013)', () => {
     await flush()
 
     expect(wrapper.find('[data-testid="storage-unavailable"]').exists()).toBe(false)
+  })
+
+  it('shows the poll address as a link that can be followed', async () => {
+    // 004 FR-015, FR-016, FR-016b. It looked like a link and behaved like a paragraph.
+    vi.mocked(listPolls).mockResolvedValue([aPoll()])
+
+    const wrapper = mountComponent(PollList)
+    await flush()
+
+    const link = wrapper.get('[data-testid="poll-list-link"]')
+    expect(link.element.tagName).toBe('A')
+    expect(link.attributes('href')).toContain('/u/tok')
+    expect(link.attributes('target')).toBe('_blank')
+
+    // The opened page gets no handle on the tab that opened it.
+    const rel = link.attributes('rel') ?? ''
+    expect(rel).toContain('noopener')
+    expect(rel).toContain('noreferrer')
+  })
+
+  it('keeps the address itself as plain text beside the hidden new-tab note', async () => {
+    // 004 FR-016a and FR-017. These addresses are pasted into chat windows far more often than
+    // they are clicked, so the visible text must stay the bare address - while a screen reader
+    // still hears that a new tab is about to open.
+    vi.mocked(listPolls).mockResolvedValue([aPoll()])
+
+    const wrapper = mountComponent(PollList)
+    await flush()
+
+    const link = wrapper.get('[data-testid="poll-list-link"]')
+
+    // The link's own text is the address and nothing else. The note is a *description* beside
+    // it, not part of it - inside the link it would become part of the address every test and
+    // every person copies out of here.
+    expect(link.text()).toBe(link.attributes('href'))
+    expect(link.find('.d-sr-only').exists()).toBe(false)
+
+    const note = wrapper.get(`#${link.attributes('aria-describedby')}`)
+    expect(note.text()).toBe(de.share.newTab)
+    expect(note.classes()).toContain('d-sr-only')
   })
 
   it('offers a backup download that carries no poll with it', async () => {

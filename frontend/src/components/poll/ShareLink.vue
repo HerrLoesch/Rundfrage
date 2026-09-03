@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, useId } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 const props = withDefaults(
@@ -15,6 +15,9 @@ const props = withDefaults(
 
 const { t } = useI18n()
 const url = computed(() => `${window.location.origin}${props.path}`)
+
+/** Unique per instance, so two of these on one page describe their own link and not each other. */
+const noteId = useId()
 const copied = ref(false)
 
 async function copy() {
@@ -33,7 +36,27 @@ async function copy() {
     <div class="text-subtitle-2 font-weight-bold mb-1">{{ props.label }}</div>
 
     <div class="d-flex align-center ga-2 flex-wrap">
-      <code class="url flex-grow-1" :data-testid="props.linkTestid">{{ url }}</code>
+      <!--
+        An anchor, not a code element. The text content stays the bare address - people select
+        and paste these far more often than they click them (FR-017).
+
+        The new-tab note sits *outside* the link and is referenced as its description (FR-016a).
+        Inside the link it would be part of the link's text, and the address would silently stop
+        being the address - which is precisely what happened when it was first written that way,
+        and what eleven end-to-end tests then said about it.
+
+        rel denies the opened page any handle on this one (FR-016b).
+      -->
+      <a
+        class="url flex-grow-1"
+        :href="url"
+        target="_blank"
+        rel="noopener noreferrer"
+        :aria-describedby="noteId"
+        :data-testid="props.linkTestid"
+        >{{ url }}</a
+      >
+      <span :id="noteId" class="d-sr-only">{{ t('share.newTab') }}</span>
       <v-btn
         size="small"
         variant="tonal"

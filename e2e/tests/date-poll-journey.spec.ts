@@ -50,10 +50,14 @@ test.describe('Date poll journey', () => {
 
     await expect(row.getByTestId('result-row')).toHaveCount(3)
 
+    // The summary starts folded (004 FR-003), so it has to be unfolded first - because a person
+    // does too. Reaching past the control would test a journey nobody takes.
+    await row.getByTestId('summary-toggle').click()
+
     // Two yes and one no on the first day. The second day nobody answered, so its totals are
     // all zero - and they do not sum to three, which is exactly what FR-033 permits.
-    const yesRow = row.getByTestId('totals-row').filter({ hasText: 'Ja' }).first()
-    const noRow = row.getByTestId('totals-row').filter({ hasText: 'Nein' }).first()
+    const yesRow = row.getByTestId('summary-row').filter({ hasText: 'Ja' }).first()
+    const noRow = row.getByTestId('summary-row').filter({ hasText: 'Nein' }).first()
     await expect(yesRow.locator('td').first()).toHaveText('2')
     await expect(noRow.locator('td').first()).toHaveText('1')
     await expect(yesRow.locator('td').nth(1)).toHaveText('0')

@@ -32,7 +32,7 @@
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-Check each gate against `.specify/memory/constitution.md` (v2.0.0). Any unchecked box
+Check each gate against `.specify/memory/constitution.md` (v2.0.1). Any unchecked box
 requires a justified row in Complexity Tracking below.
 
 - [ ] **I. Zero-Signup Participation**: No step is added between a survey link and the

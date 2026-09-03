@@ -153,9 +153,23 @@ async function confirmDelete() {
       </v-card-item>
 
       <v-card-text>
-        <code class="link d-block mb-3" data-testid="poll-list-link">
-          {{ linkFor(poll.participantToken) }}
-        </code>
+        <!--
+          Same rule as everywhere else: what looks like a link is one (FR-015). The new-tab note
+          is the link's description rather than part of it, so the link's text stays the bare
+          address that people copy out of here (FR-016a, FR-017).
+        -->
+        <a
+          class="link d-block"
+          :href="linkFor(poll.participantToken)"
+          target="_blank"
+          rel="noopener noreferrer"
+          :aria-describedby="`newtab-${poll.id}`"
+          data-testid="poll-list-link"
+          >{{ linkFor(poll.participantToken) }}</a
+        >
+        <span :id="`newtab-${poll.id}`" class="d-sr-only mb-3 d-block">
+          {{ t('share.newTab') }}
+        </span>
 
         <ResultGrid
           v-if="openPollId === poll.id && openResults"

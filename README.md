@@ -53,12 +53,23 @@ würde verlangen, Teilnehmende zu identifizieren, und genau das ist ausgeschloss
 
 ## Ergebnisse
 
-Das Raster zeigt jede Antwort mit Namen und je Tag die Zahl der *Ja*, *Vielleicht* und *Nein*.
+Das Raster zeigt jede Antwort mit Namen und je Tag ein Zeichen. Über den Daten sitzt die
+**Zusammenfassung je Tag** — die Zahl der *Ja*, *Vielleicht* und *Nein* —, zugeklappt beim
+Ankommen und mit einem Klick oder einem Tastendruck ausklappbar. Sie steht dort, wo man die
+Antwort auf „welcher Tag passt?" sucht, und kostet erst Platz, wenn man sie haben will.
+
 Diese drei Zahlen ergeben **nicht** zwangsläufig die Zahl der Antworten: *keine Angabe* wird
-nicht mitgezählt. Wie viele überhaupt geantwortet haben, verrät die Zeilenzahl.
+nicht mitgezählt. Und sie umfassen **alle** Antworten, nicht die gerade sichtbare Seite von
+fünfzig — eine Umfrage mit 1000 Antworten zeigt oben alle 1000, während das Raster die ersten
+fünfzig auflistet.
 
 Jeder Zustand trägt ein Zeichen, nicht nur eine Farbe — das Raster bleibt ohne Farbwahrnehmung
 lesbar, und eine leere Zelle ist von *Nein* unterscheidbar.
+
+Jede Adresse, die das System anzeigt, ist ein Link: in der Umfrageliste, nach dem Anlegen und
+nach dem Absenden einer Antwort. Sie öffnet in einem neuen Tab, damit die Seite, auf der man war,
+stehen bleibt. Der Text bleibt trotzdem die reine Adresse — diese Links werden weit häufiger
+irgendwo eingefügt als angeklickt.
 
 ## Exportieren
 
