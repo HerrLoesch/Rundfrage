@@ -15,7 +15,8 @@ vi.mock('../../src/api/client', () => ({
 
 vi.mock('vue-router', () => ({ useRouter: () => ({ push: vi.fn() }) }))
 
-import { listPolls } from '../../src/api/client'
+import { createPoll, listPolls } from '../../src/api/client'
+import { usePollsStore } from '../../src/stores/polls'
 import PollList from '../../src/components/admin/PollList.vue'
 
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0))
@@ -52,6 +53,22 @@ describe('PollList (FR-024a, FR-003, FR-013)', () => {
     await flush()
 
     expect(wrapper.find('[data-testid="poll-list-empty"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="storage-unavailable"]').exists()).toBe(false)
+  })
+
+  it('does not call a rejected form entry a storage failure', async () => {
+    // Both used to read one field on the store. A poll created with an empty title therefore
+    // produced the validation message *and* "your data cannot be reached" above it - two
+    // different accounts of the same event, one of them false and alarming.
+    vi.mocked(listPolls).mockResolvedValue([])
+    vi.mocked(createPoll).mockRejectedValue({ code: 'title_required' })
+
+    const wrapper = mountComponent(PollList)
+    await flush()
+
+    await usePollsStore().create('', null, ['2026-11-20'])
+    await flush()
+
     expect(wrapper.find('[data-testid="storage-unavailable"]').exists()).toBe(false)
   })
 

@@ -17,6 +17,13 @@ public static class BackupEndpoint
             {
                 path = await backups.CreateAsync(ct);
             }
+            catch (OperationCanceledException)
+            {
+                // The caller went away. Nothing failed, so nothing is reported; letting this
+                // fall into the handler below would fill the log with storage failures that
+                // never happened.
+                throw;
+            }
             catch (Exception ex)
             {
                 // FR-024: storage being unreachable costs this one request, not the application.
@@ -40,7 +47,8 @@ public static class BackupEndpoint
                 stream,
                 contentType: "application/octet-stream",
                 fileDownloadName: BackupService.FileNameFor(clock.Now));
-        });
+        })
+        .WithName("downloadBackup");
 
         return routes;
     }

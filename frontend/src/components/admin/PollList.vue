@@ -27,7 +27,7 @@ const session = useSessionStore()
  * rather than storing it means the two can never disagree.
  */
 const storageUnavailable = computed(
-  () => polls.problem !== null && polls.problem.code !== 'unauthorized',
+  () => polls.loadProblem !== null && polls.loadProblem.code !== 'unauthorized',
 )
 
 const openPollId = ref<string | null>(null)
@@ -40,7 +40,7 @@ onMounted(async () => {
   // The server decides whether the session is valid; this view reacts to its answer. That is
   // what makes a reload work - the cookie is sent, the request succeeds, and nothing local
   // needed to remember anything.
-  if (polls.problem?.code === 'unauthorized') {
+  if (polls.loadProblem?.code === 'unauthorized') {
     session.isSignedIn = false
     await router.push({ name: 'sign-in' })
   }

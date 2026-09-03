@@ -40,9 +40,6 @@ public sealed class ApiFactory(string dataDirectory, int? submissionsPerHour = n
     /// </summary>
     private static readonly string TestPasswordHash = PasswordHash.Generate(TestPassword);
 
-    /// <summary>The storage file the application will use, for tests that inspect it directly.</summary>
-    public string StoragePath => StorageLocation.FileIn(dataDirectory);
-
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseSetting(StorageLocation.DataDirectoryVariable, dataDirectory);

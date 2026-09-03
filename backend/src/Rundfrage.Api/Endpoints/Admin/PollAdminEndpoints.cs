@@ -7,7 +7,7 @@ using Rundfrage.Api.Retention;
 
 namespace Rundfrage.Api.Endpoints.Admin;
 
-/// <summary>Creating and listing polls (FR-008 to FR-018).</summary>
+/// <summary>Creating, listing, reading, exporting and deleting polls.</summary>
 public static class PollAdminEndpoints
 {
     public static IEndpointRouteBuilder MapPollAdminEndpoints(this IEndpointRouteBuilder routes)
@@ -33,7 +33,6 @@ public static class PollAdminEndpoints
         {
             var all = await polls.ListAsync(ct);
             return Results.Ok(all.Select(PollSummary.From));
-        
         })
         .WithName("listPolls");
 
@@ -81,7 +80,8 @@ public static class PollAdminEndpoints
                 json,
                 contentType: "application/json",
                 fileDownloadName: PollExport.FileNameFor(poll.Title, document.ExportedAt));
-        });
+        })
+        .WithName("exportPoll");
 
         routes.MapDelete("/polls/{pollId:guid}", async (
             Guid pollId,

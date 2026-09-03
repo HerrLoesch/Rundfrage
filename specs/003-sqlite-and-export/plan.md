@@ -37,7 +37,11 @@ power cut (FR-012a); a downloaded backup restores completely (FR-003); no token 
 
 ## Constitution Check
 
-Checked against `.specify/memory/constitution.md` (v2.0.0).
+Checked against `.specify/memory/constitution.md` (v2.0.1).
+
+> The amendment to v2.0.1 came out of this feature's measurements: the Persistence clause said
+> "copying it copies the system's state", which is false while the system runs. The requirement
+> here was always FR-003; the constitution was the document that lagged.
 
 - [x] **I. Zero-Signup Participation (NON-NEGOTIABLE)**: nothing about the participant path
       changes. No account, no login, no identification is added or implied. The export and the
@@ -87,7 +91,9 @@ backend/src/Rundfrage.Api/
 |   |-- RundfrageDbContext.cs        # DateTimeOffset -> DateTime (research R-1)
 |   |-- Entities/                    # same four entities, UTC instants
 |   |-- Migrations/                  # DELETED and regenerated once for SQLite (R-10)
-|   `-- StorageSetup.cs              # NEW - WAL, synchronous=FULL, busy timeout, permissions
+|   |-- StorageLocation.cs           # NEW - one authority for the path (FR-002, FR-007)
+|   |-- BackupService.cs             # NEW - the online copy itself (FR-003)
+|   `-- StorageSetup.cs              # NEW - busy timeout, WAL, synchronous=FULL, permissions
 |-- Diagnostics/                     # DELETED - DatabaseProbe, ConnectivityStatus (R-5)
 |-- Endpoints/
 |   |-- MessageEndpoint.cs           # DELETED (R-5)
@@ -103,12 +109,13 @@ backend/src/Rundfrage.Api/
 |   |-- PollService.cs               # ordering by UTC instant (R-1)
 |   `-- ResultsProjection.cs         # ordering by UTC instant (R-1)
 |-- Retention/RetentionService.cs    # deadline filter by UTC instant (R-1)
-`-- Time/BerlinClock.cs              # gains a UTC instant accessor; zone logic unchanged
+`-- Time/BerlinClock.cs              # Now/deadlines become UTC DateTime; zone logic unchanged
 
 frontend/src/
 |-- components/
 |   |-- SystemStatus.vue             # DELETED (R-5)
 |   `-- admin/PollList.vue           # gains export and backup actions
+|-- stores/polls.ts                  # list failure separated from form failure (FR-024a)
 |-- stores/status.ts                 # DELETED (R-5)
 `-- router.ts                        # /status route removed
 

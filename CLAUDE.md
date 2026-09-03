@@ -9,7 +9,7 @@ shell commands, and other important information, read the current plan:
 - API contract: `specs/003-sqlite-and-export/contracts/openapi.yaml`
 - Developer guide: `specs/003-sqlite-and-export/quickstart.md`
 
-- Governing constitution (v2.0.0): `.specify/memory/constitution.md`
+- Governing constitution (v2.0.1): `.specify/memory/constitution.md`
 
 Completed:
 

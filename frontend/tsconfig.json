@@ -5,7 +5,7 @@
     "moduleResolution": "bundler",
     "strict": true,
     "jsx": "preserve",
-    "types": ["vitest/globals"],
+    "types": ["vite/client", "vitest/globals"],
     "lib": ["ES2022", "DOM"],
     "skipLibCheck": true,
     "noEmit": true

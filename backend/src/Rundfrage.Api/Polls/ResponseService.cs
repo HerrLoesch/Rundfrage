@@ -115,8 +115,20 @@ public sealed class ResponseService(
         }
 
         var immediate = connection.BeginTransaction(IsolationLevel.Serializable, deferred: false);
-        return await db.Database.UseTransactionAsync(immediate, ct)
-               ?? throw new InvalidOperationException("The write transaction could not be adopted.");
+
+        try
+        {
+            return await db.Database.UseTransactionAsync(immediate, ct)
+                   ?? throw new InvalidOperationException("The write transaction could not be adopted.");
+        }
+        catch
+        {
+            // Not adopted means not disposed by anyone else, and an open write transaction holds
+            // the only write lock there is - every later submission would wait for the busy
+            // timeout and then fail.
+            await immediate.DisposeAsync();
+            throw;
+        }
     }
 
     /// <summary>

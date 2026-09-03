@@ -39,8 +39,11 @@ function literalsIn(file: string): string[] {
  * Vuetify takes most user-facing text as a *prop* rather than as template content, so a
  * hard-coded `label="Benutzername"` would slip past a scanner that only reads text nodes. These
  * are the props that end up in front of a person.
+ *
+ * `alt` belongs here for the same reason and is easier to forget: it is read aloud rather than
+ * displayed, so nobody notices it in the browser.
  */
-const TEXT_PROPS = ['label', 'placeholder', 'hint', 'title', 'subtitle', 'text', 'aria-label']
+const TEXT_PROPS = ['label', 'placeholder', 'hint', 'title', 'subtitle', 'text', 'aria-label', 'alt']
 
 function literalPropsIn(file: string): string[] {
   const source = readFileSync(file, 'utf8')

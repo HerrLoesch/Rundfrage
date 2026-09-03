@@ -1,11 +1,11 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 
 /**
- * Five destinations, split by who may reach them.
+ * Three destinations behind four routes, plus a redirect, split by who may reach them.
  *
- * Everything under /admin needs the operator session. Everything else must never need one -
- * the capability is the token in the path (Principle I). The guard below only redirects; the
- * real refusal is server-side (FR-048), because a client-side guard protects nothing.
+ * Everything under /admin needs the operator session; everything else must never need one -
+ * the capability is the token in the path (Principle I). There is no navigation guard, and the
+ * comment at the end of this file explains why the honest refusal is server-side (FR-048).
  */
 const routes: RouteRecordRaw[] = [
   {

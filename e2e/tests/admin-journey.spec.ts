@@ -1,27 +1,6 @@
 import { test, expect } from '@playwright/test'
 import { field, textarea } from '../support/fields'
-
-/**
- * Taken from the environment, with no fallback.
- *
- * A default here would mean committing a working password to the repository - and one that
- * someone could plausibly deploy with. The application itself refuses to start without
- * credentials (FR-045); requiring the same of the suite that tests it is the consistent choice.
- */
-function required(name: string): string {
-  const value = process.env[name]
-  if (!value) {
-    throw new Error(
-      `${name} is not set. The admin journey needs the operator credentials of the running ` +
-        'instance:\n  export E2E_ADMIN_USER=... E2E_ADMIN_PASSWORD=...\n' +
-        'They are whatever you put in .env - see README.md.',
-    )
-  }
-  return value
-}
-
-const USER = required('E2E_ADMIN_USER')
-const PASSWORD = required('E2E_ADMIN_PASSWORD')
+import { ADMIN_PASSWORD, ADMIN_USER } from '../support/credentials'
 
 /**
  * US1 from the outside, through the interface a person actually uses.
@@ -34,8 +13,8 @@ const PASSWORD = required('E2E_ADMIN_PASSWORD')
 test.describe('Admin journey (US1)', () => {
   async function signIn(page: import('@playwright/test').Page) {
     await page.goto('/admin')
-    await field(page, 'sign-in-user').fill(USER)
-    await field(page, 'sign-in-password').fill(PASSWORD)
+    await field(page, 'sign-in-user').fill(ADMIN_USER)
+    await field(page, 'sign-in-password').fill(ADMIN_PASSWORD)
     await page.getByTestId('sign-in-submit').click()
   }
 
@@ -53,6 +32,38 @@ test.describe('Admin journey (US1)', () => {
 
     await expect(page.getByTestId('database-state')).toHaveCount(0)
     await expect(page.getByTestId('backend-message')).toHaveCount(0)
+  })
+
+  test('the wordmark sits on the middle of the bar', async ({ page }) => {
+    // Measured rather than eyeballed, and only a real browser can do it. It was four pixels
+    // high: v-app-bar-title is a block with a line-height, so an image inside it sits on the
+    // text baseline instead of the middle - invisible to a component test, which computes no
+    // layout at all.
+    await page.goto('/')
+    await page.getByTestId('brand').waitFor()
+
+    const gaps = await page.evaluate(() => {
+      const bar = document.querySelector('.v-toolbar')!.getBoundingClientRect()
+      const logo = document.querySelector('[data-testid="brand"] img')!.getBoundingClientRect()
+      return { above: logo.top - bar.top, below: bar.bottom - logo.bottom }
+    })
+
+    expect(Math.abs(gaps.above - gaps.below)).toBeLessThanOrEqual(1)
+  })
+
+  test('the wordmark is really there, not a broken image', async ({ page }) => {
+    // The one failure a component test cannot see: the file resolves at build time and 404s at
+    // run time, and the page still renders - with an empty box where the brand should be.
+    await page.goto('/')
+
+    const logo = page.getByTestId('brand').locator('img')
+    await expect(logo).toBeVisible()
+
+    const drawn = await logo.evaluate((img) => {
+      const image = img as HTMLImageElement
+      return image.complete && image.naturalWidth > 0
+    })
+    expect(drawn).toBe(true)
   })
 
   test('signing in reaches the admin area', async ({ page }) => {

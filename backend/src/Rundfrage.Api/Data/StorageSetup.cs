@@ -112,13 +112,18 @@ public static class StorageSetup
     {
         using var command = connection.CreateCommand();
 
-        // busy_timeout is interpolated rather than parameterised: a PRAGMA takes no parameters,
+        // busy_timeout comes first, and the order is load-bearing: setting the journal mode
+        // needs a lock on the storage, and until the timeout is in effect a connection that
+        // meets a writer is refused rather than made to wait. Set last, it could not protect
+        // the statements that ran before it.
+        //
+        // It is interpolated rather than parameterised because a PRAGMA takes no parameters,
         // and the value is a constant in this assembly, not input.
         command.CommandText = $"""
+            PRAGMA busy_timeout = {BusyTimeoutMilliseconds};
             PRAGMA journal_mode = WAL;
             PRAGMA synchronous = FULL;
             PRAGMA foreign_keys = ON;
-            PRAGMA busy_timeout = {BusyTimeoutMilliseconds};
             """;
         command.ExecuteNonQuery();
     }

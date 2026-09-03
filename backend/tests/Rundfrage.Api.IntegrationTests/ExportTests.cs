@@ -80,7 +80,7 @@ public class ExportTests(SqliteFixture storage) : IClassFixture<SqliteFixture>
 
         // Chronological, not the order they were typed in - they were given reversed above.
         var dates = poll.GetProperty("days").EnumerateArray()
-            .Select(d => d.GetProperty("date").GetString()).ToArray();
+            .Select(d => d.GetProperty("date").GetString()!).ToArray();
         Assert.Equal(["2026-11-20", "2026-11-21"], dates);
 
         var responses = document.GetProperty("responses").EnumerateArray().ToArray();
@@ -99,6 +99,51 @@ public class ExportTests(SqliteFixture storage) : IClassFixture<SqliteFixture>
         // typed in - which is the point of asserting on dates here rather than on positions.
         Assert.Equal("yes", annaAnswers["2026-11-20"]);
         Assert.Equal("maybe", annaAnswers["2026-11-21"]);
+    }
+
+    [Fact]
+    public async Task An_export_carries_exactly_the_fields_the_contract_names_and_no_others()
+    {
+        // contracts/openapi.yaml declares additionalProperties: false throughout. That is a
+        // promise about what a reader will *not* find, and it is the half a shape test usually
+        // misses: asserting the fields that must be there says nothing about a field that
+        // should not be, and the way a token would reach an export is by someone widening a
+        // projection, not by someone adding it on purpose.
+        using var factory = new ApiFactory(storage.DataDirectory);
+        var (pollId, token, dayIds) = await CreatePollAsync(factory);
+        await AnswerAsync(factory, token, "Frida", (dayIds[0], "yes"));
+
+        var (document, _, _) = await ExportAsync(factory, pollId);
+
+        static string[] NamesOf(JsonElement element) =>
+            element.EnumerateObject().Select(p => p.Name).OrderBy(n => n).ToArray();
+
+        Assert.Equal(["exportedAt", "formatVersion", "poll", "responses"], NamesOf(document));
+
+        var poll = document.GetProperty("poll");
+        Assert.Equal(["days", "message", "title"], NamesOf(poll));
+        Assert.Equal(["date"], NamesOf(poll.GetProperty("days")[0]));
+
+        var response = document.GetProperty("responses")[0];
+        Assert.Equal(["answers", "displayName"], NamesOf(response));
+        Assert.Equal(["availability", "date"], NamesOf(response.GetProperty("answers")[0]));
+    }
+
+    [Fact]
+    public async Task A_poll_without_a_message_still_carries_the_field_as_null()
+    {
+        // The contract types message as nullable rather than optional, so a reader may assume
+        // the key is there. Omitting it would be a different document shape for the same poll.
+        using var factory = new ApiFactory(storage.DataDirectory);
+        var admin = await factory.CreateSignedInClientAsync();
+        var created = await admin.PostAsJsonAsync(
+            "/api/v1/admin/polls", new { title = "Ohne Nachricht", days = new[] { "2026-11-20" } });
+        var pollId = (await created.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetGuid();
+
+        var (document, _, _) = await ExportAsync(factory, pollId);
+
+        var message = document.GetProperty("poll").GetProperty("message");
+        Assert.Equal(JsonValueKind.Null, message.ValueKind);
     }
 
     [Fact]

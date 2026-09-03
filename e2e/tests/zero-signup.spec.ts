@@ -1,8 +1,6 @@
 import { test, expect, type Page } from '@playwright/test'
 import { field, radio } from '../support/fields'
-
-const USER = process.env.E2E_ADMIN_USER
-const PASSWORD = process.env.E2E_ADMIN_PASSWORD
+import { ADMIN_PASSWORD, ADMIN_USER } from '../support/credentials'
 
 /**
  * FR-047 and Principle I, proven from the outside.
@@ -13,13 +11,9 @@ const PASSWORD = process.env.E2E_ADMIN_PASSWORD
  */
 test.describe('Answering without an account', () => {
   async function createPoll(page: Page, title: string, days: string[]): Promise<string> {
-    if (!USER || !PASSWORD) {
-      throw new Error('E2E_ADMIN_USER and E2E_ADMIN_PASSWORD must be set - see README.md.')
-    }
-
     await page.goto('/admin')
-    await field(page, 'sign-in-user').fill(USER)
-    await field(page, 'sign-in-password').fill(PASSWORD)
+    await field(page, 'sign-in-user').fill(ADMIN_USER)
+    await field(page, 'sign-in-password').fill(ADMIN_PASSWORD)
     await page.getByTestId('sign-in-submit').click()
     await expect(page.getByTestId('poll-form')).toBeVisible()
 

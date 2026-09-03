@@ -275,3 +275,48 @@ about it:
   `backend/src/Rundfrage.Api/Data/`. Three new source files were invisible to git and nothing said
   so, because files already tracked stay tracked. Caught by T071 — building from a fresh checkout,
   which failed to compile. Anchored to `/data/`.
+
+---
+
+## Review pass
+
+A second reading of the whole change, after everything was green. Nine things came out of it;
+five were defects rather than polish.
+
+**The admin area called a rejected form entry a storage failure.** `PollList` derived
+"storage unavailable" from the poll store's `problem`, and `PollForm` used the same field for its
+validation message. A poll submitted without a title therefore produced the correct validation
+text *and* "your data cannot be reached" above it — two accounts of one event, one of them false
+and alarming. The store now keeps `loadProblem` and `problem` apart, and a test holds them apart.
+
+**The busy timeout was set last, and it protects the statements after it.** Setting the journal
+mode needs a lock; until the timeout is in effect, a connection that meets a writer is refused
+rather than made to wait. Reordered so the timeout comes first.
+
+**A failed backup left its half-written file behind.** The endpoint reported 503 and the
+temporary file stayed — a file that looks like a backup. FR-021 now holds on the failing path too.
+
+**An unadopted write transaction leaked.** If `UseTransactionAsync` threw, the raw transaction
+stayed open, holding the only write lock there is; every later submission would have waited out
+the busy timeout and failed.
+
+**A cancelled download was logged as a storage failure.** The endpoint's catch-all swallowed
+`OperationCanceledException`, so a reader who closed the tab produced an error entry about a
+failure that never happened.
+
+**"Build ohne Warnungen" was false again**, and for the same reason as in feature 002: an
+incremental build skips the test project. A clean build showed one nullability warning (CS8631)
+in `ExportTests`. Fixed, and the check is now `dotnet test`, which builds everything.
+
+**The constitution carried a claim the measurements had refuted** — "the file is the backup unit:
+copying it copies the system's state". That is the sentence an operator would act on, and it is
+false while the system runs. Amended to v2.0.1.
+
+**Dead code and duplication**: `ApiFactory.StoragePath` was never read; `credentials.ts` was
+introduced for the two new end-to-end specs while three older ones kept their own copy of the same
+helper, each failing differently. One helper now, used by all five.
+
+**Untested defensive branches**: `FileNameFor` handled a 300-character title and a title made
+entirely of punctuation, and nothing exercised either. `DownloadNameTests` covers them, and
+`ExportTests` now asserts the document carries *exactly* the fields the contract names — the half
+a shape test usually misses, and the way a token would actually reach an export.

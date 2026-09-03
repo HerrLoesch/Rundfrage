@@ -37,9 +37,9 @@ builder.Logging.ClearProviders();
 builder.Host.UseSerilog(logger, dispose: true);
 
 // --- Data access (003 FR-002, FR-007, research.md R-1) -------------------------------------
-// One file in one directory. StorageSetup applies the three settings that carry requirements -
-// journal mode, durability level and busy timeout - to every connection, which is why they live
-// in one interceptor rather than in a connection string that only some callers use.
+// One file in one directory. StorageSetup applies the four settings that carry requirements -
+// busy timeout, journal mode, durability level and foreign keys - to every connection, which is
+// why they live in one interceptor rather than in a connection string only some callers use.
 var dataDirectory = StorageLocation.DirectoryFrom(builder.Configuration);
 builder.Services.AddDbContext<RundfrageDbContext>(options => options
     .UseSqlite(StorageLocation.ConnectionStringFor(dataDirectory))
@@ -102,9 +102,10 @@ builder.Services.AddAuthorization();
 
 var app = builder.Build();
 
-// --- Schema (FR-013) -----------------------------------------------------------------------
-// Applied with bounded retries. On final failure the host still starts and the status endpoint
-// reports the database as unreachable, because FR-011 requires the page to stay usable.
+// --- Storage and schema (003 FR-004, FR-024) -----------------------------------------------
+// Neither step may stop the host. If the directory cannot be prepared or the schema cannot be
+// applied, the application still starts and serves; the admin area then says that storage is
+// unavailable rather than showing an empty list, and no answer is ever confirmed.
 StorageSetup.PrepareDirectory(dataDirectory, app.Services.GetRequiredService<ILogger<Program>>());
 
 await using (var scope = app.Services.CreateAsyncScope())

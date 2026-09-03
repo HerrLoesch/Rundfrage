@@ -1,7 +1,6 @@
 {
   "app": {
-    "title": "Rundfrage",
-    "subtitle": "Systemstatus"
+    "title": "Rundfrage"
   },
   "signIn": {
     "title": "Anmelden",

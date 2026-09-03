@@ -6,7 +6,7 @@
  * credentials (002 FR-045); requiring the same of the suite that tests it is the consistent
  * choice.
  */
-export function required(name: string): string {
+function required(name: string): string {
   const value = process.env[name]
   if (!value) {
     throw new Error(

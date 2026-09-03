@@ -228,6 +228,7 @@ Eine geänderte Übersetzung kann daher keinen Test brechen.
 | `DATA_DIR` | `/data` | Verzeichnis der Speicherdatei im Container |
 | `LOG_LEVEL` | `Information` | Serilog-Mindeststufe, ohne Neubau änderbar |
 | `APP_PORT` | `8080` | Host-Port der Anwendung |
+| `SUBMISSION_LIMIT_PER_HOUR` | `10` | Antworten pro Stunde und Quelle. In produktionsnahen Umgebungen unverändert lassen — E2E-Läufe heben ihn an, weil sie mehr als zehn von einer Maschine senden. |
 | `ADMIN_USER` | — | Betreiberkonto, ohne Standard |
 | `ADMIN_PASSWORD_HASH` | — | Hash des Passworts, ohne Standard |
 
@@ -261,6 +262,8 @@ baut und testet ausschließlich — sie veröffentlicht keine Images und deployt
 ```text
 backend/     ASP.NET Core: /api/v1 und die gebauten Web-Assets aus einer Origin
 frontend/    Vue 3 + Vuetify + Pinia + vue-i18n, gebaut nach wwwroot/
+  assets/    Wort- und Bildmarke als SVG — vom Build gehasht und aus der eigenen Origin
+             ausgeliefert, wie jede andere Datei auch (Prinzip IV: kein CDN, keine Fremdorigin)
 e2e/         Playwright gegen den echten Container
 docker/      Mehrstufiger Build: Node baut das Frontend, .NET veröffentlicht
 specs/       Spezifikation, Plan, Entwurfsentscheidungen

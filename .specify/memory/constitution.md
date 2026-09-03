@@ -2,6 +2,24 @@
 SYNC IMPACT REPORT
 ==================
 
+--- Amendment 2026-09-03: v2.0.0 → v2.0.1 (PATCH) ---
+Bump rationale: PATCH — corrects a factual claim in a constraint. No principle is added,
+removed or redefined, and no existing work is invalidated.
+
+Changed:
+  - Technology Constraints → Persistence: "The file is the backup unit: copying it copies the
+    system's state" → the file is the backup unit, but a consistent copy needs a mechanism;
+    copying by hand is safe only with the system stopped.
+
+Reason: the original sentence is false while the system runs, and it is the sentence an
+operator would act on. Measured during feature 003: with the storage open, a copy of the main
+file is short by anywhere from a few answers to all of them including the schema, and nothing
+about the file says which. The failure surfaces only on restore.
+
+Templates and specs requiring updates:
+  ✅ specs/003-sqlite-and-export — FR-003, FR-003b and research R-3 already say this; the
+    constitution was the document that lagged.
+
 --- Amendment 2026-09-03: v1.1.1 → v2.0.0 (MAJOR) ---
 Bump rationale: MAJOR — a pinned constraint is redefined in a way that invalidates existing
 work. Features 001 and 002 were designed around a PostgreSQL server: the two-container
@@ -187,8 +205,10 @@ plan-level decision.
 - **Backend**: ASP.NET Core Web API on the current .NET LTS release (.NET 10 at
   ratification).
 - **Persistence**: SQLite, a single file on a mounted volume. No database server process and no
-  managed third-party database service. The file is the backup unit: copying it copies the
-  system's state.
+  managed third-party database service. The file is the backup unit — but the system MUST provide
+  a mechanism that produces a consistent copy while running. Copying the file by hand is
+  supported only with the system stopped; taken from a running system, such a copy is silently
+  short (measured: from a handful of answers up to every answer and the schema).
 - **Logging**: Serilog, emitting structured entries to standard output. Log level is set
   through environment configuration. No external log sinks or aggregation services.
 - **Testing**: Vitest with Vue Test Utils for frontend unit and component tests; xUnit for
@@ -254,4 +274,4 @@ corrected first and the dependent artifacts are brought back into line in the sa
 For per-feature runtime guidance, read the plan for the feature currently being built, as
 directed by `CLAUDE.md`.
 
-**Version**: 2.0.0 | **Ratified**: 2026-09-02 | **Last Amended**: 2026-09-03
+**Version**: 2.0.1 | **Ratified**: 2026-09-02 | **Last Amended**: 2026-09-03
