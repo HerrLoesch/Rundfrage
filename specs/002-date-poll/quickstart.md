@@ -14,14 +14,19 @@ itself (FR-045a). Generate a hash and put *that* in the environment:
 
 ```bash
 docker compose run --rm app dotnet Rundfrage.Api.dll --hash-password
-# prompts for a password, prints:
-#   pbkdf2-sha256$600000$<salt>$<hash>
+# prompts on stderr, prints on stdout:
+#   pbkdf2-sha256:600000:<salt>:<hash>
 ```
+
+The prompt goes to stderr so the hash can be redirected straight into a file. The separator is
+`:` and not the conventional `$` of the PHC format, because Docker Compose reads `$name` in a
+`.env` value as a variable reference — with `$` the hash reaches the container mangled and no
+password ever verifies. Both were found by running it.
 
 ```bash
 # .env  (git-ignored)
 ADMIN_USER=hendrik
-ADMIN_PASSWORD_HASH=pbkdf2-sha256$600000$...$...
+ADMIN_PASSWORD_HASH=pbkdf2-sha256:600000:...:...
 ```
 
 There is no registration and no password-change screen. Changing the password means changing the
@@ -36,7 +41,8 @@ configuration and restarting — the deliberate consequence of having exactly on
 
 ## Create a poll
 
-1. Open <http://localhost:8080/admin> and sign in.
+1. Open <http://localhost:8080> — the root leads to the admin area — and sign in.
+   The walking-skeleton diagnostic from feature 001 now lives at `/status`.
 2. Give the poll a title, optionally a short message, and pick the candidate days.
 3. Save. The participant link appears — copy it and share it.
 

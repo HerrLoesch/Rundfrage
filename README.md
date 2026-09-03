@@ -22,8 +22,13 @@ Compose bringt funktionierende Standardwerte mit, das Schema entsteht beim erste
 | | |
 |---|---|
 | **Anwendung** | <http://localhost:8080> |
+| Adminbereich | <http://localhost:8080/admin> |
+| Systemdiagnose | <http://localhost:8080/status> |
 | Text-Endpunkt | <http://localhost:8080/api/v1/message> |
 | Datenbankstatus | <http://localhost:8080/api/v1/status/database> |
+
+Die Startadresse führt in die Anwendung. Die Diagnoseseite mit Backend-Text und Datenbankstatus
+aus dem Grundgerüst liegt unter `/status` — sie ist weiterhin da, nur nicht mehr die Eingangstür.
 
 Beenden mit `Ctrl-C` oder `docker compose down`. Daten überleben beides.
 `docker compose down -v` verwirft zusätzlich das Volume und damit die Datenbank.
@@ -62,7 +67,11 @@ Entwickelt wird testgetrieben — der Test steht vor der Implementierung.
 ```bash
 dotnet test backend/Rundfrage.slnx    # xUnit: Unit + Integration (braucht Docker)
 cd frontend && npm run test:unit      # Vitest: Unit + Komponenten
-docker compose up -d --build && cd e2e && npx playwright test
+
+# E2E laufen gegen die laufende Instanz und brauchen deren Zugangsdaten.
+# Bewusst ohne Rückfallwert: ein Passwort im Repository wäre eines, das jemand deployen kann.
+docker compose up -d --build
+cd e2e && E2E_ADMIN_USER=... E2E_ADMIN_PASSWORD=... npx playwright test
 ```
 
 Für `dotnet test` und `npm test` werden SDK und Node lokal gebraucht — die Zusage „nur eine

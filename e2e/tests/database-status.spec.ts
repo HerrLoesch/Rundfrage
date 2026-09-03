@@ -24,7 +24,7 @@ test.describe('Database status (US2)', () => {
 
   test('reports the database as reachable while it is up', async ({ page }) => {
     compose('start db')
-    await page.goto('/')
+    await page.goto('/status')
     await waitForDatabaseState(page, 'reachable')
     await expect(page.getByTestId('database-state')).toHaveText('Datenbank erreichbar')
   })
@@ -33,7 +33,7 @@ test.describe('Database status (US2)', () => {
     // Acceptance scenario 2.2 - the page must never go blank or error out (FR-011, SC-004).
     compose('stop db')
 
-    await page.goto('/')
+    await page.goto('/status')
     await expect(page.getByTestId('app-title')).toBeVisible()
     await expect(page.getByTestId('backend-message')).toBeVisible()
     await waitForDatabaseState(page, 'unreachable')
@@ -42,7 +42,7 @@ test.describe('Database status (US2)', () => {
   test('recovers on reload once the database is back, with no restart', async ({ page }) => {
     // SC-005
     compose('stop db')
-    await page.goto('/')
+    await page.goto('/status')
     await waitForDatabaseState(page, 'unreachable')
 
     compose('start db')
@@ -56,7 +56,7 @@ test.describe('Database status (US2)', () => {
     compose('start db')
     await page.route('**/api/v1/status/database', (route) => route.abort())
 
-    await page.goto('/')
+    await page.goto('/status')
 
     const state = page.getByTestId('database-state')
     await expect(state).toHaveAttribute('data-state', 'backendUnreachable')

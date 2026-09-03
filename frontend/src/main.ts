@@ -7,7 +7,8 @@ import * as directives from 'vuetify/directives'
 
 import App from './App.vue'
 import { i18n } from './i18n'
+import { router } from './router'
 
 const vuetify = createVuetify({ components, directives })
 
-createApp(App).use(createPinia()).use(i18n).use(vuetify).mount('#app')
+createApp(App).use(createPinia()).use(router).use(i18n).use(vuetify).mount('#app')

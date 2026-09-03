@@ -34,11 +34,11 @@ Required for every Spec Kit command: branch validation expects `NNN-slug`, devel
 
 **Purpose**: Infrastructure this feature needs before any behaviour can be written.
 
-- [ ] T001 Add `RUN apk add --no-cache tzdata` to the runtime stage of `docker/Dockerfile` — **verified defect**, without it `TimeZoneInfo.FindSystemTimeZoneById("Europe/Berlin")` throws in the runtime image (research.md R-6)
-- [ ] T002 Add a test in `backend/tests/Rundfrage.Api.IntegrationTests/TimeZoneAvailabilityTests.cs` asserting Europe/Berlin resolves, so a future base-image change cannot silently reintroduce T001's defect
-- [ ] T003 Add `ADMIN_USER` and `ADMIN_PASSWORD_HASH` to `compose.yaml` and `.env.example` **without defaults** — unlike feature 001 this must not start on built-in values (quickstart.md)
-- [ ] T004 [P] Install `vue-router` in `frontend/` and create `frontend/src/router.ts` with the four routes: sign-in, admin poll list, poll page, response revision
-- [ ] T005 [P] Create the component directories `frontend/src/components/admin/` and `frontend/src/components/poll/`
+- [X] T001 Add `RUN apk add --no-cache tzdata` to the runtime stage of `docker/Dockerfile` — **verified defect**, without it `TimeZoneInfo.FindSystemTimeZoneById("Europe/Berlin")` throws in the runtime image (research.md R-6)
+- [X] T002 Add a test in `backend/tests/Rundfrage.Api.IntegrationTests/TimeZoneAvailabilityTests.cs` asserting Europe/Berlin resolves, so a future base-image change cannot silently reintroduce T001's defect
+- [X] T003 Add `ADMIN_USER` and `ADMIN_PASSWORD_HASH` to `compose.yaml` and `.env.example` **without defaults** — unlike feature 001 this must not start on built-in values (quickstart.md)
+- [X] T004 [P] Install `vue-router` in `frontend/` and create `frontend/src/router.ts` with the four routes: sign-in, admin poll list, poll page, response revision
+- [X] T005 [P] Create the component directories `frontend/src/components/admin/` and `frontend/src/components/poll/`
 
 **Checkpoint**: The container can resolve Europe/Berlin and the SPA can route.
 
@@ -52,26 +52,26 @@ Required for every Spec Kit command: branch validation expects `NNN-slug`, devel
 
 ### The day-boundary authority
 
-- [ ] T006 [P] Write failing tests in `backend/tests/Rundfrage.Api.UnitTests/BerlinClockTests.cs`: today's date at 00:30 Berlin in summer and in winter, and a retention deadline computed from a last candidate day (FR-011a, FR-011b, SC-027, SC-028)
-- [ ] T007 Implement `backend/src/Rundfrage.Api/Time/BerlinClock.cs` as the single day-boundary authority — makes T006 pass
+- [X] T006 [P] Write failing tests in `backend/tests/Rundfrage.Api.UnitTests/BerlinClockTests.cs`: today's date at 00:30 Berlin in summer and in winter, and a retention deadline computed from a last candidate day (FR-011a, FR-011b, SC-027, SC-028)
+- [X] T007 Implement `backend/src/Rundfrage.Api/Time/BerlinClock.cs` as the single day-boundary authority — makes T006 pass
 
 ### The token mint
 
-- [ ] T008 [P] Write failing tests in `backend/tests/Rundfrage.Api.UnitTests/CapabilityTokenTests.cs`: 22 base64url characters, at least 128 bits of entropy, no two equal across 10,000 mints, and no correlation with a counter (FR-017, SC-006)
-- [ ] T009 Implement `backend/src/Rundfrage.Api/Security/CapabilityToken.cs` using `RandomNumberGenerator` — makes T008 pass
+- [X] T008 [P] Write failing tests in `backend/tests/Rundfrage.Api.UnitTests/CapabilityTokenTests.cs`: 22 base64url characters, at least 128 bits of entropy, no two equal across 10,000 mints, and no correlation with a counter (FR-017, SC-006)
+- [X] T009 Implement `backend/src/Rundfrage.Api/Security/CapabilityToken.cs` using `RandomNumberGenerator` — makes T008 pass
 
 ### The one neutral not-found
 
-- [ ] T010 [P] Write failing tests in `backend/tests/Rundfrage.Api.UnitTests/NeutralNotFoundTests.cs` asserting one identical status, body and header set, with no variant per cause (FR-027, FR-040, SC-012)
-- [ ] T011 Implement `backend/src/Rundfrage.Api/Http/NeutralNotFound.cs` — makes T010 pass
+- [X] T010 [P] Write failing tests in `backend/tests/Rundfrage.Api.UnitTests/NeutralNotFoundTests.cs` asserting one identical status, body and header set, with no variant per cause (FR-027, FR-040, SC-012)
+- [X] T011 Implement `backend/src/Rundfrage.Api/Http/NeutralNotFound.cs` — makes T010 pass
 
 ### Schema
 
-- [ ] T012 [P] Create the entities in `backend/src/Rundfrage.Api/Data/Entities/`: `Poll.cs`, `CandidateDay.cs`, `PollResponse.cs`, `DayAnswer.cs` per data-model.md — `Availability` has **three** values, not four (research.md R-8)
-- [ ] T013 Register the four sets and their configuration in `backend/src/Rundfrage.Api/Data/RundfrageDbContext.cs`: unique indexes on both token columns and on (PollId, Date), cascade deletes, and the FR-015 column lengths
-- [ ] T014 Write a failing test in `backend/tests/Rundfrage.Api.IntegrationTests/SchemaCreationTests.cs` asserting the four tables, both unique token indexes and the cascade behaviour exist after migration — extends the test feature 001 wrote against an empty schema
-- [ ] T015 Generate the second EF Core migration into `backend/src/Rundfrage.Api/Data/Migrations/` — makes T014 pass
-- [ ] T016 Write a failing test asserting no table has a column for an IP address or user agent (FR-042, SC-021), in `backend/tests/Rundfrage.Api.IntegrationTests/SchemaCreationTests.cs`
+- [X] T012 [P] Create the entities in `backend/src/Rundfrage.Api/Data/Entities/`: `Poll.cs`, `CandidateDay.cs`, `PollResponse.cs`, `DayAnswer.cs` per data-model.md — `Availability` has **three** values, not four (research.md R-8)
+- [X] T013 Register the four sets and their configuration in `backend/src/Rundfrage.Api/Data/RundfrageDbContext.cs`: unique indexes on both token columns and on (PollId, Date), cascade deletes, and the FR-015 column lengths
+- [X] T014 Write a failing test in `backend/tests/Rundfrage.Api.IntegrationTests/SchemaCreationTests.cs` asserting the four tables, both unique token indexes and the cascade behaviour exist after migration — extends the test feature 001 wrote against an empty schema
+- [X] T015 Generate the second EF Core migration into `backend/src/Rundfrage.Api/Data/Migrations/` — makes T014 pass
+- [X] T016 Write a failing test asserting no table has a column for an IP address or user agent (FR-042, SC-021), in `backend/tests/Rundfrage.Api.IntegrationTests/SchemaCreationTests.cs`
 
 **Checkpoint**: Shared authorities and schema exist. User stories can start.
 
@@ -86,33 +86,33 @@ participant link and a retention deadline are shown. Requires no other story.
 
 ### Tests (write first, observe failing)
 
-- [ ] T017 [P] [US1] Write failing tests in `backend/tests/Rundfrage.Api.UnitTests/PasswordHashTests.cs`: a generated hash verifies, a wrong password does not, the hash string is self-describing, and the plaintext is unrecoverable from it (FR-003, FR-045a)
-- [ ] T018 [P] [US1] Write failing tests in `backend/tests/Rundfrage.Api.UnitTests/SignInThrottleTests.cs`: 5 failures lock for 15 minutes, a **correct** password is also refused during the lockout, the lockout expires unaided, and success resets the count (FR-005, FR-005a, SC-019)
-- [ ] T019 [P] [US1] Write failing tests in `backend/tests/Rundfrage.Api.IntegrationTests/SignInEndpointTests.cs`: 204 with a session cookie on success, 401 identical for wrong user and wrong password, 429 while locked, and `HttpOnly`/`Secure`/`SameSite=Strict` on the cookie (FR-004, FR-006, research.md R-1)
-- [ ] T020 [P] [US1] Write failing tests in `backend/tests/Rundfrage.Api.IntegrationTests/AdminAuthorizationTests.cs` asserting **every** route under `/api/v1/admin` returns 401 without a session and discloses nothing about what exists (FR-002, FR-048, SC-004)
-- [ ] T021 [P] [US1] Write failing tests in `backend/tests/Rundfrage.Api.IntegrationTests/PollCreationTests.cs`: title required, at least one day required, a duplicate day stored once, past days accepted, days returned chronologically, a participant token minted, and the retention deadline computed (FR-008, FR-010, FR-012, FR-013, FR-014, FR-016)
-- [ ] T022 [P] [US1] Write failing tests in `backend/tests/Rundfrage.Api.IntegrationTests/PollCreationTests.cs` asserting each of the five FR-015 limits is refused server-side with the limit named, bypassing the form (SC-017)
-- [ ] T023 [P] [US1] Write failing tests in `backend/tests/Rundfrage.Api.IntegrationTests/StartupConfigurationTests.cs` asserting the application refuses to start without `ADMIN_USER` or `ADMIN_PASSWORD_HASH`, and that no plaintext password is usable as the hash (SC-015)
-- [ ] T024 [P] [US1] Write failing tests in `backend/tests/Rundfrage.Api.UnitTests/AdminLoggingTests.cs` asserting one entry each for sign-in success, sign-in failure, lockout and poll creation, carrying no password, name, answer or token (FR-043a, FR-043b, SC-023, SC-024)
-- [ ] T025 [P] [US1] Write failing Vitest tests in `frontend/tests/unit/SignInForm.spec.ts` and `frontend/tests/unit/PollForm.spec.ts`, asserting via `data-testid` and translation keys only (FR-030)
-- [ ] T026 [P] [US1] Write a failing Playwright test in `e2e/tests/admin-access.spec.ts` asserting the admin area is unreachable without signing in (FR-048)
+- [X] T017 [P] [US1] Write failing tests in `backend/tests/Rundfrage.Api.UnitTests/PasswordHashTests.cs`: a generated hash verifies, a wrong password does not, the hash string is self-describing, and the plaintext is unrecoverable from it (FR-003, FR-045a)
+- [X] T018 [P] [US1] Write failing tests in `backend/tests/Rundfrage.Api.UnitTests/SignInThrottleTests.cs`: 5 failures lock for 15 minutes, a **correct** password is also refused during the lockout, the lockout expires unaided, and success resets the count (FR-005, FR-005a, SC-019)
+- [X] T019 [P] [US1] Write failing tests in `backend/tests/Rundfrage.Api.IntegrationTests/SignInEndpointTests.cs`: 204 with a session cookie on success, 401 identical for wrong user and wrong password, 429 while locked, and `HttpOnly`/`Secure`/`SameSite=Strict` on the cookie (FR-004, FR-006, research.md R-1)
+- [X] T020 [P] [US1] Write failing tests in `backend/tests/Rundfrage.Api.IntegrationTests/AdminAuthorizationTests.cs` asserting **every** route under `/api/v1/admin` returns 401 without a session and discloses nothing about what exists (FR-002, FR-048, SC-004)
+- [X] T021 [P] [US1] Write failing tests in `backend/tests/Rundfrage.Api.IntegrationTests/PollCreationTests.cs`: title required, at least one day required, a duplicate day stored once, past days accepted, days returned chronologically, a participant token minted, and the retention deadline computed (FR-008, FR-010, FR-012, FR-013, FR-014, FR-016)
+- [X] T022 [P] [US1] Write failing tests in `backend/tests/Rundfrage.Api.IntegrationTests/PollCreationTests.cs` asserting each of the five FR-015 limits is refused server-side with the limit named, bypassing the form (SC-017)
+- [X] T023 [P] [US1] Write failing tests in `backend/tests/Rundfrage.Api.IntegrationTests/StartupConfigurationTests.cs` asserting the application refuses to start without `ADMIN_USER` or `ADMIN_PASSWORD_HASH`, and that no plaintext password is usable as the hash (SC-015)
+- [X] T024 [P] [US1] Write failing tests in `backend/tests/Rundfrage.Api.UnitTests/AdminLoggingTests.cs` asserting one entry each for sign-in success, sign-in failure, lockout and poll creation, carrying no password, name, answer or token (FR-043a, FR-043b, SC-023, SC-024)
+- [X] T025 [P] [US1] Write failing Vitest tests in `frontend/tests/unit/SignInForm.spec.ts` and `frontend/tests/unit/PollForm.spec.ts`, asserting via `data-testid` and translation keys only (FR-030)
+- [X] T026 [P] [US1] Write a failing Playwright test in `e2e/tests/admin-access.spec.ts` asserting the admin area is unreachable without signing in (FR-048)
 
 ### Implementation
 
-- [ ] T027 [US1] Implement `backend/src/Rundfrage.Api/Security/PasswordHash.cs` with PBKDF2-HMAC-SHA256 at 600,000 iterations and a self-describing encoding (research.md R-2) — makes T017 pass
-- [ ] T028 [US1] Add the `--hash-password` switch to `backend/src/Rundfrage.Api/Program.cs` so the operator can produce a hash without a separate tool (quickstart.md)
-- [ ] T029 [US1] Implement `backend/src/Rundfrage.Api/Security/SignInThrottle.cs` as in-memory state for the single account (research.md R-12) — makes T018 pass
-- [ ] T030 [US1] Configure cookie authentication in `backend/src/Rundfrage.Api/Program.cs`: `HttpOnly`, `Secure`, `SameSite=Strict`, 8-hour sliding expiry — makes T019 pass
-- [ ] T031 [US1] Add startup configuration validation to `backend/src/Rundfrage.Api/Program.cs` that refuses to start without both admin variables — makes T023 pass
-- [ ] T032 [US1] Implement `backend/src/Rundfrage.Api/Endpoints/Admin/SignInEndpoints.cs` for `POST` and `DELETE /api/v1/admin/session` (FR-007)
-- [ ] T033 [US1] Apply an authorization requirement to the whole `/api/v1/admin` route group in `backend/src/Rundfrage.Api/Program.cs`, so FR-048 holds by prefix rather than per handler — makes T020 pass
-- [ ] T034 [US1] Implement `backend/src/Rundfrage.Api/Polls/PollService.cs`: creation, FR-015 limit enforcement, day de-duplication, and the retention deadline via `BerlinClock` — makes T021 and T022 pass
-- [ ] T035 [US1] Implement `backend/src/Rundfrage.Api/Endpoints/Admin/PollAdminEndpoints.cs` for `POST` and `GET /api/v1/admin/polls`, matching `contracts/openapi.yaml` (FR-018)
-- [ ] T036 [US1] Add the four FR-043a log entries for sign-in and poll creation — makes T024 pass
-- [ ] T037 [P] [US1] Add the German strings for sign-in and poll creation to `frontend/src/locales/de.json`, including every `Problem.code` from the contract (FR-028, FR-029)
-- [ ] T038 [P] [US1] Implement `frontend/src/stores/session.ts` and `frontend/src/stores/polls.ts`
-- [ ] T039 [US1] Implement `frontend/src/components/admin/SignInForm.vue`, `PollForm.vue` and `PollList.vue`, showing each poll's link and retention deadline (FR-039a) — makes T025 pass
-- [ ] T040 [US1] Wire the admin routes into `frontend/src/router.ts` with a guard that redirects to sign-in — makes T026 pass
+- [X] T027 [US1] Implement `backend/src/Rundfrage.Api/Security/PasswordHash.cs` with PBKDF2-HMAC-SHA256 at 600,000 iterations and a self-describing encoding (research.md R-2) — makes T017 pass
+- [X] T028 [US1] Add the `--hash-password` switch to `backend/src/Rundfrage.Api/Program.cs` so the operator can produce a hash without a separate tool (quickstart.md)
+- [X] T029 [US1] Implement `backend/src/Rundfrage.Api/Security/SignInThrottle.cs` as in-memory state for the single account (research.md R-12) — makes T018 pass
+- [X] T030 [US1] Configure cookie authentication in `backend/src/Rundfrage.Api/Program.cs`: `HttpOnly`, `Secure`, `SameSite=Strict`, 8-hour sliding expiry — makes T019 pass
+- [X] T031 [US1] Add startup configuration validation to `backend/src/Rundfrage.Api/Program.cs` that refuses to start without both admin variables — makes T023 pass
+- [X] T032 [US1] Implement `backend/src/Rundfrage.Api/Endpoints/Admin/SignInEndpoints.cs` for `POST` and `DELETE /api/v1/admin/session` (FR-007)
+- [X] T033 [US1] Apply an authorization requirement to the whole `/api/v1/admin` route group in `backend/src/Rundfrage.Api/Program.cs`, so FR-048 holds by prefix rather than per handler — makes T020 pass
+- [X] T034 [US1] Implement `backend/src/Rundfrage.Api/Polls/PollService.cs`: creation, FR-015 limit enforcement, day de-duplication, and the retention deadline via `BerlinClock` — makes T021 and T022 pass
+- [X] T035 [US1] Implement `backend/src/Rundfrage.Api/Endpoints/Admin/PollAdminEndpoints.cs` for `POST` and `GET /api/v1/admin/polls`, matching `contracts/openapi.yaml` (FR-018)
+- [X] T036 [US1] Add the four FR-043a log entries for sign-in and poll creation — makes T024 pass
+- [X] T037 [P] [US1] Add the German strings for sign-in and poll creation to `frontend/src/locales/de.json`, including every `Problem.code` from the contract (FR-028, FR-029)
+- [X] T038 [P] [US1] Implement `frontend/src/stores/session.ts` and `frontend/src/stores/polls.ts`
+- [X] T039 [US1] Implement `frontend/src/components/admin/SignInForm.vue`, `PollForm.vue` and `PollList.vue`, showing each poll's link and retention deadline (FR-039a) — makes T025 pass
+- [X] T040 [US1] Wire the admin routes into `frontend/src/router.ts` with a guard that redirects to sign-in — makes T026 pass
 
 **Checkpoint**: MVP — the operator can sign in and produce a shareable poll.
 

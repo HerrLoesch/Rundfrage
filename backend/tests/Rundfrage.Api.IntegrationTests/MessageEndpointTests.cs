@@ -1,7 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
-using Microsoft.AspNetCore.Mvc.Testing;
 
 namespace Rundfrage.Api.IntegrationTests;
 
@@ -9,11 +8,18 @@ namespace Rundfrage.Api.IntegrationTests;
 /// Contract test for GET /api/v1/message (FR-006, contracts/openapi.yaml).
 /// Needs no database: the endpoint must answer regardless of database state.
 /// </summary>
-public class MessageEndpointTests : IClassFixture<WebApplicationFactory<Program>>
+public class MessageEndpointTests : IDisposable
 {
-    private readonly WebApplicationFactory<Program> _factory;
+    // Constructed here rather than as a class fixture: xUnit's fixture activator needs a
+    // parameterless constructor, and ApiFactory deliberately requires a connection string so no
+    // test can accidentally run against the wrong database. This endpoint needs none.
+    private readonly ApiFactory _factory = new(ApiFactory.UnreachableConnection);
 
-    public MessageEndpointTests(WebApplicationFactory<Program> factory) => _factory = factory;
+    public void Dispose()
+    {
+        _factory.Dispose();
+        GC.SuppressFinalize(this);
+    }
 
     [Fact]
     public async Task Returns_200_with_a_non_empty_message()

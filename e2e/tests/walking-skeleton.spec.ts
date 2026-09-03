@@ -6,7 +6,7 @@ import { test, expect } from '@playwright/test'
  */
 test.describe('Walking skeleton', () => {
   test('the page displays text retrieved from the backend', async ({ page }) => {
-    await page.goto('/')
+    await page.goto('/status')
 
     const message = page.getByTestId('backend-message')
     await expect(message).toBeVisible()
@@ -21,7 +21,7 @@ test.describe('Walking skeleton', () => {
     const { message } = await response.json()
     expect(message).toBeTruthy()
 
-    await page.goto('/')
+    await page.goto('/status')
     await expect(page.getByTestId('backend-message')).toContainText(message)
   })
 
@@ -38,7 +38,7 @@ test.describe('Walking skeleton', () => {
       if (new URL(r.url()).origin !== expectedOrigin) crossOrigin.push(r.url())
     })
 
-    await page.goto('/')
+    await page.goto('/status')
     await page.waitForLoadState('networkidle')
 
     // No CDN, no external fonts, no analytics - constitution Principle IV requires every

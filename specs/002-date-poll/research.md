@@ -34,7 +34,15 @@ activity". Nothing new is added to the dependency list.
 
 **Decision**: PBKDF2-HMAC-SHA256 from the BCL (`Rfc2898DeriveBytes`), 600,000 iterations, a
 128-bit random salt per hash, encoded as one self-describing string
-(`pbkdf2-sha256$<iterations>$<salt>$<hash>`). The API exposes a `--hash-password` switch that
+(`pbkdf2-sha256:<iterations>:<salt>:<hash>`).
+
+**Correction made during implementation.** This originally used `$` as the separator, following
+the conventional PHC string format. It does not survive the configuration mechanism FR-045
+mandates: Docker Compose reads `$name` inside a `.env` value as a variable reference and
+substitutes an empty string, so the hash arrived at the container mangled and no password could
+verify. The failure was silent — a plain 401 — and only visible by running the container. The
+encoding is ours to choose and the configuration mechanism is fixed by the specification, so the
+encoding gave way. A test now asserts the hash contains no `$` and nothing else needing quoting. The API exposes a `--hash-password` switch that
 prints such a string; the operator puts the result in `ADMIN_PASSWORD_HASH`.
 
 **Rationale**: FR-045a requires the deployed configuration to contain something from which the
@@ -76,6 +84,11 @@ leak, which is why it is asserted by a test rather than trusted.
 ---
 
 ## R-4: One neutral not-found, not four
+
+> **Status after US1**: `NeutralNotFound` and `CapabilityToken.IsWellFormed` are written and
+> tested but **not yet wired to any route** — the participant endpoints that consume them arrive
+> with US2. Their green tests describe a component, not working behaviour; no request currently
+> produces this response.
 
 **Decision**: A single `NeutralNotFound` helper produces the identical status, body and headers
 for all four causes in FR-027 and FR-040. Malformed tokens are **not** rejected early: they run
@@ -220,6 +233,14 @@ content type is a second, independent barrier: a cross-site HTML form cannot sen
 scripted request that could is already subject to the same-origin policy. Adding a synchroniser
 token on top would be a third mechanism guarding a door two mechanisms already hold shut — which
 is the kind of accumulation Principle III asks to justify, and here it cannot be.
+
+**Measured, and the mechanism is not the one described above.** Posting
+`application/x-www-form-urlencoded`, `text/plain` or `multipart/form-data` to an admin endpoint
+returns **404, not 415**: the content type prevents the route from matching at all, so the
+request falls through to the `/api/{**rest}` catch-all from feature 001. The barrier holds — a
+cross-site form cannot reach the handler — but it holds by route matching rather than by content
+negotiation. Recorded because the difference matters to anyone reading a 404 in the log and
+wondering which route was missing.
 
 ---
 

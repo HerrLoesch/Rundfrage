@@ -34,6 +34,12 @@ COPY --from=frontend /src/frontend/dist/ /app/publish/wwwroot/
 FROM mcr.microsoft.com/dotnet/aspnet:10.0-alpine AS runtime
 WORKDIR /app
 
+# The Alpine runtime image ships no zone data, so TimeZoneInfo.FindSystemTimeZoneById
+# throws for "Europe/Berlin" - which FR-011a resolves every day boundary against, and
+# which every poll creation needs to compute its retention deadline. The SDK image does
+# carry zone data, so nothing outside this image can catch the omission (research.md R-6).
+RUN apk add --no-cache tzdata
+
 # Run as the non-root user the base image provides.
 USER $APP_UID
 

@@ -15,6 +15,14 @@ services:
       ConnectionStrings__Default: >-
         Host=db;Port=5432;Database=${POSTGRES_DB:-rundfrage};Username=${POSTGRES_USER:-rundfrage};Password=${POSTGRES_PASSWORD:-rundfrage_dev};Timeout=2
       LOG_LEVEL: ${LOG_LEVEL:-Information}
+      # Deliberately WITHOUT defaults. Feature 001 could start on built-in values because it
+      # exposed nothing; an admin area that creates polls must not (FR-045, FR-045a).
+      #
+      # Passed through empty rather than declared required here: the refusal belongs to the
+      # application (SC-015), so that `docker compose config` stays usable and the failure
+      # arrives as one clear application error instead of a substitution error.
+      ADMIN_USER: ${ADMIN_USER:-}
+      ADMIN_PASSWORD_HASH: ${ADMIN_PASSWORD_HASH:-}
     # Start-order only - deliberately NOT `condition: service_healthy`. Gating startup on the
     # database would make the "database down" path untestable, since stopping the database
     # would stop the application instead of producing the required failure display

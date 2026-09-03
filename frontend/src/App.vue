@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import SystemStatus from './components/SystemStatus.vue'
+// Every destination is a route now: the sign-in form, the admin list, the poll page and the
+// response revision page (FR-021 - the poll route has nothing in front of it).
 </script>
 
 <template>
   <main>
-    <SystemStatus />
+    <RouterView />
   </main>
 </template>
