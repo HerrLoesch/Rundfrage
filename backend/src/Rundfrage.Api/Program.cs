@@ -71,6 +71,10 @@ builder.Services.AddHostedService<RetentionSweep>();
 // FR-027a. In-memory partitions, so the request source is never written anywhere.
 builder.Services.AddSubmissionRateLimiter(builder.Configuration);
 
+// What the request source and scheme above are allowed to be read from when a reverse proxy
+// terminates TLS in front of the application. Off unless the deployment says otherwise.
+builder.Services.AddTrustedProxyHeaders(builder.Configuration);
+
 // --- Authentication (FR-001, FR-006, research.md R-1) --------------------------------------
 // HttpOnly so a script cannot read it; SameSite=Strict so the browser never attaches it to a
 // cross-site request, which removes forged-form CSRF without a token mechanism (research.md R-10).
@@ -81,6 +85,10 @@ builder.Services
         options.Cookie.Name = "rundfrage.session";
         options.Cookie.HttpOnly = true;
         options.Cookie.SameSite = SameSiteMode.Strict;
+        // Follows the real scheme rather than asserting Always, because http://localhost is a
+        // supported way to run this and a Secure cookie there is one the browser may decline to
+        // send back. "The real scheme" is only real if a proxy's X-Forwarded-Proto is read first
+        // - see ReverseProxy, which is what makes this line correct behind TLS termination.
         options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
         options.ExpireTimeSpan = TimeSpan.FromHours(8);
         options.SlidingExpiration = true;
@@ -122,6 +130,10 @@ StorageSetup.SecureFile(dataDirectory, app.Services.GetRequiredService<ILogger<P
 // --- Routing (FR-006a) ---------------------------------------------------------------------
 // Everything under /api/v1 is the API; everything else belongs to the web application, so the
 // SPA's client-side routes and the backend endpoints cannot collide on the shared origin.
+// Before everything, so the rate limiter partitions by the participant and not by the proxy,
+// and the session cookie's Secure flag follows the browser's scheme and not the proxy's.
+app.UseTrustedProxyHeaders(app.Services.GetRequiredService<ILogger<Program>>());
+
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();

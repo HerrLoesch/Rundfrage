@@ -20,6 +20,11 @@ services:
       # FR-027a's ten per hour is the default. Raised only for end-to-end runs, which submit
       # far more than that from one machine; leave it unset for anything resembling production.
       SUBMISSION_LIMIT_PER_HOUR: ${SUBMISSION_LIMIT_PER_HOUR:-10}
+      # Number of reverse proxies in front of the application. Zero here, because this file
+      # publishes the port itself and there is nothing in between - a forwarded header would be
+      # the caller's own claim about themselves. Set it only where a proxy really does stand in
+      # front, or the rate limit above degrades into one shared budget for every participant.
+      TRUSTED_PROXY_COUNT: ${TRUSTED_PROXY_COUNT:-0}
       # Deliberately WITHOUT defaults. Feature 001 could start on built-in values because it
       # exposed nothing; an admin area that creates polls must not (002 FR-045, FR-045a).
       #
