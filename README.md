@@ -240,11 +240,40 @@ Eine geänderte Übersetzung kann daher keinen Test brechen.
 | `LOG_LEVEL` | `Information` | Serilog-Mindeststufe, ohne Neubau änderbar |
 | `APP_PORT` | `8080` | Host-Port der Anwendung |
 | `SUBMISSION_LIMIT_PER_HOUR` | `10` | Antworten pro Stunde und Quelle. In produktionsnahen Umgebungen unverändert lassen — E2E-Läufe heben ihn an, weil sie mehr als zehn von einer Maschine senden. |
+| `TRUSTED_PROXY_COUNT` | `0` | Zahl der Reverse Proxies davor. Siehe *Hinter einem Reverse Proxy*. |
 | `ADMIN_USER` | — | Betreiberkonto, ohne Standard |
 | `ADMIN_PASSWORD_HASH` | — | Hash des Passworts, ohne Standard |
 
 Überschreiben über eine `.env` (git-ignoriert) oder Umgebungsvariablen. `.env.example`
 dokumentiert den vollständigen Satz.
+
+## Hinter einem Reverse Proxy
+
+Terminiert ein Proxy davor das TLS — Traefik, nginx, Caddy, Coolify —, dann muss er angesagt
+werden:
+
+```bash
+TRUSTED_PROXY_COUNT=1
+```
+
+Ohne diese Angabe sieht die Anwendung nicht den Browser, sondern den Proxy, und **zwei Dinge sind
+falsch, ohne dass eines davon sich meldet**:
+
+- **Das Limit trifft alle gemeinsam.** „Zehn Antworten pro Stunde und Quelle" wird zu zehn pro
+  Stunde für die ganze Instanz, weil alle Teilnehmenden von derselben Adresse kommen — der des
+  Proxys. Die elfte Person, die auf eine Umfrage antwortet, wird abgewiesen, und der Hinweis, es
+  später zu versuchen, stimmt auch später nicht.
+- **Das Sitzungs-Cookie bekommt kein `Secure`.** Der Browser spricht HTTPS, die Anwendung sieht
+  eine gewöhnliche HTTP-Anfrage und richtet das Flag danach.
+
+Es ist eine **Zahl, kein Schalter**, und das ist keine Kosmetik: Ein Proxy *hängt* die Adresse an,
+die er gesehen hat. Bei einem Proxy ist der letzte Eintrag also der, den der Proxy geschrieben
+hat, und alles links davon hat der Aufrufende erfunden. Genau so viele Einträge von rechts zu
+lesen, wie Proxies davorstehen, *ist* der Schutz. Deshalb ist die Voreinstellung `0` und nicht
+etwa „glaub dem Header": Bei `docker compose up` liegt kein Proxy davor, und der Header wäre dann
+nur die Behauptung des Aufrufenden über sich selbst.
+
+Beim Start steht in einer Zeile im Log, welcher der beiden Fälle gilt.
 
 ## Logs
 
