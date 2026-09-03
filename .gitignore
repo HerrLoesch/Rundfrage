@@ -5,6 +5,17 @@
 .env
 .env.local
 
+# Local storage (mounted into the container; never belongs in the repository).
+#
+# Anchored with a leading slash. An unanchored `data/` matches a directory of that name at any
+# depth - and on a case-insensitive filesystem that includes backend/src/Rundfrage.Api/Data/,
+# which silently excluded three new source files from the repository. Nothing said so: files
+# already tracked stay tracked, so only the new ones disappeared.
+/data/
+*.db
+*.db-wal
+*.db-shm
+
 # .NET
 bin/
 obj/

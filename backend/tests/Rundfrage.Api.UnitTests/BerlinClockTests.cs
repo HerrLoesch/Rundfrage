@@ -60,7 +60,7 @@ public class BerlinClockTests
         var deadline = clock.RetentionDeadlineFor(new DateOnly(2026, 10, 15));
 
         // 15 Oct 24:00 Berlin (= 16 Oct 00:00, CEST, UTC+2) plus 30 days.
-        Assert.Equal(new DateTimeOffset(2026, 11, 14, 22, 0, 0, TimeSpan.Zero), deadline);
+        Assert.Equal(new DateTime(2026, 11, 14, 22, 0, 0, DateTimeKind.Utc), deadline);
     }
 
     [Fact]
@@ -72,7 +72,7 @@ public class BerlinClockTests
 
         var deadline = clock.RetentionDeadlineFor(new DateOnly(2026, 10, 20));
 
-        Assert.Equal(new DateTimeOffset(2026, 11, 19, 22, 0, 0, TimeSpan.Zero), deadline);
+        Assert.Equal(new DateTime(2026, 11, 19, 22, 0, 0, DateTimeKind.Utc), deadline);
     }
 
     [Fact]
@@ -80,8 +80,8 @@ public class BerlinClockTests
     {
         var clock = ClockAt(new DateTimeOffset(2026, 12, 1, 0, 0, 0, TimeSpan.Zero));
 
-        Assert.True(clock.HasPassed(new DateTimeOffset(2026, 11, 30, 23, 59, 59, TimeSpan.Zero)));
-        Assert.False(clock.HasPassed(new DateTimeOffset(2026, 12, 1, 0, 0, 1, TimeSpan.Zero)));
+        Assert.True(clock.HasPassed(new DateTime(2026, 11, 30, 23, 59, 59, DateTimeKind.Utc)));
+        Assert.False(clock.HasPassed(new DateTime(2026, 12, 1, 0, 0, 1, DateTimeKind.Utc)));
     }
 
     private sealed class FixedTimeProvider(DateTimeOffset now) : TimeProvider

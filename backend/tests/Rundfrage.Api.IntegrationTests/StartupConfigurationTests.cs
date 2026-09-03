@@ -15,7 +15,7 @@ public class StartupConfigurationTests
     {
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
-            builder.UseSetting("ConnectionStrings:Default", ApiFactory.UnreachableConnection);
+            builder.UseSetting("ConnectionStrings:Default", ApiFactory.UnreachableDirectory);
             builder.UseSetting(AdminAccount.UserVariable, user);
             builder.UseSetting(AdminAccount.PasswordHashVariable, hash);
         }

@@ -40,8 +40,8 @@ jobs:
       - name: Build
         run: dotnet build backend/Rundfrage.slnx --no-restore --configuration Release
 
-      # Integration tests start a disposable PostgreSQL via Testcontainers, which needs the
-      # Docker daemon the GitHub-hosted runner already provides (FR-020).
+      # Integration tests give each test class its own temporary storage file, so this job no
+      # longer needs a Docker daemon at all (003 research.md R-6).
       - name: Test
         run: dotnet test backend/Rundfrage.slnx --no-build --configuration Release --verbosity normal
 
@@ -110,26 +110,23 @@ jobs:
             echo "SUBMISSION_LIMIT_PER_HOUR=1000"
           } >> "$GITHUB_ENV"
 
-      # Runs against the same two-container set developers start locally (FR-021).
+      # Runs against the same single-container set developers start locally (FR-021).
       - name: Start the system
         run: docker compose up -d --build
 
-      - name: Wait for the database to become healthy
-        run: |
-          for i in $(seq 1 60); do
-            status=$(docker inspect --format '{{.State.Health.Status}}' "$(docker compose ps -q db)" 2>/dev/null || echo starting)
-            [ "$status" = "healthy" ] && echo "database healthy after ${i}s" && exit 0
-            sleep 1
-          done
-          echo "database did not become healthy in time" >&2
-          docker compose logs db
-          exit 1
-
+      # There is no database container left to wait for.
+      #
+      # The readiness probe used to call /api/v1/message, which feature 003 removes with the rest
+      # of the walking skeleton. It now asks a route that belongs to the product: the sign-in
+      # endpoint refuses an empty request, and a refusal proves the application is answering.
+      # A route that exists only so CI can poll it would be the walking skeleton again.
       - name: Wait for the application to answer
         run: |
           for i in $(seq 1 60); do
-            code=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/api/v1/message || true)
-            [ "$code" = "200" ] && echo "application ready after ${i}s" && exit 0
+            code=$(curl -s -o /dev/null -w '%{http_code}' \
+              -X POST -H 'Content-Type: application/json' -d '{}' \
+              http://localhost:8080/api/v1/admin/session || true)
+            [ "$code" = "401" ] && echo "application ready after ${i}s" && exit 0
             sleep 1
           done
           echo "application did not become ready in time" >&2

@@ -9,24 +9,63 @@ const { t, d } = useI18n()
 const polls = usePollsStore()
 const problemText = useProblemText()
 
+/**
+ * Today, as the browser's date input wants it.
+ *
+ * The field starts filled rather than empty. An empty `<input type="date">` renders only a
+ * placeholder, which reads as though a date were already there - pressing "add" then did
+ * nothing, silently, because the model held an empty string. What is visible is now what gets
+ * added.
+ */
+function today(): string {
+  const now = new Date()
+  return [
+    now.getFullYear(),
+    String(now.getMonth() + 1).padStart(2, '0'),
+    String(now.getDate()).padStart(2, '0'),
+  ].join('-')
+}
+
 const title = ref('')
 const message = ref('')
-const dayInput = ref('')
+const dayInput = ref(today())
 const days = ref<string[]>([])
+const dayHint = ref<string | null>(null)
 const busy = ref(false)
 
 function addDay() {
   const day = dayInput.value
-  if (!day) return
-  // FR-012 and FR-013 made visible before anything is sent: stored once, shown chronologically.
-  if (!days.value.includes(day)) {
-    days.value = [...days.value, day].sort()
+
+  // Both refusals used to be a bare `return`: the button did nothing and explained nothing,
+  // which is indistinguishable from the application being broken.
+  if (!day) {
+    dayHint.value = t('poll.dayRequired')
+    return
   }
-  dayInput.value = ''
+
+  if (days.value.includes(day)) {
+    dayHint.value = t('poll.dayDuplicate')
+    return
+  }
+
+  // FR-012 and FR-013 made visible before anything is sent: stored once, shown chronologically.
+  days.value = [...days.value, day].sort()
+  dayHint.value = null
+
+  // Advance to the following day: picking a run of dates is the common case, and leaving the
+  // field empty would bring back the very confusion this fixes.
+  const next = new Date(`${day}T12:00:00`)
+  next.setDate(next.getDate() + 1)
+  dayInput.value = [
+    next.getFullYear(),
+    String(next.getMonth() + 1).padStart(2, '0'),
+    String(next.getDate()).padStart(2, '0'),
+  ].join('-')
 }
 
 function removeDay(day: string) {
   days.value = days.value.filter((entry) => entry !== day)
+  dayHint.value = null
 }
 
 const errorText = computed(() => problemText(polls.problem))
@@ -46,6 +85,8 @@ async function submit() {
       title.value = ''
       message.value = ''
       days.value = []
+      dayInput.value = today()
+      dayHint.value = null
     }
   } finally {
     busy.value = false
@@ -99,6 +140,16 @@ async function submit() {
             {{ t('poll.addDay') }}
           </v-btn>
         </div>
+
+        <v-alert
+          v-if="dayHint"
+          type="warning"
+          density="compact"
+          class="mb-3"
+          data-testid="poll-day-hint"
+        >
+          {{ dayHint }}
+        </v-alert>
 
         <div class="d-flex flex-wrap ga-2 mb-4">
           <v-chip

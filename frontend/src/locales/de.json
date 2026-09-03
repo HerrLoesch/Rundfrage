@@ -3,23 +3,6 @@
     "title": "Rundfrage",
     "subtitle": "Systemstatus"
   },
-  "message": {
-    "label": "Nachricht vom Backend",
-    "unavailable": "Keine Nachricht verfügbar"
-  },
-  "status": {
-    "loading": "Wird geprüft …",
-    "label": "Datenbank",
-    "database": {
-      "reachable": "Datenbank erreichbar",
-      "unreachable": "Datenbank nicht erreichbar"
-    },
-    "backend": {
-      "unreachable": "Backend nicht erreichbar"
-    },
-    "checkedAt": "Zuletzt geprüft",
-    "duration": "Dauer"
-  },
   "signIn": {
     "title": "Anmelden",
     "user": "Benutzername",
@@ -42,7 +25,9 @@
     "listTitle": "Terminfindungen",
     "empty": "Noch keine Terminfindung angelegt.",
     "responseCount": "Antworten",
-    "dayCount": "Tage"
+    "dayCount": "Tage",
+    "dayRequired": "Bitte zuerst einen Tag auswählen.",
+    "dayDuplicate": "Dieser Tag ist bereits ausgewählt."
   },
   "error": {
     "title_required": "Bitte einen Titel angeben.",
@@ -99,5 +84,14 @@
   "share": {
     "copy": "Kopieren",
     "copied": "Kopiert"
+  },
+  "storage": {
+    "unavailable": "Die Daten sind derzeit nicht erreichbar. Die Umfragen sind nicht verloren — sie können gerade nur nicht gelesen werden. Bitte später neu laden."
+  },
+  "backup": {
+    "download": "Sicherung herunterladen"
+  },
+  "export": {
+    "poll": "Als JSON exportieren"
   }
 }

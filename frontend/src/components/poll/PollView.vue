@@ -12,7 +12,18 @@ const { t } = useI18n()
 const store = useAnsweringStore()
 const busy = ref(false)
 
-const mode = computed<'submit' | 'revise'>(() => (props.editToken ? 'revise' : 'submit'))
+/**
+ * Revising, as soon as an answer exists - whether it arrived through a personal link or was
+ * just submitted on this page.
+ *
+ * Previously this looked only at the route parameter, so after submitting, the form stayed in
+ * "submit" mode with the name and answers still filled in. Pressing the button again recorded
+ * a second response. The token received on submission is exactly the capability to revise, so
+ * no identification is needed - which is what Principle I demands.
+ */
+const mode = computed<'submit' | 'revise'>(() =>
+  props.editToken || store.editToken ? 'revise' : 'submit',
+)
 
 onMounted(async () => {
   if (props.editToken) await store.loadOwnResponse(props.editToken)

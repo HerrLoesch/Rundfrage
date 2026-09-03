@@ -4,8 +4,6 @@ import { mountComponent, de } from '../support/mount'
 vi.mock('../../src/api/client', () => ({
   signIn: vi.fn(),
   signOut: vi.fn(),
-  fetchMessage: vi.fn(),
-  fetchDatabaseStatus: vi.fn(),
   listPolls: vi.fn(),
   createPoll: vi.fn(),
 }))
@@ -24,6 +22,63 @@ async function addDay(wrapper: ReturnType<typeof mountForm>, day: string) {
 
 describe('PollForm (FR-008 to FR-016)', () => {
   beforeEach(() => vi.clearAllMocks())
+
+  it('starts with today already in the day field', () => {
+    // Reported as a bug: the field looked as though it held today's date, but adding did
+    // nothing. An empty <input type="date"> shows only a placeholder, so what a person saw was
+    // never in the model. Now the visible value and the model are the same thing.
+    const wrapper = mountForm()
+
+    const today = new Date()
+    const expected = [
+      today.getFullYear(),
+      String(today.getMonth() + 1).padStart(2, '0'),
+      String(today.getDate()).padStart(2, '0'),
+    ].join('-')
+
+    expect(inputIn(wrapper, 'poll-day-input').element.value).toBe(expected)
+  })
+
+  it('adds today when the button is pressed without touching the field', async () => {
+    // The exact reported case: open the form, press "add", expect a day.
+    const wrapper = mountForm()
+
+    await wrapper.get('[data-testid="poll-add-day"]').trigger('click')
+
+    expect(wrapper.findAll('[data-testid="poll-day"]')).toHaveLength(1)
+  })
+
+  it('says so instead of doing nothing when the field is empty', async () => {
+    // Silence was the actual defect: pressing the button did nothing and explained nothing.
+    const wrapper = mountForm()
+    await inputIn(wrapper, 'poll-day-input').setValue('')
+
+    await wrapper.get('[data-testid="poll-add-day"]').trigger('click')
+
+    expect(wrapper.findAll('[data-testid="poll-day"]')).toHaveLength(0)
+    expect(wrapper.get('[data-testid="poll-day-hint"]').text()).toBe(de.poll.dayRequired)
+  })
+
+  it('says so when the same day is added twice', async () => {
+    // FR-012 keeps it to one entry; the second press previously vanished without a word.
+    const wrapper = mountForm()
+    await addDay(wrapper, '2026-10-15')
+    await addDay(wrapper, '2026-10-15')
+
+    expect(wrapper.findAll('[data-testid="poll-day"]')).toHaveLength(1)
+    expect(wrapper.get('[data-testid="poll-day-hint"]').text()).toBe(de.poll.dayDuplicate)
+  })
+
+  it('clears the hint once a day is successfully added', async () => {
+    const wrapper = mountForm()
+    await inputIn(wrapper, 'poll-day-input').setValue('')
+    await wrapper.get('[data-testid="poll-add-day"]').trigger('click')
+    expect(wrapper.find('[data-testid="poll-day-hint"]').exists()).toBe(true)
+
+    await addDay(wrapper, '2026-10-15')
+
+    expect(wrapper.find('[data-testid="poll-day-hint"]').exists()).toBe(false)
+  })
 
   it('offers a title, a message and a way to add days', () => {
     const wrapper = mountForm()

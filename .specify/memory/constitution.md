@@ -2,6 +2,35 @@
 SYNC IMPACT REPORT
 ==================
 
+--- Amendment 2026-09-03: v1.1.1 → v2.0.0 (MAJOR) ---
+Bump rationale: MAJOR — a pinned constraint is redefined in a way that invalidates existing
+work. Features 001 and 002 were designed around a PostgreSQL server: the two-container
+promise (001 FR-003, SC-010), the connection-timeout reasoning of 001 research R-3, the
+`FOR UPDATE` row lock of 002 research R-9, and the Testcontainers justification in 002's
+Complexity Tracking all follow from it. None survives unchanged.
+
+Changed:
+  - Technology Constraints → Persistence: "PostgreSQL, self-hosted" → SQLite, a single file
+    on a mounted volume, no server process.
+
+Reason: measured, not assumed. The PostgreSQL image weighs 415 MB and its server holds
+23 MB of memory to store 8 MB of data - of which the actual polls are a few kilobytes. For a
+tool one person self-hosts for one group, the engine outweighs everything it stores. SQLite
+keeps transactions, atomicity and the concurrency guarantees the tests already assert, at
+effectively no image cost, and reduces the running system to a single container.
+
+Accepted consequence: SQLite serialises writers. That is irrelevant for a self-hosted group
+tool and would matter if Rundfrage ever served many groups concurrently. Recorded here so the
+trade is visible rather than rediscovered.
+
+Templates and specs requiring updates:
+  ⚠ specs/001-platform-scaffold — FR-003 and SC-010 promise "exactly two containers"; the
+    system becomes one. Superseded by feature 003, not silently broken.
+  ⚠ specs/002-date-poll — research R-9's row lock has no SQLite equivalent; the guarantee
+    stands, the mechanism changes.
+  ✅ .specify/templates/plan-template.md — Constitution Check gate updated.
+
+
 --- Amendment 2026-09-02: v1.1.0 → v1.1.1 (PATCH) ---
 Bump rationale: PATCH — corrects wording that never matched practice. No principle
 added, removed, or redefined.
@@ -157,7 +186,9 @@ plan-level decision.
   state, and Vite as the build tool.
 - **Backend**: ASP.NET Core Web API on the current .NET LTS release (.NET 10 at
   ratification).
-- **Persistence**: PostgreSQL, self-hosted. No managed third-party database services.
+- **Persistence**: SQLite, a single file on a mounted volume. No database server process and no
+  managed third-party database service. The file is the backup unit: copying it copies the
+  system's state.
 - **Logging**: Serilog, emitting structured entries to standard output. Log level is set
   through environment configuration. No external log sinks or aggregation services.
 - **Testing**: Vitest with Vue Test Utils for frontend unit and component tests; xUnit for
@@ -223,4 +254,4 @@ corrected first and the dependent artifacts are brought back into line in the sa
 For per-feature runtime guidance, read the plan for the feature currently being built, as
 directed by `CLAUDE.md`.
 
-**Version**: 1.1.1 | **Ratified**: 2026-09-02 | **Last Amended**: 2026-09-02
+**Version**: 2.0.0 | **Ratified**: 2026-09-02 | **Last Amended**: 2026-09-03

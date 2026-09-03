@@ -43,8 +43,22 @@ export const useAnsweringStore = defineStore('answering', () => {
     justRevised.value = false
   }
 
+  /**
+   * Clears everything belonging to one participant's answer.
+   *
+   * The store is a singleton, so without this, opening a second poll link in the same session
+   * would carry the previous poll's name, answers and edit token across - and a save would then
+   * revise a response belonging to a different poll entirely.
+   */
+  function forgetAnswer() {
+    displayName.value = ''
+    answers.value = {}
+    editToken.value = null
+  }
+
   async function loadPoll(pollToken: string): Promise<void> {
     reset()
+    forgetAnswer()
     loading.value = true
     try {
       poll.value = await fetchPoll(pollToken)

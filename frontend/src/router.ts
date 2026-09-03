@@ -1,7 +1,7 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 
 /**
- * Four destinations, split by who may reach them.
+ * Five destinations, split by who may reach them.
  *
  * Everything under /admin needs the operator session. Everything else must never need one -
  * the capability is the token in the path (Principle I). The guard below only redirects; the
@@ -9,18 +9,8 @@ import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
  */
 const routes: RouteRecordRaw[] = [
   {
-    // The application, not a diagnostic. Until the participant views arrive with US2 the admin
-    // area is the whole of it, so the root leads there.
     path: '/',
     redirect: { name: 'admin-polls' },
-  },
-  {
-    // Feature 001's walking-skeleton page. It still shows the backend text and the database
-    // state that FR-007 and FR-010 of that feature require - those requirements say the web
-    // application must display them, not that they must occupy the front door.
-    path: '/status',
-    name: 'status',
-    component: () => import('./components/SystemStatus.vue'),
   },
   {
     path: '/admin/anmelden',

@@ -35,7 +35,7 @@ public class AdminLoggingTests
 
         try
         {
-            using var factory = new ApiFactory(ApiFactory.UnreachableConnection);
+            using var factory = new ApiFactory(ApiFactory.UnreachableDirectory);
             var client = factory.CreateClient();
             await exercise(client, factory);
             await Task.Delay(50); // let the sink drain

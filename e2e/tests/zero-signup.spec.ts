@@ -135,6 +135,36 @@ test.describe('Answering without an account', () => {
     await revisionContext.close()
   })
 
+  test('pressing send twice does not record the answer twice', async ({ browser, page }) => {
+    // Reported: sending the same answer again recorded it a second time. The form stayed in
+    // "submit" mode with everything still filled in, so the second press created a new
+    // response. It now revises, using the token the first submission returned.
+    const path = await createPoll(page, `Doppelt ${Date.now()}`, ['2026-11-18'])
+
+    const stranger = await browser.newContext()
+    const strangerPage = await stranger.newPage()
+    await strangerPage.goto(path)
+
+    await field(strangerPage, 'participant-name').fill('Anna')
+    await radio(strangerPage.getByTestId('day-choice').nth(0), 'choice-yes').check()
+    await strangerPage.getByTestId('answer-submit').click()
+    await expect(strangerPage.getByTestId('submitted-confirmation')).toBeVisible()
+    await expect(strangerPage.getByTestId('result-row')).toHaveCount(1)
+
+    // Unchanged, pressed again.
+    await strangerPage.getByTestId('answer-submit').click()
+    await expect(strangerPage.getByTestId('revised-confirmation')).toBeVisible()
+    await expect(strangerPage.getByTestId('result-row')).toHaveCount(1)
+
+    // And a genuine change still lands, in place.
+    await radio(strangerPage.getByTestId('day-choice').nth(0), 'choice-no').check()
+    await strangerPage.getByTestId('answer-submit').click()
+    await expect(strangerPage.getByTestId('result-row')).toHaveCount(1)
+    await expect(strangerPage.getByTestId('result-cell').first()).toHaveAttribute('data-state', 'no')
+
+    await stranger.close()
+  })
+
   test('an unknown link shows the same nothing as an expired one', async ({ browser }) => {
     // SC-012 as a person experiences it.
     const stranger = await browser.newContext()

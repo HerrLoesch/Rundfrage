@@ -1,4 +1,7 @@
+using System.Data;
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 using Rundfrage.Api.Data;
 using Rundfrage.Api.Data.Entities;
 using Rundfrage.Api.Security;
@@ -54,12 +57,17 @@ public sealed class ResponseService(
             return new SubmissionResult(null, answerError);
         }
 
-        // FR-015a under concurrency. The poll row is locked first, so two simultaneous
-        // submissions cannot both read 999 and both insert (research.md R-9).
-        await using var transaction = await db.Database.BeginTransactionAsync(ct);
-
-        await db.Database.ExecuteSqlInterpolatedAsync(
-            $"SELECT 1 FROM \"Polls\" WHERE \"Id\" = {poll.Id} FOR UPDATE", ct);
+        // FR-015a under concurrency, unchanged in shape from feature 002 research R-9: read the
+        // count and insert inside one transaction, so two simultaneous submissions cannot both
+        // read 999 and both insert.
+        //
+        // What changed is the mechanism. A row lock was a PostgreSQL construct; this storage has
+        // one writer at a time, so the transaction *is* the lock - but only if it takes the write
+        // lock when it begins. A deferred transaction takes a read lock first and asks to upgrade
+        // at the insert, and that upgrade cannot wait: the second writer is refused outright
+        // rather than queued, whatever the busy timeout says. Beginning immediately turns the
+        // race into a queue (003 research.md R-2).
+        await using var transaction = await BeginWriteTransactionAsync(ct);
 
         var existing = await db.Responses.CountAsync(r => r.PollId == poll.Id, ct);
         if (existing >= Poll.MaxResponses)
@@ -88,6 +96,27 @@ public sealed class ResponseService(
             response.Id, poll.Id, mapped.Count);
 
         return new SubmissionResult(response, null);
+    }
+
+    /// <summary>
+    /// Begins a transaction that holds the write lock from its first statement.
+    /// </summary>
+    /// <remarks>
+    /// The provider's own <c>BeginTransactionAsync</c> starts a deferred transaction, which is
+    /// the right default for reads and the wrong one here - see the caller.
+    /// </remarks>
+    private async Task<IDbContextTransaction> BeginWriteTransactionAsync(CancellationToken ct)
+    {
+        var connection = (SqliteConnection)db.Database.GetDbConnection();
+
+        if (connection.State != ConnectionState.Open)
+        {
+            await connection.OpenAsync(ct);
+        }
+
+        var immediate = connection.BeginTransaction(IsolationLevel.Serializable, deferred: false);
+        return await db.Database.UseTransactionAsync(immediate, ct)
+               ?? throw new InvalidOperationException("The write transaction could not be adopted.");
     }
 
     /// <summary>

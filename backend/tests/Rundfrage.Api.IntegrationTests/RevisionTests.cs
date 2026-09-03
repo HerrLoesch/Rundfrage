@@ -11,7 +11,7 @@ namespace Rundfrage.Api.IntegrationTests;
 /// User Story 4. Principle I forbids solving this by identifying the participant, so the
 /// capability is a token and nothing else (FR-028 to FR-031).
 /// </summary>
-public class RevisionTests(PostgresFixture postgres) : IClassFixture<PostgresFixture>
+public class RevisionTests(SqliteFixture storage) : IClassFixture<SqliteFixture>
 {
     private sealed record Answered(string PollToken, Guid PollId, Guid[] DayIds, string EditToken, Guid ResponseId);
 
@@ -46,7 +46,7 @@ public class RevisionTests(PostgresFixture postgres) : IClassFixture<PostgresFix
     [Fact]
     public async Task The_personal_link_returns_the_previous_answers_prefilled()
     {
-        using var factory = new ApiFactory(postgres.ConnectionString);
+        using var factory = new ApiFactory(storage.DataDirectory);
         var answered = await AnswerAsync(factory);
 
         var own = await factory.CreateClient()
@@ -64,7 +64,7 @@ public class RevisionTests(PostgresFixture postgres) : IClassFixture<PostgresFix
     public async Task A_revision_updates_in_place_and_creates_no_second_response()
     {
         // FR-030 and SC-008.
-        using var factory = new ApiFactory(postgres.ConnectionString);
+        using var factory = new ApiFactory(storage.DataDirectory);
         var answered = await AnswerAsync(factory);
         var anonymous = factory.CreateClient();
 
@@ -94,7 +94,7 @@ public class RevisionTests(PostgresFixture postgres) : IClassFixture<PostgresFix
     public async Task Omitting_a_day_in_a_revision_clears_that_answer()
     {
         // research.md R-8: absence is the state, so clearing means removing the row.
-        using var factory = new ApiFactory(postgres.ConnectionString);
+        using var factory = new ApiFactory(storage.DataDirectory);
         var answered = await AnswerAsync(factory);
 
         await factory.CreateClient().PutAsJsonAsync($"/api/v1/responses/{answered.EditToken}",
@@ -111,7 +111,7 @@ public class RevisionTests(PostgresFixture postgres) : IClassFixture<PostgresFix
     public async Task An_edit_token_grants_access_to_that_response_and_no_other()
     {
         // FR-029.
-        using var factory = new ApiFactory(postgres.ConnectionString);
+        using var factory = new ApiFactory(storage.DataDirectory);
         var first = await AnswerAsync(factory, "Anna");
         var second = await AnswerAsync(factory, "Bernd");
 
@@ -125,7 +125,7 @@ public class RevisionTests(PostgresFixture postgres) : IClassFixture<PostgresFix
     [Fact]
     public async Task An_edit_token_grants_no_admin_access()
     {
-        using var factory = new ApiFactory(postgres.ConnectionString);
+        using var factory = new ApiFactory(storage.DataDirectory);
         var answered = await AnswerAsync(factory);
 
         var client = factory.CreateClient();
@@ -141,7 +141,7 @@ public class RevisionTests(PostgresFixture postgres) : IClassFixture<PostgresFix
     [InlineData("short")]
     public async Task An_unknown_edit_token_produces_the_neutral_not_found(string token)
     {
-        using var factory = new ApiFactory(postgres.ConnectionString);
+        using var factory = new ApiFactory(storage.DataDirectory);
 
         var response = await factory.CreateClient().GetAsync($"/api/v1/responses/{token}");
 
@@ -153,7 +153,7 @@ public class RevisionTests(PostgresFixture postgres) : IClassFixture<PostgresFix
     public async Task An_edit_token_for_an_expired_poll_stops_working()
     {
         // FR-040: both link kinds die together.
-        using var factory = new ApiFactory(postgres.ConnectionString);
+        using var factory = new ApiFactory(storage.DataDirectory);
         var answered = await AnswerAsync(factory);
 
         using (var scope = factory.Services.CreateScope())
@@ -161,7 +161,7 @@ public class RevisionTests(PostgresFixture postgres) : IClassFixture<PostgresFix
             var db = scope.ServiceProvider.GetRequiredService<RundfrageDbContext>();
             await db.Polls.Where(p => p.Id == answered.PollId)
                 .ExecuteUpdateAsync(s => s.SetProperty(
-                    p => p.RetentionDeadline, DateTimeOffset.UtcNow.AddSeconds(-1)));
+                    p => p.RetentionDeadline, DateTime.UtcNow.AddSeconds(-1)));
         }
 
         var response = await factory.CreateClient().GetAsync($"/api/v1/responses/{answered.EditToken}");

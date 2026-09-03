@@ -12,7 +12,7 @@ namespace Rundfrage.Api.IntegrationTests;
 /// User Story 5. Principle IV requires deletion to remove responses rather than hide them, so
 /// every assertion here inspects storage directly - a 404 only proves unreachability.
 /// </summary>
-public class RetentionTests(PostgresFixture postgres) : IClassFixture<PostgresFixture>
+public class RetentionTests(SqliteFixture storage) : IClassFixture<SqliteFixture>
 {
     private sealed record Answered(string PollToken, Guid PollId, Guid ResponseId, string EditToken);
 
@@ -47,7 +47,7 @@ public class RetentionTests(PostgresFixture postgres) : IClassFixture<PostgresFi
     public async Task Deleting_a_poll_removes_its_responses_from_storage()
     {
         // FR-037, FR-049, SC-007. Checked in the database, not by asking the API.
-        using var factory = new ApiFactory(postgres.ConnectionString);
+        using var factory = new ApiFactory(storage.DataDirectory);
         var answered = await AnswerAsync(factory);
         var admin = await factory.CreateSignedInClientAsync();
 
@@ -67,7 +67,7 @@ public class RetentionTests(PostgresFixture postgres) : IClassFixture<PostgresFi
     public async Task After_deletion_both_link_kinds_produce_the_neutral_not_found()
     {
         // FR-040
-        using var factory = new ApiFactory(postgres.ConnectionString);
+        using var factory = new ApiFactory(storage.DataDirectory);
         var answered = await AnswerAsync(factory);
         var admin = await factory.CreateSignedInClientAsync();
 
@@ -85,7 +85,7 @@ public class RetentionTests(PostgresFixture postgres) : IClassFixture<PostgresFi
     public async Task A_single_response_can_be_deleted_without_touching_the_poll()
     {
         // FR-037a, FR-037b, SC-022: the remediation half of the abuse answer.
-        using var factory = new ApiFactory(postgres.ConnectionString);
+        using var factory = new ApiFactory(storage.DataDirectory);
         var first = await AnswerAsync(factory);
 
         var anonymous = factory.CreateClient();
@@ -117,7 +117,7 @@ public class RetentionTests(PostgresFixture postgres) : IClassFixture<PostgresFi
     [Fact]
     public async Task A_deleted_response_loses_its_personal_link()
     {
-        using var factory = new ApiFactory(postgres.ConnectionString);
+        using var factory = new ApiFactory(storage.DataDirectory);
         var answered = await AnswerAsync(factory);
         var admin = await factory.CreateSignedInClientAsync();
 
@@ -132,7 +132,7 @@ public class RetentionTests(PostgresFixture postgres) : IClassFixture<PostgresFi
     public async Task A_poll_one_second_past_its_deadline_is_already_unreachable()
     {
         // SC-031: expiry takes effect on access, before any sweep has run.
-        using var factory = new ApiFactory(postgres.ConnectionString);
+        using var factory = new ApiFactory(storage.DataDirectory);
         var answered = await AnswerAsync(factory);
 
         using (var scope = factory.Services.CreateScope())
@@ -140,7 +140,7 @@ public class RetentionTests(PostgresFixture postgres) : IClassFixture<PostgresFi
             var db = scope.ServiceProvider.GetRequiredService<RundfrageDbContext>();
             await db.Polls.Where(p => p.Id == answered.PollId)
                 .ExecuteUpdateAsync(s => s.SetProperty(
-                    p => p.RetentionDeadline, DateTimeOffset.UtcNow.AddSeconds(-1)));
+                    p => p.RetentionDeadline, DateTime.UtcNow.AddSeconds(-1)));
         }
 
         var anonymous = factory.CreateClient();
@@ -163,14 +163,14 @@ public class RetentionTests(PostgresFixture postgres) : IClassFixture<PostgresFi
     public async Task The_sweep_erases_what_the_filter_has_already_hidden()
     {
         // FR-039c, SC-014, SC-032.
-        using var factory = new ApiFactory(postgres.ConnectionString);
+        using var factory = new ApiFactory(storage.DataDirectory);
         var answered = await AnswerAsync(factory);
 
         using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<RundfrageDbContext>();
         await db.Polls.Where(p => p.Id == answered.PollId)
             .ExecuteUpdateAsync(s => s.SetProperty(
-                p => p.RetentionDeadline, DateTimeOffset.UtcNow.AddSeconds(-1)));
+                p => p.RetentionDeadline, DateTime.UtcNow.AddSeconds(-1)));
 
         var retention = scope.ServiceProvider.GetRequiredService<RetentionService>();
         var removed = await retention.EraseExpiredAsync(CancellationToken.None);
@@ -184,14 +184,14 @@ public class RetentionTests(PostgresFixture postgres) : IClassFixture<PostgresFi
     public async Task The_sweep_is_safe_to_run_repeatedly()
     {
         // FR-039d: a second run finds nothing left to do rather than failing.
-        using var factory = new ApiFactory(postgres.ConnectionString);
+        using var factory = new ApiFactory(storage.DataDirectory);
         var answered = await AnswerAsync(factory);
 
         using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<RundfrageDbContext>();
         await db.Polls.Where(p => p.Id == answered.PollId)
             .ExecuteUpdateAsync(s => s.SetProperty(
-                p => p.RetentionDeadline, DateTimeOffset.UtcNow.AddSeconds(-1)));
+                p => p.RetentionDeadline, DateTime.UtcNow.AddSeconds(-1)));
 
         var retention = scope.ServiceProvider.GetRequiredService<RetentionService>();
         await retention.EraseExpiredAsync(CancellationToken.None);
@@ -204,7 +204,7 @@ public class RetentionTests(PostgresFixture postgres) : IClassFixture<PostgresFi
     [Fact]
     public async Task Deleting_an_unknown_poll_gives_the_neutral_not_found()
     {
-        using var factory = new ApiFactory(postgres.ConnectionString);
+        using var factory = new ApiFactory(storage.DataDirectory);
         var admin = await factory.CreateSignedInClientAsync();
 
         var response = await admin.DeleteAsync("/api/v1/admin/polls/0199a000-0000-7000-8000-000000000000");

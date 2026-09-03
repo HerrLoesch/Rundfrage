@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { usePollsStore } from '../../stores/polls'
@@ -7,12 +7,28 @@ import { useSessionStore } from '../../stores/session'
 import PollForm from './PollForm.vue'
 import DeleteConfirm from './DeleteConfirm.vue'
 import ResultGrid from '../poll/ResultGrid.vue'
-import { deletePoll, deleteResponse, fetchPollResults, type PollView } from '../../api/client'
+import {
+  backupUrl,
+  deletePoll,
+  deleteResponse,
+  exportUrl,
+  fetchPollResults,
+  type PollView,
+} from '../../api/client'
 
 const { t, d } = useI18n()
 const router = useRouter()
 const polls = usePollsStore()
 const session = useSessionStore()
+
+/**
+ * FR-024a. An empty list and an unreachable store both show no polls and mean opposite things:
+ * "you have not created any yet" against "your data cannot be read right now". Deriving this
+ * rather than storing it means the two can never disagree.
+ */
+const storageUnavailable = computed(
+  () => polls.problem !== null && polls.problem.code !== 'unauthorized',
+)
 
 const openPollId = ref<string | null>(null)
 const openResults = ref<PollView | null>(null)
@@ -73,20 +89,38 @@ async function confirmDelete() {
   <v-container max-width="1100" class="py-8">
     <div class="d-flex align-center justify-space-between mb-6">
       <h1 class="text-h4">{{ t('poll.listTitle') }}</h1>
-      <v-btn
-        variant="outlined"
-        prepend-icon="mdi-logout"
-        data-testid="sign-out"
-        @click="signOut"
-      >
-        {{ t('signIn.signOut') }}
-      </v-btn>
+      <div class="d-flex ga-2">
+        <v-btn
+          variant="outlined"
+          prepend-icon="mdi-database-arrow-down-outline"
+          :href="backupUrl"
+          data-testid="download-backup"
+        >
+          {{ t('backup.download') }}
+        </v-btn>
+        <v-btn
+          variant="outlined"
+          prepend-icon="mdi-logout"
+          data-testid="sign-out"
+          @click="signOut"
+        >
+          {{ t('signIn.signOut') }}
+        </v-btn>
+      </div>
     </div>
 
     <PollForm />
 
     <v-alert
-      v-if="polls.polls.length === 0 && !polls.loading"
+      v-if="storageUnavailable"
+      type="warning"
+      data-testid="storage-unavailable"
+    >
+      {{ t('storage.unavailable') }}
+    </v-alert>
+
+    <v-alert
+      v-else-if="polls.polls.length === 0 && !polls.loading"
       type="info"
       data-testid="poll-list-empty"
     >
@@ -140,6 +174,14 @@ async function confirmDelete() {
           @click="toggleResults(poll.id)"
         >
           {{ t('results.title') }}
+        </v-btn>
+        <v-btn
+          variant="tonal"
+          prepend-icon="mdi-code-json"
+          :href="exportUrl(poll.id)"
+          data-testid="export-poll"
+        >
+          {{ t('export.poll') }}
         </v-btn>
         <v-spacer />
         <v-btn

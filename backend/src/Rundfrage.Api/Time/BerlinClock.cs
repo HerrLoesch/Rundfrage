@@ -45,8 +45,16 @@ public sealed class BerlinClock(TimeProvider timeProvider)
         }
     }
 
-    /// <summary>The current instant. Exposed so callers need no second time source.</summary>
-    public DateTimeOffset Now => timeProvider.GetUtcNow();
+    /// <summary>
+    /// The current instant, in UTC. Exposed so callers need no second time source.
+    /// </summary>
+    /// <remarks>
+    /// A <see cref="DateTime"/> rather than a <see cref="DateTimeOffset"/> because this value is
+    /// compared against stored instants, and the storage provider translates neither a comparison
+    /// nor an ordering on <c>DateTimeOffset</c> (003 research.md R-1). Nothing is lost: every
+    /// instant here was always UTC, so the offset carried no information the domain had.
+    /// </remarks>
+    public DateTime Now => timeProvider.GetUtcNow().UtcDateTime;
 
     /// <summary>Today's date as the group experiences it, not as UTC would report it.</summary>
     public DateOnly Today =>
@@ -60,18 +68,18 @@ public sealed class BerlinClock(TimeProvider timeProvider)
     /// day ends at 23:59:59 in this zone. Resolving the offset per instant rather than once means
     /// a summer-time change between the day and the deadline is handled (FR-011b).
     /// </summary>
-    public DateTimeOffset RetentionDeadlineFor(DateOnly lastCandidateDay)
+    public DateTime RetentionDeadlineFor(DateOnly lastCandidateDay)
     {
         var endOfDay = lastCandidateDay.ToDateTime(TimeOnly.MinValue).AddDays(1);
         var endOfDayUtc = TimeZoneInfo.ConvertTimeToUtc(
             DateTime.SpecifyKind(endOfDay, DateTimeKind.Unspecified), Zone);
 
-        return new DateTimeOffset(endOfDayUtc, TimeSpan.Zero) + RetentionPeriod;
+        return endOfDayUtc + RetentionPeriod;
     }
 
     /// <summary>
     /// FR-039b: expiry takes effect on access, so this is asked on every read rather than being
     /// written into a status column that would be wrong until a job caught up.
     /// </summary>
-    public bool HasPassed(DateTimeOffset deadline) => timeProvider.GetUtcNow() > deadline;
+    public bool HasPassed(DateTime deadline) => Now > deadline;
 }

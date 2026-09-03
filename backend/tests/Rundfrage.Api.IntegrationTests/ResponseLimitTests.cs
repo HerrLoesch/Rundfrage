@@ -10,7 +10,7 @@ using Rundfrage.Api.Security;
 namespace Rundfrage.Api.IntegrationTests;
 
 /// <summary>FR-027a and FR-015a: the two ways a submission can be refused.</summary>
-public class ResponseLimitTests(PostgresFixture postgres) : IClassFixture<PostgresFixture>
+public class ResponseLimitTests(SqliteFixture storage) : IClassFixture<SqliteFixture>
 {
     private static async Task<(string Token, Guid PollId, Guid[] DayIds)> CreatePollAsync(ApiFactory factory)
     {
@@ -33,7 +33,7 @@ public class ResponseLimitTests(PostgresFixture postgres) : IClassFixture<Postgr
     public async Task The_eleventh_submission_within_an_hour_is_refused_with_a_retry_hint()
     {
         // FR-027a, FR-027c, SC-020.
-        using var factory = new ApiFactory(postgres.ConnectionString);
+        using var factory = new ApiFactory(storage.DataDirectory);
         var (token, _, dayIds) = await CreatePollAsync(factory);
         var anonymous = factory.CreateClient();
 
@@ -63,7 +63,7 @@ public class ResponseLimitTests(PostgresFixture postgres) : IClassFixture<Postgr
     public async Task A_refused_submission_stores_nothing()
     {
         // FR-027c: never accept and then discard.
-        using var factory = new ApiFactory(postgres.ConnectionString);
+        using var factory = new ApiFactory(storage.DataDirectory);
         var (token, pollId, dayIds) = await CreatePollAsync(factory);
         var anonymous = factory.CreateClient();
 
@@ -87,7 +87,7 @@ public class ResponseLimitTests(PostgresFixture postgres) : IClassFixture<Postgr
     public async Task Nothing_about_the_request_source_is_ever_stored()
     {
         // FR-027b and FR-042, SC-021: the limiter sees the source, the database never does.
-        using var factory = new ApiFactory(postgres.ConnectionString);
+        using var factory = new ApiFactory(storage.DataDirectory);
         var (token, pollId, dayIds) = await CreatePollAsync(factory);
 
         await factory.CreateClient().PostAsJsonAsync($"/api/v1/polls/{token}/responses", new
@@ -102,7 +102,8 @@ public class ResponseLimitTests(PostgresFixture postgres) : IClassFixture<Postgr
         await connection.OpenAsync();
         await using var command = connection.CreateCommand();
         command.CommandText =
-            "SELECT lower(column_name) FROM information_schema.columns WHERE table_schema = 'public'";
+            "SELECT lower(c.name) FROM sqlite_master m JOIN pragma_table_info(m.name) c "
+            + "WHERE m.type = 'table' AND m.name NOT LIKE 'sqlite_%'";
 
         var columns = new List<string>();
         await using (var reader = await command.ExecuteReaderAsync())
@@ -124,7 +125,7 @@ public class ResponseLimitTests(PostgresFixture postgres) : IClassFixture<Postgr
     {
         // FR-015a. The rows are inserted directly - driving 1000 HTTP submissions would take
         // minutes and would hit the rate limit long before the cap.
-        using var factory = new ApiFactory(postgres.ConnectionString);
+        using var factory = new ApiFactory(storage.DataDirectory);
         var (token, pollId, dayIds) = await CreatePollAsync(factory);
 
         using (var scope = factory.Services.CreateScope())
@@ -136,7 +137,7 @@ public class ResponseLimitTests(PostgresFixture postgres) : IClassFixture<Postgr
                 PollId = pollId,
                 DisplayName = $"Person {i}",
                 EditToken = CapabilityToken.Mint(),
-                SubmittedAt = DateTimeOffset.UtcNow,
+                SubmittedAt = DateTime.UtcNow,
             }));
             await db.SaveChangesAsync();
         }

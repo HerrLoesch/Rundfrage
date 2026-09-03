@@ -8,8 +8,6 @@ using Rundfrage.Api.Retention;
 using Rundfrage.Api.Polls;
 using Rundfrage.Api.Security;
 using Rundfrage.Api.Time;
-using Rundfrage.Api.Diagnostics;
-using Rundfrage.Api.Endpoints;
 using Rundfrage.Api.Observability;
 using Serilog;
 
@@ -38,13 +36,15 @@ Log.Logger = logger;
 builder.Logging.ClearProviders();
 builder.Host.UseSerilog(logger, dispose: true);
 
-// --- Data access (FR-008, research.md R-3) -------------------------------------------------
-// Timeout=2 in the connection string bounds connection establishment; the probe adds a
-// CancellationToken for the whole operation. No global retry strategy - see RundfrageDbContext.
-var connectionString = builder.Configuration.GetConnectionString("Default")
-                       ?? "Host=localhost;Port=5432;Database=rundfrage;Username=rundfrage;Password=rundfrage_dev;Timeout=2";
-builder.Services.AddDbContext<RundfrageDbContext>(options => options.UseNpgsql(connectionString));
-builder.Services.AddScoped<DatabaseProbe>();
+// --- Data access (003 FR-002, FR-007, research.md R-1) -------------------------------------
+// One file in one directory. StorageSetup applies the three settings that carry requirements -
+// journal mode, durability level and busy timeout - to every connection, which is why they live
+// in one interceptor rather than in a connection string that only some callers use.
+var dataDirectory = StorageLocation.DirectoryFrom(builder.Configuration);
+builder.Services.AddDbContext<RundfrageDbContext>(options => options
+    .UseSqlite(StorageLocation.ConnectionStringFor(dataDirectory))
+    .AddInterceptors(StorageSetup.Interceptor));
+builder.Services.AddSingleton(new StorageDirectory(dataDirectory));
 
 // --- Time (FR-011a) ------------------------------------------------------------------------
 // One authority for every day boundary. Requires zone data in the runtime image - the Alpine
@@ -58,6 +58,8 @@ builder.Services.AddSingleton<BerlinClock>();
 builder.Services.AddSingleton(AdminAccount.FromConfiguration(builder.Configuration));
 builder.Services.AddSingleton<SignInThrottle>();
 
+builder.Services.AddScoped<BackupService>();
+builder.Services.AddScoped<PollExport>();
 builder.Services.AddScoped<PollService>();
 builder.Services.AddScoped<ResponseService>();
 builder.Services.AddScoped<ResultsProjection>();
@@ -103,6 +105,8 @@ var app = builder.Build();
 // --- Schema (FR-013) -----------------------------------------------------------------------
 // Applied with bounded retries. On final failure the host still starts and the status endpoint
 // reports the database as unreachable, because FR-011 requires the page to stay usable.
+StorageSetup.PrepareDirectory(dataDirectory, app.Services.GetRequiredService<ILogger<Program>>());
+
 await using (var scope = app.Services.CreateAsyncScope())
 {
     await DatabaseStartup.ApplyMigrationsAsync(
@@ -110,6 +114,9 @@ await using (var scope = app.Services.CreateAsyncScope())
         app.Services.GetRequiredService<ILogger<Program>>(),
         CancellationToken.None);
 }
+
+// FR-007a. After the schema, because that is when the file first exists.
+StorageSetup.SecureFile(dataDirectory, app.Services.GetRequiredService<ILogger<Program>>());
 
 // --- Routing (FR-006a) ---------------------------------------------------------------------
 // Everything under /api/v1 is the API; everything else belongs to the web application, so the
@@ -119,8 +126,6 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 var api = app.MapGroup("/api/v1");
-api.MapMessageEndpoint();
-api.MapStatusEndpoint();
 
 // --- Participant routes (Principle I) -------------------------------------------------------
 // No session, no account, no email. The token in the path is the authorisation.
@@ -134,6 +139,7 @@ api.MapResponseEndpoints();
 var admin = api.MapGroup("/admin").RequireAuthorization();
 admin.MapSignInEndpoints();
 admin.MapPollAdminEndpoints();
+admin.MapBackupEndpoint();
 
 app.UseDefaultFiles();
 app.UseStaticFiles();

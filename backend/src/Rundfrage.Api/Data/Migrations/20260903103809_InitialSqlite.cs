@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace Rundfrage.Api.Data.Migrations
 {
     /// <inheritdoc />
-    public partial class DatePoll : Migration
+    public partial class InitialSqlite : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -15,12 +15,12 @@ namespace Rundfrage.Api.Data.Migrations
                 name: "Polls",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    Title = table.Column<string>(type: "character varying(300)", maxLength: 300, nullable: false),
-                    Message = table.Column<string>(type: "character varying(2000)", maxLength: 2000, nullable: true),
-                    ParticipantToken = table.Column<string>(type: "character varying(22)", maxLength: 22, nullable: false),
-                    CreatedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
-                    RetentionDeadline = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false)
+                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
+                    Title = table.Column<string>(type: "TEXT", maxLength: 300, nullable: false),
+                    Message = table.Column<string>(type: "TEXT", maxLength: 2000, nullable: true),
+                    ParticipantToken = table.Column<string>(type: "TEXT", maxLength: 22, nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
+                    RetentionDeadline = table.Column<DateTime>(type: "TEXT", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -31,9 +31,9 @@ namespace Rundfrage.Api.Data.Migrations
                 name: "CandidateDays",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    PollId = table.Column<Guid>(type: "uuid", nullable: false),
-                    Date = table.Column<DateOnly>(type: "date", nullable: false)
+                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
+                    PollId = table.Column<Guid>(type: "TEXT", nullable: false),
+                    Date = table.Column<DateOnly>(type: "TEXT", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -50,11 +50,11 @@ namespace Rundfrage.Api.Data.Migrations
                 name: "Responses",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    PollId = table.Column<Guid>(type: "uuid", nullable: false),
-                    DisplayName = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
-                    EditToken = table.Column<string>(type: "character varying(22)", maxLength: 22, nullable: false),
-                    SubmittedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false)
+                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
+                    PollId = table.Column<Guid>(type: "TEXT", nullable: false),
+                    DisplayName = table.Column<string>(type: "TEXT", maxLength: 100, nullable: false),
+                    EditToken = table.Column<string>(type: "TEXT", maxLength: 22, nullable: false),
+                    SubmittedAt = table.Column<DateTime>(type: "TEXT", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -71,9 +71,9 @@ namespace Rundfrage.Api.Data.Migrations
                 name: "DayAnswers",
                 columns: table => new
                 {
-                    ResponseId = table.Column<Guid>(type: "uuid", nullable: false),
-                    CandidateDayId = table.Column<Guid>(type: "uuid", nullable: false),
-                    Availability = table.Column<int>(type: "integer", nullable: false)
+                    ResponseId = table.Column<Guid>(type: "TEXT", nullable: false),
+                    CandidateDayId = table.Column<Guid>(type: "TEXT", nullable: false),
+                    Availability = table.Column<int>(type: "INTEGER", nullable: false)
                 },
                 constraints: table =>
                 {

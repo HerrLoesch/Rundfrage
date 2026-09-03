@@ -40,10 +40,18 @@ WORKDIR /app
 # carry zone data, so nothing outside this image can catch the omission (research.md R-6).
 RUN apk add --no-cache tzdata
 
+# The data directory, owned by the account the application runs as (003 FR-007a). Created here
+# rather than left to the first start so that the ownership is right even when a named volume is
+# mounted over it - Docker copies the image's ownership onto a fresh volume, and a directory that
+# first appears at runtime would belong to root.
+RUN mkdir -p /data && chown $APP_UID:$APP_UID /data && chmod 700 /data
+
 # Run as the non-root user the base image provides.
 USER $APP_UID
 
 COPY --from=backend /app/publish ./
+
+ENV DATA_DIR=/data
 
 EXPOSE 8080
 ENV ASPNETCORE_HTTP_PORTS=8080

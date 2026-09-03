@@ -4,7 +4,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
-using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Rundfrage.Api.Data;
 
 #nullable disable
@@ -12,30 +11,26 @@ using Rundfrage.Api.Data;
 namespace Rundfrage.Api.Data.Migrations
 {
     [DbContext(typeof(RundfrageDbContext))]
-    [Migration("20260902200534_DatePoll")]
-    partial class DatePoll
+    [Migration("20260903103809_InitialSqlite")]
+    partial class InitialSqlite
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
-            modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.11")
-                .HasAnnotation("Relational:MaxIdentifierLength", 63);
-
-            NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
+            modelBuilder.HasAnnotation("ProductVersion", "10.0.11");
 
             modelBuilder.Entity("Rundfrage.Api.Data.Entities.CandidateDay", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("TEXT");
 
                     b.Property<DateOnly>("Date")
-                        .HasColumnType("date");
+                        .HasColumnType("TEXT");
 
                     b.Property<Guid>("PollId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("TEXT");
 
                     b.HasKey("Id");
 
@@ -48,13 +43,13 @@ namespace Rundfrage.Api.Data.Migrations
             modelBuilder.Entity("Rundfrage.Api.Data.Entities.DayAnswer", b =>
                 {
                     b.Property<Guid>("ResponseId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("TEXT");
 
                     b.Property<Guid>("CandidateDayId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("TEXT");
 
                     b.Property<int>("Availability")
-                        .HasColumnType("integer");
+                        .HasColumnType("INTEGER");
 
                     b.HasKey("ResponseId", "CandidateDayId");
 
@@ -67,27 +62,27 @@ namespace Rundfrage.Api.Data.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("TEXT");
 
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("Message")
                         .HasMaxLength(2000)
-                        .HasColumnType("character varying(2000)");
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("ParticipantToken")
                         .IsRequired()
                         .HasMaxLength(22)
-                        .HasColumnType("character varying(22)");
+                        .HasColumnType("TEXT");
 
-                    b.Property<DateTimeOffset>("RetentionDeadline")
-                        .HasColumnType("timestamp with time zone");
+                    b.Property<DateTime>("RetentionDeadline")
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("Title")
                         .IsRequired()
                         .HasMaxLength(300)
-                        .HasColumnType("character varying(300)");
+                        .HasColumnType("TEXT");
 
                     b.HasKey("Id");
 
@@ -103,23 +98,23 @@ namespace Rundfrage.Api.Data.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("DisplayName")
                         .IsRequired()
                         .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("EditToken")
                         .IsRequired()
                         .HasMaxLength(22)
-                        .HasColumnType("character varying(22)");
+                        .HasColumnType("TEXT");
 
                     b.Property<Guid>("PollId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("TEXT");
 
-                    b.Property<DateTimeOffset>("SubmittedAt")
-                        .HasColumnType("timestamp with time zone");
+                    b.Property<DateTime>("SubmittedAt")
+                        .HasColumnType("TEXT");
 
                     b.HasKey("Id");
 

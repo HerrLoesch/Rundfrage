@@ -4,8 +4,6 @@ import { mountComponent, de } from '../support/mount'
 vi.mock('../../src/api/client', () => ({
   signIn: vi.fn(),
   signOut: vi.fn(),
-  fetchMessage: vi.fn(),
-  fetchDatabaseStatus: vi.fn(),
   listPolls: vi.fn(),
   createPoll: vi.fn(),
 }))

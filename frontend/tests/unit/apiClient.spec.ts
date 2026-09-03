@@ -1,5 +1,12 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { fetchMessage, fetchDatabaseStatus, listPolls, createPoll, signIn, signOut } from '../../src/api/client'
+import {
+  backupUrl,
+  createPoll,
+  exportUrl,
+  listPolls,
+  signIn,
+  signOut,
+} from '../../src/api/client'
 
 /**
  * The API client itself, exercised against a stubbed `fetch` rather than being mocked away.
@@ -34,16 +41,28 @@ describe('api client', () => {
 
   it('targets the versioned prefix on the same origin', async () => {
     // FR-003a and FR-006a: relative paths only, so the browser never leaves the origin.
-    respond(200, { message: 'x' })
-    await fetchMessage()
+    respond(200, [])
+    await listPolls()
 
-    expect(requestedUrl()).toBe('/api/v1/message')
+    expect(requestedUrl()).toBe('/api/v1/admin/polls')
     expect(requestedUrl().startsWith('http')).toBe(false)
   })
 
   it.each([
-    ['fetchMessage', () => fetchMessage()],
-    ['fetchDatabaseStatus', () => fetchDatabaseStatus()],
+    ['the backup', backupUrl],
+    ['an export', exportUrl('p1')],
+  ])('addresses %s on the same origin too', (_name, url) => {
+    // 003 FR-003, FR-013. These are navigations rather than fetches, so no stubbed fetch can
+    // catch a mistake here - an absolute URL would silently send the session cookie somewhere
+    // else, or fail because it does not.
+    expect(url.startsWith('/api/v1/')).toBe(true)
+  })
+
+  it('escapes the poll id in an export address', () => {
+    expect(exportUrl('a/b')).toBe('/api/v1/admin/polls/a%2Fb/export')
+  })
+
+  it.each([
     ['listPolls', () => listPolls()],
     ['createPoll', () => createPoll('t', null, ['2026-11-20'])],
     ['signIn', () => signIn('u', 'p')],

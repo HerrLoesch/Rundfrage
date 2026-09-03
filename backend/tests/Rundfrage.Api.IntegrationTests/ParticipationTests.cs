@@ -11,9 +11,9 @@ namespace Rundfrage.Api.IntegrationTests;
 /// User Story 2. This is where Principle I stops being a promise the constitution makes and
 /// becomes behaviour a test proves.
 /// </summary>
-public class ParticipationTests(PostgresFixture postgres) : IClassFixture<PostgresFixture>
+public class ParticipationTests(SqliteFixture storage) : IClassFixture<SqliteFixture>
 {
-    private ApiFactory NewFactory() => new(postgres.ConnectionString);
+    private ApiFactory NewFactory() => new(storage.DataDirectory);
 
     private static async Task<(string Token, Guid[] DayIds)> CreatePollAsync(
         ApiFactory factory, params string[] days)
@@ -101,7 +101,7 @@ public class ParticipationTests(PostgresFixture postgres) : IClassFixture<Postgr
             var db = scope.ServiceProvider.GetRequiredService<RundfrageDbContext>();
             await db.Polls.Where(p => p.ParticipantToken == token)
                 .ExecuteUpdateAsync(s => s.SetProperty(
-                    p => p.RetentionDeadline, DateTimeOffset.UtcNow.AddSeconds(-1)));
+                    p => p.RetentionDeadline, DateTime.UtcNow.AddSeconds(-1)));
         }
 
         var anonymous = factory.CreateClient();
@@ -236,7 +236,7 @@ public class ParticipationTests(PostgresFixture postgres) : IClassFixture<Postgr
             var db = scope.ServiceProvider.GetRequiredService<RundfrageDbContext>();
             await db.Polls.Where(p => p.ParticipantToken == token)
                 .ExecuteUpdateAsync(s => s.SetProperty(
-                    p => p.RetentionDeadline, DateTimeOffset.UtcNow.AddSeconds(-1)));
+                    p => p.RetentionDeadline, DateTime.UtcNow.AddSeconds(-1)));
         }
 
         var anonymous = factory.CreateClient();

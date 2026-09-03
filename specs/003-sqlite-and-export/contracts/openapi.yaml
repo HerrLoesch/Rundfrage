@@ -1,0 +1,233 @@
+openapi: 3.1.0
+info:
+  title: Rundfrage API
+  version: "3.0.0"
+  description: |
+    Feature 003 changes the API in three ways. Two endpoints are **removed**, two are **added**,
+    and everything else is untouched — the storage swap is invisible from here, which is the point.
+
+    **Removed** (feature 001's walking skeleton, retired):
+      - `GET /message` — existed only to prove data reached the page during scaffolding
+      - `GET /status/database` — existed only to feed the diagnostic page
+
+    Both are gone rather than deprecated. An endpoint nothing reads is code that still has to be
+    maintained, secured, and covered by the admin-authorisation assertions.
+
+    **Added** (both creator-only, behind the existing session requirement):
+      - `GET /admin/polls/{pollId}/export` — one poll as JSON
+      - `GET /admin/backup` — a consistent copy of the storage, taken while running
+
+    **Unchanged**: every participant path, every other admin path, the neutral not-found, and the
+    authorisation rule that everything under `/admin` refuses without a session.
+
+servers:
+  - url: /api/v1
+    description: Same origin as the web application.
+
+tags:
+  - name: participant
+    description: Requires no account, no session, no email. Unchanged by this feature.
+  - name: admin
+    description: Requires the operator session cookie.
+
+paths:
+  /admin/polls/{pollId}/export:
+    get:
+      operationId: exportPoll
+      tags: [admin]
+      summary: Download one poll as JSON
+      description: |
+        Produces the poll and every answer to it as one JSON document (FR-013, FR-014).
+
+        **Carries no token of any kind** (FR-015). The participant token grants the right to
+        answer and a response's edit token grants the right to change that answer; a file handed
+        to someone carrying either would give away that capability. This is verified by scanning a
+        produced document against the tokens actually held in storage, not by reading the
+        serialiser.
+
+        An unanswered day is **absent** from a response's answers rather than carrying a
+        placeholder — the same meaning absence has in storage, so the export does not claim
+        something was recorded that never was.
+
+        The document is valid JSON that parses without repair and uses the API's own answer
+        tokens (FR-016). It is internally consistent — never a half-written response (FR-019),
+        which is why it is read inside one transaction rather than assembled from several.
+
+        Produced on demand and never persisted (FR-021).
+      parameters:
+        - $ref: "#/components/parameters/PollId"
+      responses:
+        "200":
+          description: The export.
+          headers:
+            Content-Disposition:
+              description: |
+                Names the poll and the moment of export, so several exports can share a folder
+                without overwriting each other (FR-021a).
+              schema: { type: string }
+              example: 'attachment; filename="grillabend-2026-09-03T101500Z.json"'
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PollExport" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /admin/backup:
+    get:
+      operationId: downloadBackup
+      tags: [admin]
+      summary: Download a consistent copy of the storage
+      description: |
+        Produces a complete, self-contained copy of the storage **while the system is running**
+        (FR-003, FR-003a), and restoring it elsewhere reproduces the same polls and answers.
+
+        **Why this endpoint exists at all.** Copying the storage file by hand is not a backup
+        while the system is running. Measured: the copy is silently short — by a few answers, or
+        by all of them including the schema, depending on how much has been folded back into the
+        main file at that instant. Stopping the system first makes the copy complete, and also
+        makes backups something one avoids doing. The failure surfaces only on restore, which
+        makes it the worst kind; FR-003b documents the hand-copy route as unsupported for exactly
+        this reason.
+
+        The copy is internally consistent: it contains a response completely or not at all, never
+        half of one.
+
+        Restoring means putting the file in place and starting the system. Nothing here reads a
+        backup back in.
+      responses:
+        "200":
+          description: The backup artefact — one file, complete on its own.
+          headers:
+            Content-Disposition:
+              schema: { type: string }
+              example: 'attachment; filename="rundfrage-2026-09-03T101500Z.db"'
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "503":
+          description: |
+            Storage could not be reached, so no backup could be produced. The application keeps
+            running and answering (FR-024); this one request cannot be served.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Problem" }
+
+components:
+  parameters:
+    PollId:
+      name: pollId
+      in: path
+      required: true
+      description: Internal identifier. Admin routes only — never appears in a participant link.
+      schema: { type: string, format: uuid }
+
+  responses:
+    NotFound:
+      description: |
+        The single neutral not-found, unchanged from feature 002. Returned identically for an
+        unknown, malformed, expired or deleted poll.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Problem" }
+          example: { code: "not_found" }
+    Unauthorized:
+      description: |
+        No valid operator session. An export is refused exactly as every other admin function is
+        (FR-017) — the same refusal, not a softer one because the data is "only" a download.
+        Discloses nothing about what exists.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Problem" }
+          example: { code: "unauthorized" }
+
+  schemas:
+    Availability:
+      type: string
+      enum: ["yes", "maybe", "no"]
+      description: |
+        The same three values the rest of the API uses, deliberately (FR-016). A second vocabulary for the
+        export would be two things to keep in step. There is no fourth value: an unanswered day is
+        an absent entry.
+
+    PollExport:
+      type: object
+      required: [formatVersion, exportedAt, poll, responses]
+      additionalProperties: false
+      properties:
+        formatVersion:
+          type: integer
+          minimum: 1
+          description: |
+            Additive changes stay within a version; removing a field, renaming one, or changing
+            what an existing one means raises it (FR-020b). This is a signal, not a promise of
+            permanence — nothing commits to supporting an older version (FR-020c).
+          example: 1
+        exportedAt:
+          type: string
+          format: date-time
+          description: When this document was produced, so a file found later can be placed in time.
+        poll:
+          $ref: "#/components/schemas/ExportedPoll"
+        responses:
+          type: array
+          description: Empty for a poll nobody has answered — a valid export, not an error (FR-018).
+          items: { $ref: "#/components/schemas/ExportedResponse" }
+
+    ExportedPoll:
+      type: object
+      required: [title, days]
+      additionalProperties: false
+      description: |
+        Carries no participant token. The link is a capability, not a property of the poll worth
+        recording in a file that gets passed around.
+      properties:
+        title: { type: string }
+        message: { type: string, nullable: true }
+        days:
+          type: array
+          description: Chronological, regardless of the order they were selected.
+          items:
+            type: object
+            required: [date]
+            additionalProperties: false
+            properties:
+              date: { type: string, format: date }
+
+    ExportedResponse:
+      type: object
+      required: [displayName, answers]
+      additionalProperties: false
+      description: |
+        Carries no edit token. That token is the capability to change this answer; putting it in a
+        downloadable file would hand that capability to whoever receives the file.
+      properties:
+        displayName:
+          type: string
+          description: A label, never an identity — as everywhere else in the system.
+        answers:
+          type: array
+          description: |
+            Only days this participant actually answered. A day absent here was not answered;
+            absence is the state, exactly as it is in storage.
+          items:
+            type: object
+            required: [date, availability]
+            additionalProperties: false
+            properties:
+              date:
+                type: string
+                format: date
+                description: |
+                  The day itself rather than an internal identifier. An export outlives the system
+                  that produced it, and an opaque id would make it unreadable on its own.
+              availability: { $ref: "#/components/schemas/Availability" }
+
+    Problem:
+      type: object
+      required: [code]
+      additionalProperties: false
+      properties:
+        code:
+          type: string
+          enum: [not_found, unauthorized, storage_unavailable]

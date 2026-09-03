@@ -133,3 +133,4 @@ describe('AnswerForm submit wiring', () => {
     expect(wrapper.vm.$options.emits).toContain('submit')
   })
 })
+

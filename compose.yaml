@@ -1,8 +1,9 @@
-# Exactly two services (FR-003, SC-010): the application - which serves both the API and the
-# built web assets from one origin - and the database.
+# One service (003 FR-001, SC-001): the application, which serves both the API and the built web
+# assets from one origin. The database container is gone with the database - all persistent state
+# is one file in the mounted volume below (003 FR-002).
 #
-# Every value has an inline default, so `docker compose up` works on a fresh clone with no
-# .env file and no manual setup step (FR-001, SC-002, research.md R-11).
+# Every value has an inline default, so `docker compose up` works on a fresh clone with no .env
+# file and no manual setup step (001 FR-001, 003 SC-003).
 
 services:
   app:
@@ -12,46 +13,29 @@ services:
     ports:
       - "${APP_PORT:-8080}:8080"
     environment:
-      ConnectionStrings__Default: >-
-        Host=db;Port=5432;Database=${POSTGRES_DB:-rundfrage};Username=${POSTGRES_USER:-rundfrage};Password=${POSTGRES_PASSWORD:-rundfrage_dev};Timeout=2
+      # Where the storage file lives inside the container. The volume below is mounted here, so
+      # the data survives `docker compose down` and is copied by copying the volume.
+      DATA_DIR: ${DATA_DIR:-/data}
       LOG_LEVEL: ${LOG_LEVEL:-Information}
       # FR-027a's ten per hour is the default. Raised only for end-to-end runs, which submit
       # far more than that from one machine; leave it unset for anything resembling production.
       SUBMISSION_LIMIT_PER_HOUR: ${SUBMISSION_LIMIT_PER_HOUR:-10}
       # Deliberately WITHOUT defaults. Feature 001 could start on built-in values because it
-      # exposed nothing; an admin area that creates polls must not (FR-045, FR-045a).
+      # exposed nothing; an admin area that creates polls must not (002 FR-045, FR-045a).
       #
       # Passed through empty rather than declared required here: the refusal belongs to the
-      # application (SC-015), so that `docker compose config` stays usable and the failure
+      # application (002 SC-015), so that `docker compose config` stays usable and the failure
       # arrives as one clear application error instead of a substitution error.
       ADMIN_USER: ${ADMIN_USER:-}
       ADMIN_PASSWORD_HASH: ${ADMIN_PASSWORD_HASH:-}
-    # Start-order only - deliberately NOT `condition: service_healthy`. Gating startup on the
-    # database would make the "database down" path untestable, since stopping the database
-    # would stop the application instead of producing the required failure display
-    # (FR-011, acceptance scenario 2.2, research.md R-6).
-    depends_on:
-      - db
-    restart: unless-stopped
-
-  db:
-    image: postgres:17-alpine
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER:-rundfrage}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-rundfrage_dev}
-      POSTGRES_DB: ${POSTGRES_DB:-rundfrage}
-    # Not used to gate the app (see above); it exists so test tooling can wait for readiness
-    # deterministically instead of sleeping.
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-rundfrage} -d ${POSTGRES_DB:-rundfrage}"]
-      interval: 2s
-      timeout: 3s
-      retries: 15
-      start_period: 3s
     volumes:
-      # Named volume so contents survive stop and restart (FR-004, SC-009).
-      - rundfrage-db-data:/var/lib/postgresql/data
+      # Named volume so the storage survives stop and restart (003 FR-006).
+      #
+      # Take backups through the admin area, not by copying the file out of here: while the
+      # system is running, a copy of the main file alone is silently short - sometimes by a few
+      # answers, sometimes by every one of them including the schema (003 FR-003b, research R-3).
+      - rundfrage-data:/data
     restart: unless-stopped
 
 volumes:
-  rundfrage-db-data:
+  rundfrage-data:

@@ -17,7 +17,7 @@ public sealed class Poll
     /// <summary>The participant capability (FR-016). Unique and indexed - it is the lookup key.</summary>
     public required string ParticipantToken { get; set; }
 
-    public DateTimeOffset CreatedAt { get; set; }
+    public DateTime CreatedAt { get; set; }
 
     /// <summary>
     /// Computed once at creation from the last candidate day (FR-039a) so the value shown to the
@@ -28,7 +28,7 @@ public sealed class Poll
     /// comparing this to the current instant on every access (FR-039b); a stored flag would be
     /// wrong for as long as its writer lagged behind the deadline.
     /// </remarks>
-    public DateTimeOffset RetentionDeadline { get; set; }
+    public DateTime RetentionDeadline { get; set; }
 
     public List<CandidateDay> Days { get; set; } = [];
 

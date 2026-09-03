@@ -13,11 +13,11 @@ namespace Rundfrage.Api.IntegrationTests;
 /// of the deletion confirmation, so a wrong count would tell someone "0 responses will be
 /// destroyed" while destroying five hundred.
 /// </summary>
-public class PollListingTests(PostgresFixture postgres) : IClassFixture<PostgresFixture>
+public class PollListingTests(SqliteFixture storage) : IClassFixture<SqliteFixture>
 {
     private async Task<(ApiFactory Factory, HttpClient Client)> SignedInAsync()
     {
-        var factory = new ApiFactory(postgres.ConnectionString);
+        var factory = new ApiFactory(storage.DataDirectory);
         var client = await factory.CreateSignedInClientAsync();
         return (factory, client);
     }
@@ -37,7 +37,7 @@ public class PollListingTests(PostgresFixture postgres) : IClassFixture<Postgres
                 PollId = pollId,
                 DisplayName = $"Person {i}",
                 EditToken = CapabilityToken.Mint(),
-                SubmittedAt = DateTimeOffset.UtcNow,
+                SubmittedAt = DateTime.UtcNow,
             });
         }
 
@@ -98,7 +98,7 @@ public class PollListingTests(PostgresFixture postgres) : IClassFixture<Postgres
             var db = scope.ServiceProvider.GetRequiredService<RundfrageDbContext>();
             await db.Polls.Where(p => p.Id == pollId)
                 .ExecuteUpdateAsync(s => s.SetProperty(
-                    p => p.RetentionDeadline, DateTimeOffset.UtcNow.AddSeconds(-1)));
+                    p => p.RetentionDeadline, DateTime.UtcNow.AddSeconds(-1)));
         }
 
         var listing = await client.GetFromJsonAsync<JsonElement>("/api/v1/admin/polls");

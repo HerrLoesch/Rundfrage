@@ -19,7 +19,7 @@
 
 **Language/Version**: [C# on .NET LTS + TypeScript/JavaScript for Vue 3 — record exact versions]  
 **Primary Dependencies**: [Vue 3, Vuetify, Pinia, Vite; ASP.NET Core Web API — record exact versions]  
-**Storage**: [PostgreSQL, self-hosted — record version and schema/migration approach]  
+**Storage**: [SQLite, single file on a mounted volume — record the schema/migration approach]  
 **Testing**: [Vitest + Vue Test Utils, xUnit, Playwright — per constitution]  
 **Logging**: [Serilog, structured to stdout — per constitution]  
 **Target Platform**: [Linux server backend + modern browsers for the participant flow]
@@ -32,7 +32,7 @@
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-Check each gate against `.specify/memory/constitution.md` (v1.1.0). Any unchecked box
+Check each gate against `.specify/memory/constitution.md` (v2.0.0). Any unchecked box
 requires a justified row in Complexity Tracking below.
 
 - [ ] **I. Zero-Signup Participation**: No step is added between a survey link and the
@@ -46,7 +46,7 @@ requires a justified row in Complexity Tracking below.
       collected; no third-party assets or trackers; data stays in the self-hosted database;
       retention outcome defined.
 - [ ] **Technology Constraints**: Stays within Vue 3 + Vuetify + Pinia + Vite, ASP.NET Core
-      on .NET LTS, self-hosted PostgreSQL, Serilog, Vitest/xUnit/Playwright.
+      on .NET LTS, SQLite on a mounted volume, Serilog, Vitest/xUnit/Playwright.
 
 ## Project Structure
 

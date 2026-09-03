@@ -12,12 +12,12 @@ namespace Rundfrage.Api.IntegrationTests;
 /// FR-036c and SC-016: the grid has to survive its own maximum - 1000 responses across 100
 /// candidate days is 100,000 cells. This is the sizing case, not an error case.
 /// </summary>
-public class ScaleTests(PostgresFixture postgres) : IClassFixture<PostgresFixture>
+public class ScaleTests(SqliteFixture storage) : IClassFixture<SqliteFixture>
 {
     [Fact]
     public async Task A_poll_at_the_declared_limits_returns_its_first_page_within_five_seconds()
     {
-        using var factory = new ApiFactory(postgres.ConnectionString);
+        using var factory = new ApiFactory(storage.DataDirectory);
         var admin = await factory.CreateSignedInClientAsync();
 
         var days = Enumerable.Range(0, Poll.MaxCandidateDays)
@@ -46,7 +46,7 @@ public class ScaleTests(PostgresFixture postgres) : IClassFixture<PostgresFixtur
                     PollId = pollId,
                     DisplayName = $"Person {i}",
                     EditToken = CapabilityToken.Mint(),
-                    SubmittedAt = DateTimeOffset.UtcNow,
+                    SubmittedAt = DateTime.UtcNow,
                     // Half the days answered, which is the realistic shape and exercises the
                     // absence-is-a-state design at scale.
                     Answers = [.. dayIds.Take(50).Select(d => new DayAnswer

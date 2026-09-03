@@ -6,16 +6,6 @@
 
 const BASE = '/api/v1'
 
-/** Matches DatabaseState in contracts/openapi.yaml. The backend has exactly two states. */
-export type DatabaseState = 'reachable' | 'unreachable'
-
-/** Matches DatabaseStatusResponse in contracts/openapi.yaml. */
-export interface DatabaseStatus {
-  state: DatabaseState
-  checkedAt: string
-  durationMs: number
-}
-
 /** A machine-readable failure from the API. The frontend owns the words (FR-029). */
 export interface ApiProblem {
   code: string
@@ -54,15 +44,6 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 
 async function getJson<T>(path: string): Promise<T> {
   return request<T>(path)
-}
-
-export async function fetchMessage(): Promise<string> {
-  const payload = await getJson<{ message: string }>('/message')
-  return payload.message
-}
-
-export async function fetchDatabaseStatus(): Promise<DatabaseStatus> {
-  return getJson<DatabaseStatus>('/status/database')
 }
 
 // ---------------------------------------------------------------------------------------
@@ -192,4 +173,18 @@ export async function deletePoll(pollId: string): Promise<void> {
 
 export async function deleteResponse(pollId: string, responseId: string): Promise<void> {
   await request<void>(`/admin/polls/${pollId}/responses/${responseId}`, { method: 'DELETE' })
+}
+
+// --- Downloads (003 FR-003, FR-013) -------------------------------------------------------
+// Addresses rather than functions returning data. A download is a navigation: the browser sends
+// the session cookie, reads Content-Disposition and writes the file where the person keeps their
+// files. Fetching the bytes into memory and re-offering them through a blob would mean holding a
+// whole poll - or the whole storage - in the tab, and renaming the file ourselves.
+
+/** The consistent copy of the storage (FR-003). */
+export const backupUrl = `${BASE}/admin/backup`
+
+/** One poll as JSON (FR-013). */
+export function exportUrl(pollId: string): string {
+  return `${BASE}/admin/polls/${encodeURIComponent(pollId)}/export`
 }

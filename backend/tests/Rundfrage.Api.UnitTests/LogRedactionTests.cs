@@ -1,59 +1,86 @@
 using Microsoft.EntityFrameworkCore;
 using Rundfrage.Api.Data;
-using Rundfrage.Api.Diagnostics;
 
 namespace Rundfrage.Api.UnitTests;
 
 /// <summary>
-/// FR-026: no credentials or connection strings in log output, including inside exception
-/// messages. This is research.md R-5 measure 4 - the measure that turns the rule from a
-/// convention into something the suite enforces.
+/// 002 FR-026: a storage failure is logged by exception type, and nothing else about the storage
+/// reaches the log - not the path, not the exception object whose ToString() would carry it.
 /// </summary>
+/// <remarks>
+/// This suite used to point at the connectivity probe, and its example of something that must not
+/// leak was a password inside a connection string. Feature 003 removed the probe with the rest of
+/// the walking skeleton, and there is no password in a connection string any more.
+/// <para>
+/// The requirement did not go away with them, so the suite moved to what still carries it: the
+/// startup path, where a storage failure is caught and reported. What must not leak is now the
+/// storage path - not because it is a credential, but because whoever knows it knows where every
+/// answer lives (FR-007b), and a log is somewhere it has no reason to be.
+/// </para>
+/// </remarks>
 public class LogRedactionTests
 {
-    private const string Password = "sup3r-s3cret-passw0rd";
+    private const string TellTale = "a-directory-name-that-must-not-be-logged";
 
-    private const string ConnectionWithWrongPassword =
-        $"Host=127.0.0.1;Port=59999;Database=rundfrage;Username=rundfrage;Password={Password};Timeout=2";
+    private static readonly string UnusableDirectory =
+        Path.Combine(Path.GetTempPath(), "rundfrage-no-such-place", TellTale, "deeper");
+
+    private static RundfrageDbContext ContextForUnusableStorage() =>
+        new(new DbContextOptionsBuilder<RundfrageDbContext>()
+            .UseSqlite(StorageLocation.ConnectionStringFor(UnusableDirectory))
+            .Options);
 
     [Fact]
-    public async Task Failure_log_contains_neither_the_password_nor_the_connection_string()
+    public async Task A_storage_failure_names_the_exception_type_and_nothing_else()
     {
-        await using var db = new RundfrageDbContext(
-            new DbContextOptionsBuilder<RundfrageDbContext>()
-                .UseNpgsql(ConnectionWithWrongPassword)
-                .Options);
+        await using var db = ContextForUnusableStorage();
+        var logger = new RecordingLogger<RundfrageDbContext>();
 
-        var logger = new RecordingLogger<DatabaseProbe>();
-        var probe = new DatabaseProbe(db, logger);
+        var applied = await DatabaseStartup.ApplyMigrationsAsync(db, logger, CancellationToken.None);
 
-        var status = await probe.CheckAsync();
-
-        Assert.Equal(DatabaseState.Unreachable, status.State);
+        Assert.False(applied);
 
         var logged = logger.AllText;
-        Assert.DoesNotContain(Password, logged);
-        Assert.DoesNotContain("Password=", logged);
-        Assert.DoesNotContain(ConnectionWithWrongPassword, logged);
+        Assert.DoesNotContain(TellTale, logged);
+        Assert.DoesNotContain(UnusableDirectory, logged);
+        Assert.Matches(@"[A-Za-z]+Exception", logged);
     }
 
     [Fact]
-    public async Task Failure_log_does_not_attach_the_raw_exception()
+    public async Task The_raw_exception_is_never_attached_to_the_entry()
     {
-        // Npgsql exception detail is where a connection string would realistically leak.
-        await using var db = new RundfrageDbContext(
-            new DbContextOptionsBuilder<RundfrageDbContext>()
-                .UseNpgsql(ConnectionWithWrongPassword)
-                .Options);
+        // Exception detail is where a path would realistically leak: the message is written
+        // carefully, and then the exception object is handed to the logger beside it and its
+        // ToString() carries everything the careful message left out.
+        await using var db = ContextForUnusableStorage();
+        var logger = new RecordingLogger<RundfrageDbContext>();
 
-        var logger = new RecordingLogger<DatabaseProbe>();
-        var probe = new DatabaseProbe(db, logger);
-
-        await probe.CheckAsync();
+        await DatabaseStartup.ApplyMigrationsAsync(db, logger, CancellationToken.None);
 
         var entry = Assert.Single(logger.Entries);
         Assert.Null(entry.Exception);
-        // The failure must still be identifiable by exception type.
-        Assert.Matches(@"[A-Za-z]+Exception", entry.Message);
+    }
+
+    [Fact]
+    public void Preparing_an_impossible_directory_is_reported_the_same_way()
+    {
+        // The other half of the startup path. It has its own catch, so it needs its own check -
+        // a rule kept in one of two places is a rule that holds until someone uses the other.
+        var blocker = Path.Combine(Path.GetTempPath(), $"rundfrage-blocker-{Guid.NewGuid():n}");
+        File.WriteAllText(blocker, "not a directory");
+
+        try
+        {
+            var logger = new RecordingLogger<RundfrageDbContext>();
+
+            StorageSetup.PrepareDirectory(Path.Combine(blocker, TellTale), logger);
+
+            Assert.DoesNotContain(TellTale, logger.AllText);
+            Assert.Matches(@"[A-Za-z]+Exception", logger.AllText);
+        }
+        finally
+        {
+            File.Delete(blocker);
+        }
     }
 }

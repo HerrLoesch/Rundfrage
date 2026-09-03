@@ -14,7 +14,7 @@ public sealed record PollListItem(
     Guid Id,
     string Title,
     string ParticipantToken,
-    DateTimeOffset RetentionDeadline,
+    DateTime RetentionDeadline,
     int ResponseCount,
     int DayCount);
 

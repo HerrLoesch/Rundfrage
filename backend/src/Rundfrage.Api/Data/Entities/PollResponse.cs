@@ -22,7 +22,7 @@ public sealed class PollResponse
     /// <summary>The capability to revise this response and no other (FR-026, FR-029).</summary>
     public required string EditToken { get; set; }
 
-    public DateTimeOffset SubmittedAt { get; set; }
+    public DateTime SubmittedAt { get; set; }
 
     public List<DayAnswer> Answers { get; set; } = [];
 }

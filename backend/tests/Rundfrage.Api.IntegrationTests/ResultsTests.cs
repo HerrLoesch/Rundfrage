@@ -5,7 +5,7 @@ using System.Text.Json;
 namespace Rundfrage.Api.IntegrationTests;
 
 /// <summary>User Story 3: the grid and the per-day totals (FR-032 to FR-036c).</summary>
-public class ResultsTests(PostgresFixture postgres) : IClassFixture<PostgresFixture>
+public class ResultsTests(SqliteFixture storage) : IClassFixture<SqliteFixture>
 {
     private sealed record Poll(string Token, Guid Id, Guid[] DayIds);
 
@@ -37,7 +37,7 @@ public class ResultsTests(PostgresFixture postgres) : IClassFixture<PostgresFixt
     public async Task Totals_count_only_the_three_answered_states()
     {
         // FR-033: they need not sum to the response count, because *no answer* is not counted.
-        using var factory = new ApiFactory(postgres.ConnectionString);
+        using var factory = new ApiFactory(storage.DataDirectory);
         var poll = await CreatePollAsync(factory, "2026-11-18", "2026-11-20");
 
         await AnswerAsync(factory, poll, "Anna", (poll.DayIds[0], "yes"), (poll.DayIds[1], "no"));
@@ -65,7 +65,7 @@ public class ResultsTests(PostgresFixture postgres) : IClassFixture<PostgresFixt
     public async Task Every_response_appears_as_its_own_row()
     {
         // FR-033a: the row count is what makes the uncounted state legible.
-        using var factory = new ApiFactory(postgres.ConnectionString);
+        using var factory = new ApiFactory(storage.DataDirectory);
         var poll = await CreatePollAsync(factory, "2026-11-18");
 
         await AnswerAsync(factory, poll, "Anna", (poll.DayIds[0], "yes"));
@@ -82,7 +82,7 @@ public class ResultsTests(PostgresFixture postgres) : IClassFixture<PostgresFixt
     public async Task A_row_never_carries_an_edit_token()
     {
         // FR-029: the revision capability belongs to its holder alone.
-        using var factory = new ApiFactory(postgres.ConnectionString);
+        using var factory = new ApiFactory(storage.DataDirectory);
         var poll = await CreatePollAsync(factory, "2026-11-18");
 
         var submitted = await factory.CreateClient().PostAsJsonAsync(
@@ -101,7 +101,7 @@ public class ResultsTests(PostgresFixture postgres) : IClassFixture<PostgresFixt
     public async Task A_poll_without_responses_returns_an_explicit_empty_state()
     {
         // FR-034: an empty grid, not an error and not a blank.
-        using var factory = new ApiFactory(postgres.ConnectionString);
+        using var factory = new ApiFactory(storage.DataDirectory);
         var poll = await CreatePollAsync(factory, "2026-11-18");
 
         var view = await factory.CreateClient().GetFromJsonAsync<JsonElement>($"/api/v1/polls/{poll.Token}");
@@ -116,7 +116,7 @@ public class ResultsTests(PostgresFixture postgres) : IClassFixture<PostgresFixt
     public async Task Rows_are_paged_at_fifty()
     {
         // FR-036c and research.md R-7: 1000 x 100 must stay usable, so rows are paged.
-        using var factory = new ApiFactory(postgres.ConnectionString);
+        using var factory = new ApiFactory(storage.DataDirectory);
         var poll = await CreatePollAsync(factory, "2026-11-18");
 
         for (var i = 0; i < 8; i++)
@@ -134,7 +134,7 @@ public class ResultsTests(PostgresFixture postgres) : IClassFixture<PostgresFixt
     public async Task The_operator_sees_the_same_grid_through_the_admin_route()
     {
         // FR-036: holding the link grants the grid; holding a session grants the admin area.
-        using var factory = new ApiFactory(postgres.ConnectionString);
+        using var factory = new ApiFactory(storage.DataDirectory);
         var poll = await CreatePollAsync(factory, "2026-11-18");
         await AnswerAsync(factory, poll, "Anna", (poll.DayIds[0], "yes"));
 
@@ -151,7 +151,7 @@ public class ResultsTests(PostgresFixture postgres) : IClassFixture<PostgresFixt
     [Fact]
     public async Task An_unknown_poll_id_gives_the_operator_the_same_neutral_not_found()
     {
-        using var factory = new ApiFactory(postgres.ConnectionString);
+        using var factory = new ApiFactory(storage.DataDirectory);
         var admin = await factory.CreateSignedInClientAsync();
 
         var response = await admin.GetAsync("/api/v1/admin/polls/0199a000-0000-7000-8000-000000000000");

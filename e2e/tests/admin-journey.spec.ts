@@ -39,21 +39,20 @@ test.describe('Admin journey (US1)', () => {
     await page.getByTestId('sign-in-submit').click()
   }
 
-  test('the root address leads to the application, not to the diagnostic page', async ({ page }) => {
-    // What a person sees when they open the address from the README. It used to be feature
-    // 001's database-status page: correct as a walking skeleton, wrong as a front door.
+  test('the root address leads to the application', async ({ page }) => {
+    // What a person sees when they open the address from the README.
     await page.goto('/')
 
     await expect(page.getByTestId('sign-in-form')).toBeVisible()
-    await expect(page.getByTestId('database-state')).toHaveCount(0)
   })
 
-  test('the diagnostic page is still reachable at its own address', async ({ page }) => {
-    // FR-007 and FR-010 of feature 001 are still delivered - they moved, they did not go away.
+  test('the diagnostic page is gone, and its address is not a hole', async ({ page }) => {
+    // 003 FR-022. An unknown client-side route still serves the application shell rather than a
+    // broken page - the address simply no longer means anything.
     await page.goto('/status')
 
-    await expect(page.getByTestId('backend-message')).toBeVisible()
-    await expect(page.getByTestId('database-state')).toBeVisible()
+    await expect(page.getByTestId('database-state')).toHaveCount(0)
+    await expect(page.getByTestId('backend-message')).toHaveCount(0)
   })
 
   test('signing in reaches the admin area', async ({ page }) => {

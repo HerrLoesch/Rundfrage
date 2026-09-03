@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Rundfrage.Api.Data;
 using Microsoft.EntityFrameworkCore;
 using Rundfrage.Api.Http;
@@ -53,6 +54,35 @@ public static class PollAdminEndpoints
         })
         .WithName("getPollResults");
 
+        // FR-013: one poll as JSON, creator only - the group requirement covers it, as it
+        // covers every other admin route (002 FR-048).
+        routes.MapGet("/polls/{pollId:guid}/export", async (
+            Guid pollId, RetentionService retention, PollExport export, CancellationToken ct) =>
+        {
+            var poll = await retention.LivePolls()
+                .FirstOrDefaultAsync(p => p.Id == pollId, ct);
+
+            if (poll is null)
+            {
+                return NeutralNotFound.Result();
+            }
+
+            var document = await export.BuildAsync(poll, ct);
+
+            // Serialised here rather than returned as an object, because this is a download and
+            // not an API response: Results.Json cannot set the file name FR-021a asks for, and
+            // Results.File can. Web defaults so the document uses the same casing as everything
+            // else the system emits - an export that disagreed with the API about how a field is
+            // spelled would be a second contract to keep in step.
+            var json = JsonSerializer.SerializeToUtf8Bytes(
+                document, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+
+            return Results.File(
+                json,
+                contentType: "application/json",
+                fileDownloadName: PollExport.FileNameFor(poll.Title, document.ExportedAt));
+        });
+
         routes.MapDelete("/polls/{pollId:guid}", async (
             Guid pollId,
             RundfrageDbContext db,
@@ -107,7 +137,7 @@ public sealed record PollSummary(
     Guid Id,
     string Title,
     string ParticipantToken,
-    DateTimeOffset RetentionDeadline,
+    DateTime RetentionDeadline,
     int ResponseCount,
     int DayCount)
 {

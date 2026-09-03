@@ -22,7 +22,7 @@ public class AdminAuthorizationTests : IDisposable
 {
     private const string AdminPrefix = "/api/v1/admin";
 
-    private readonly ApiFactory _factory = new(ApiFactory.UnreachableConnection);
+    private readonly ApiFactory _factory = new(ApiFactory.UnreachableDirectory);
 
     public void Dispose()
     {

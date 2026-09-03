@@ -2,7 +2,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Rundfrage.Api.UnitTests;
 
-/// <summary>Captures what the probe logs, so FR-026 and FR-027 can be asserted directly.</summary>
+/// <summary>Captures what a component logs, so 002 FR-026 can be asserted directly.</summary>
 public sealed record LogEntry(LogLevel Level, string Message, Exception? Exception);
 
 public sealed class RecordingLogger<T> : ILogger<T>

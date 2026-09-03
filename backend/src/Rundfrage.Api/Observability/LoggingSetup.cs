@@ -45,10 +45,12 @@ public static class LoggingSetup
     public static Logger CreateLogger(string? logLevel, TextWriter output) =>
         new LoggerConfiguration()
             .MinimumLevel.Is(ResolveMinimumLevel(logLevel))
-            // Npgsql logs connection details of its own accord; keeping it at Warning is one of
-            // the four measures that keep credentials out of the log (FR-026, research.md R-5).
-            .MinimumLevel.Override("Npgsql", LogEventLevel.Warning)
+            // The data-access stack logs of its own accord, and what it logs is the storage
+            // location. Keeping it at Warning is one of the measures that keep that out of the
+            // log (002 FR-026, research.md R-5). The Npgsql override that used to sit here went
+            // with the database driver.
             .MinimumLevel.Override("Microsoft.EntityFrameworkCore", LogEventLevel.Warning)
+            .MinimumLevel.Override("Microsoft.Data.Sqlite", LogEventLevel.Warning)
             .Enrich.FromLogContext()
             .WriteTo.TextWriter(new CompactJsonFormatter(), output)
             .CreateLogger();

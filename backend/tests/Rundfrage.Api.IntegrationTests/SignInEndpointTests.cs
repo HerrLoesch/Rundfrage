@@ -6,7 +6,7 @@ namespace Rundfrage.Api.IntegrationTests;
 /// <summary>FR-001, FR-004 to FR-007 and research.md R-1.</summary>
 public class SignInEndpointTests : IDisposable
 {
-    private readonly ApiFactory _factory = new(ApiFactory.UnreachableConnection);
+    private readonly ApiFactory _factory = new(ApiFactory.UnreachableDirectory);
 
     public void Dispose()
     {
