@@ -1,4 +1,8 @@
+using Rundfrage.Api.Data;
+using Microsoft.EntityFrameworkCore;
+using Rundfrage.Api.Http;
 using Rundfrage.Api.Polls;
+using Rundfrage.Api.Retention;
 
 namespace Rundfrage.Api.Endpoints.Admin;
 
@@ -31,6 +35,66 @@ public static class PollAdminEndpoints
         
         })
         .WithName("listPolls");
+
+        routes.MapGet("/polls/{pollId:guid}", async (
+            Guid pollId,
+            int? page,
+            RetentionService retention,
+            ResultsProjection results,
+            CancellationToken ct) =>
+        {
+            var poll = await retention.LivePolls().FirstOrDefaultAsync(p => p.Id == pollId, ct);
+
+            // The same neutral payload the participant routes use: the admin area adds the poll
+            // list and deletion, not privileged knowledge of what exists (FR-002).
+            return poll is null
+                ? NeutralNotFound.Result()
+                : Results.Ok(await results.BuildAsync(poll, page ?? 1, ct));
+        })
+        .WithName("getPollResults");
+
+        routes.MapDelete("/polls/{pollId:guid}", async (
+            Guid pollId,
+            RundfrageDbContext db,
+            RetentionService retention,
+            ILogger<PollService> logger,
+            CancellationToken ct) =>
+        {
+            var poll = await retention.LivePolls().FirstOrDefaultAsync(p => p.Id == pollId, ct);
+            if (poll is null)
+            {
+                return NeutralNotFound.Result();
+            }
+
+            // Cascades to days and responses. A real delete, not a flag - Principle IV requires
+            // the responses to be removed rather than hidden (FR-037).
+            await db.Polls.Where(p => p.Id == pollId).ExecuteDeleteAsync(ct);
+
+            logger.LogInformation("Poll deleted {PollId}", pollId);
+
+            return Results.NoContent();
+        })
+        .WithName("deletePoll");
+
+        routes.MapDelete("/polls/{pollId:guid}/responses/{responseId:guid}", async (
+            Guid pollId,
+            Guid responseId,
+            RetentionService retention,
+            ResponseService responses,
+            CancellationToken ct) =>
+        {
+            var poll = await retention.LivePolls().FirstOrDefaultAsync(p => p.Id == pollId, ct);
+            if (poll is null)
+            {
+                return NeutralNotFound.Result();
+            }
+
+            // FR-037a: one response, leaving the poll and every other response untouched.
+            var deleted = await responses.DeleteAsync(pollId, responseId, ct);
+
+            return deleted ? Results.NoContent() : NeutralNotFound.Result();
+        })
+        .WithName("deleteResponse");
 
         return routes;
     }

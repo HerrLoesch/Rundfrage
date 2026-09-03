@@ -24,12 +24,40 @@ function literalsIn(file: string): string[] {
   if (!template) return []
 
   return template
-    .replace(/<!--[\s\S]*?-->/g, '')     // comments
-    .replace(/\{\{[\s\S]*?\}\}/g, '')    // interpolations
-    .replace(/<[^>]+>/g, '\n')           // tags, including their attributes
+    .replace(/<!--[\s\S]*?-->/g, '')                  // comments
+    .replace(/\{\{[\s\S]*?\}\}/g, '')                 // interpolations
+    // Tags, allowing '>' inside quoted attribute values. A plain /<[^>]+>/ ends the tag at the
+    // first '>' it sees - so `v-if="count > 0"` left the rest of the line looking like text and
+    // reported a literal that was not there.
+    .replace(/<(?:"[^"]*"|'[^']*'|[^'">])*>/g, '\n')
     .split('\n')
     .map((line) => line.trim())
     .filter((line) => /[A-Za-zÄÖÜäöüß]{2,}/.test(line))
+}
+
+/**
+ * Vuetify takes most user-facing text as a *prop* rather than as template content, so a
+ * hard-coded `label="Benutzername"` would slip past a scanner that only reads text nodes. These
+ * are the props that end up in front of a person.
+ */
+const TEXT_PROPS = ['label', 'placeholder', 'hint', 'title', 'subtitle', 'text', 'aria-label']
+
+function literalPropsIn(file: string): string[] {
+  const source = readFileSync(file, 'utf8')
+  const template = /<template>([\s\S]*?)<\/template>/.exec(source)?.[1]
+  if (!template) return []
+
+  const found: string[] = []
+  for (const prop of TEXT_PROPS) {
+    // Unbound form only: `label="..."`. A bound `:label="t('...')"` is the correct shape and is
+    // deliberately not matched.
+    const pattern = new RegExp(`(?<![:\\w-])${prop}="([^"]*)"`, 'g')
+    for (const match of template.matchAll(pattern)) {
+      if (/[A-Za-zÄÖÜäöüß]{2,}/.test(match[1])) found.push(`${prop}="${match[1]}"`)
+    }
+  }
+
+  return found
 }
 
 describe('no literal user-facing strings (FR-029)', () => {
@@ -42,5 +70,9 @@ describe('no literal user-facing strings (FR-029)', () => {
 
   it.each(files)('%s carries no literal text in its template', (file) => {
     expect(literalsIn(file)).toEqual([])
+  })
+
+  it.each(files)('%s passes no literal text as a prop', (file) => {
+    expect(literalPropsIn(file)).toEqual([])
   })
 })

@@ -29,6 +29,13 @@ The technical shape follows from four requirements that pull hardest:
 **Primary Dependencies**: ASP.NET Core 10 Minimal APIs, EF Core 10 with Npgsql 10.0.3; Vue 3.5,
 Vuetify 4, Pinia 4, vue-i18n 11, Vite 8 — all already present
 **Storage**: PostgreSQL 17, self-hosted; this feature introduces the first real schema
+
+**Vuetify is actually used.** The first implementation pass built every component from plain
+markup and scoped CSS while Vuetify sat in the bundle unused — 488 KB of stylesheet for zero
+components, and a constitution requirement satisfied on paper only. The interface now renders
+through Vuetify: cards, forms, tables, dialogs, alerts, one theme with named colours for the
+three answer states, and Material Design icons. `vue-router` and `@mdi/font` are the only
+additions.
 **Testing**: xUnit + Mvc.Testing + Testcontainers (backend); Vitest + Vue Test Utils (frontend);
 Playwright against the container set
 **Logging**: Serilog, structured to stdout — extended with the eight events of FR-043a
@@ -201,4 +208,12 @@ assertion during the verification phase. They fall into four groups —
 
 Both are confined. No repository pattern, service layer indirection, mediator, or CQRS split is
 introduced; `PollService` and `ResponseService` are ordinary classes the endpoints call directly,
-matching the shape 001 established.
+matching the shape 001 established. Verified against the built code on 2026-09-03: a scan for
+`IRepository`, `MediatR`, `AutoMapper`, `IUnitOfWork` and CQRS markers finds nothing, and the
+only runtime dependency added beyond the constitution's stack is `vue-router`.
+
+**As-built deviation not present in the table above.**
+
+| Deviation | Why |
+|---|---|
+| The submission rate limit is configurable (`SUBMISSION_LIMIT_PER_HOUR`), defaulting to FR-027a's ten | The end-to-end suite submits far more than ten answers per hour from one machine and began failing halfway through a run once the limiter worked. A test environment raises the number explicitly; an unconfigured deployment still gets ten, and an unparseable or non-positive value falls back to ten rather than silently disabling the limit — a configuration typo must not become an open door. |

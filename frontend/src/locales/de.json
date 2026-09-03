@@ -58,5 +58,46 @@
     "unauthorized": "Nicht angemeldet.",
     "too_many_requests": "Zu viele Anfragen. Bitte in {minutes} Minuten erneut versuchen.",
     "unexpected": "Es ist ein Fehler aufgetreten."
+  },
+  "participate": {
+    "answerTitle": "Deine Rückmeldung",
+    "name": "Dein Name",
+    "visibilityNotice": "Dein Name und deine Antworten sind für alle sichtbar, die diesen Link haben.",
+    "submit": "Antwort abschicken",
+    "save": "Änderung speichern",
+    "yes": "Ja",
+    "maybe": "Vielleicht",
+    "no": "Nein",
+    "noAnswer": "keine Angabe",
+    "availabilityFor": "Verfügbarkeit am {date}",
+    "submitted": "Danke! Deine Antwort ist gespeichert.",
+    "editHint": "Mit diesem persönlichen Link kannst du deine Antwort später ändern. Es gibt keinen anderen Weg zurück — bewahre ihn auf.",
+    "revised": "Deine Änderung ist gespeichert.",
+    "notFound": "Diese Terminfindung gibt es nicht (mehr).",
+    "loading": "Wird geladen …"
+  },
+  "results": {
+    "title": "Antworten",
+    "empty": "Noch hat niemand geantwortet.",
+    "participant": "Name",
+    "totalYes": "Ja",
+    "totalMaybe": "Vielleicht",
+    "totalNo": "Nein",
+    "responseCount": "{count} Antworten insgesamt",
+    "page": "Seite {page} von {pageCount}",
+    "previous": "Zurück",
+    "next": "Weiter",
+    "deleteResponse": "Antwort löschen"
+  },
+  "delete": {
+    "poll": "Terminfindung löschen",
+    "confirmTitle": "Wirklich löschen?",
+    "confirmBody": "„{title}“ und {count} Antworten werden endgültig entfernt. Das lässt sich nicht rückgängig machen.",
+    "confirm": "Endgültig löschen",
+    "cancel": "Abbrechen"
+  },
+  "share": {
+    "copy": "Kopieren",
+    "copied": "Kopiert"
   }
 }

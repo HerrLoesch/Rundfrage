@@ -28,9 +28,9 @@ jobs:
     name: Backend (xUnit)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: '10.0.x'
 
@@ -49,9 +49,9 @@ jobs:
     name: Frontend (Vitest)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: '24'
           cache: npm
@@ -73,13 +73,18 @@ jobs:
     name: End-to-end (Playwright)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: '24'
           cache: npm
           cache-dependency-path: e2e/package-lock.json
+
+      # Needed only to produce the password hash above.
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
 
       - name: Install test dependencies
         run: npm ci
@@ -88,6 +93,22 @@ jobs:
       - name: Install browser
         run: npx playwright install --with-deps chromium
         working-directory: e2e
+
+      # The application refuses to start without an operator account (FR-045), and the suite
+      # submits far more than ten answers per hour from one runner - so both must be set here.
+      # A throwaway credential generated per run: nothing secret is stored in the repository or
+      # in repository settings, because nothing here outlives the job.
+      - name: Prepare a throwaway operator account
+        run: |
+          PASSWORD="ci-$(openssl rand -hex 16)"
+          HASH=$(dotnet run --project backend/src/Rundfrage.Api -- --hash-password <<< "$PASSWORD" 2>/dev/null | tail -1)
+          {
+            echo "ADMIN_USER=ci-operator"
+            echo "ADMIN_PASSWORD_HASH=$HASH"
+            echo "E2E_ADMIN_USER=ci-operator"
+            echo "E2E_ADMIN_PASSWORD=$PASSWORD"
+            echo "SUBMISSION_LIMIT_PER_HOUR=1000"
+          } >> "$GITHUB_ENV"
 
       # Runs against the same two-container set developers start locally (FR-021).
       - name: Start the system

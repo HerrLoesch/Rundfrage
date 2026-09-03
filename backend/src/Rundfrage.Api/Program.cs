@@ -2,6 +2,9 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.EntityFrameworkCore;
 using Rundfrage.Api.Data;
 using Rundfrage.Api.Endpoints.Admin;
+using Rundfrage.Api.Endpoints.Public;
+using Rundfrage.Api.Http;
+using Rundfrage.Api.Retention;
 using Rundfrage.Api.Polls;
 using Rundfrage.Api.Security;
 using Rundfrage.Api.Time;
@@ -56,6 +59,15 @@ builder.Services.AddSingleton(AdminAccount.FromConfiguration(builder.Configurati
 builder.Services.AddSingleton<SignInThrottle>();
 
 builder.Services.AddScoped<PollService>();
+builder.Services.AddScoped<ResponseService>();
+builder.Services.AddScoped<ResultsProjection>();
+builder.Services.AddScoped<RetentionService>();
+
+// FR-039c: erases what the access filter has already made unreachable.
+builder.Services.AddHostedService<RetentionSweep>();
+
+// FR-027a. In-memory partitions, so the request source is never written anywhere.
+builder.Services.AddSubmissionRateLimiter(builder.Configuration);
 
 // --- Authentication (FR-001, FR-006, research.md R-1) --------------------------------------
 // HttpOnly so a script cannot read it; SameSite=Strict so the browser never attaches it to a
@@ -102,12 +114,18 @@ await using (var scope = app.Services.CreateAsyncScope())
 // --- Routing (FR-006a) ---------------------------------------------------------------------
 // Everything under /api/v1 is the API; everything else belongs to the web application, so the
 // SPA's client-side routes and the backend endpoints cannot collide on the shared origin.
+app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 
 var api = app.MapGroup("/api/v1");
 api.MapMessageEndpoint();
 api.MapStatusEndpoint();
+
+// --- Participant routes (Principle I) -------------------------------------------------------
+// No session, no account, no email. The token in the path is the authorisation.
+api.MapPollEndpoints();
+api.MapResponseEndpoints();
 
 // --- Admin (FR-001, FR-048) ----------------------------------------------------------------
 // The requirement is applied to the whole group, not to individual handlers. FR-048 asserts
@@ -122,7 +140,12 @@ app.UseStaticFiles();
 
 // Unmatched API paths must 404 rather than fall through to the SPA shell. This catch-all has
 // lower route precedence than the specific endpoints above, so it only sees genuine misses.
-app.Map("/api/{**rest}", () => Results.NotFound());
+//
+// It answers with the *same* neutral payload as a token miss. A bare 404 here was
+// distinguishable from `{"code":"not_found"}`, so an empty or oddly-shaped token - which does
+// not match the route at all and lands here - could be told apart from a well-formed unknown
+// one. That is exactly the distinction SC-012 denies.
+app.Map("/api/{**rest}", () => NeutralNotFound.Result()).AllowAnonymous();
 
 // Every other unmatched path serves the SPA shell so client-side routing works on reload.
 app.MapFallbackToFile("index.html");

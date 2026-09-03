@@ -32,10 +32,20 @@ const routes: RouteRecordRaw[] = [
     name: 'admin-polls',
     component: () => import('./components/admin/PollList.vue'),
   },
-  // The participant routes - /u/:pollToken and /a/:editToken - are registered by US2 and US4,
-  // together with the components they load. Declaring them ahead of their components does not
-  // merely fail at runtime: Vite resolves dynamic imports at build time, so an unwritten
-  // component breaks the production build outright.
+  {
+    // The participant capability. No session, no guard, nothing in front of it (FR-021).
+    path: '/u/:pollToken',
+    name: 'poll',
+    component: () => import('./components/poll/PollView.vue'),
+    props: true,
+  },
+  {
+    // The per-response capability (FR-026, FR-028).
+    path: '/a/:editToken',
+    name: 'response',
+    component: () => import('./components/poll/PollView.vue'),
+    props: true,
+  },
 ]
 
 export const router = createRouter({

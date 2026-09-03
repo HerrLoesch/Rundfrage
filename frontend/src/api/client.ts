@@ -100,3 +100,96 @@ export async function createPoll(
     body: JSON.stringify({ title, message, days }),
   })
 }
+
+// --- Participant surface (US2 to US5) ----------------------------------------------------
+// Every call here is anonymous by design: no session, no header, no account (Principle I).
+
+export type Availability = 'yes' | 'maybe' | 'no'
+
+export interface DayView {
+  id: string
+  date: string
+}
+
+export interface DayTotals {
+  dayId: string
+  yes: number
+  maybe: number
+  no: number
+}
+
+export interface AnswerView {
+  dayId: string
+  availability: Availability
+}
+
+export interface ResponseRow {
+  id: string
+  displayName: string
+  answers: AnswerView[]
+}
+
+export interface PollView {
+  title: string
+  message: string | null
+  days: DayView[]
+  totals: DayTotals[]
+  responses: ResponseRow[]
+  page: number
+  pageCount: number
+  responseCount: number
+}
+
+export interface SubmissionAccepted {
+  responseId: string
+  editToken: string
+}
+
+export interface OwnResponse {
+  responseId: string
+  displayName: string
+  answers: AnswerView[]
+  poll: PollView
+}
+
+export async function fetchPoll(pollToken: string, page = 1): Promise<PollView> {
+  return request<PollView>(`/polls/${encodeURIComponent(pollToken)}?page=${page}`)
+}
+
+export async function submitResponse(
+  pollToken: string,
+  displayName: string,
+  answers: AnswerView[],
+): Promise<SubmissionAccepted> {
+  return request<SubmissionAccepted>(`/polls/${encodeURIComponent(pollToken)}/responses`, {
+    method: 'POST',
+    body: JSON.stringify({ displayName, answers }),
+  })
+}
+
+export async function fetchOwnResponse(editToken: string): Promise<OwnResponse> {
+  return request<OwnResponse>(`/responses/${encodeURIComponent(editToken)}`)
+}
+
+export async function reviseResponse(
+  editToken: string,
+  displayName: string,
+  answers: AnswerView[],
+): Promise<OwnResponse> {
+  return request<OwnResponse>(`/responses/${encodeURIComponent(editToken)}`, {
+    method: 'PUT',
+    body: JSON.stringify({ displayName, answers }),
+  })
+}
+
+export async function fetchPollResults(pollId: string, page = 1): Promise<PollView> {
+  return request<PollView>(`/admin/polls/${pollId}?page=${page}`)
+}
+
+export async function deletePoll(pollId: string): Promise<void> {
+  await request<void>(`/admin/polls/${pollId}`, { method: 'DELETE' })
+}
+
+export async function deleteResponse(pollId: string, responseId: string): Promise<void> {
+  await request<void>(`/admin/polls/${pollId}/responses/${responseId}`, { method: 'DELETE' })
+}

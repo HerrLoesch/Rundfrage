@@ -3,9 +3,8 @@
 Umfragen und Terminfindung für Gruppen, die sich nicht auf einer weiteren Seite anmelden
 wollen. Teilnehmende antworten über einen geteilten Link — ohne Konto, ohne Login.
 
-> **Stand**: Grundgerüst (Feature `001-platform-scaffold`). Es gibt noch keine Umfragen —
-> dieses Feature belegt, dass die Kette Browser → Anwendung → Datenbank trägt, und richtet
-> die Automatisierung ein, die sie trägt hält.
+> **Stand**: Terminfindung im Doodle-Stil (Feature `002-date-poll`), aufgesetzt auf dem
+> Grundgerüst aus `001-platform-scaffold`.
 
 ## Starten
 
@@ -33,9 +32,78 @@ aus dem Grundgerüst liegt unter `/status` — sie ist weiterhin da, nur nicht m
 Beenden mit `Ctrl-C` oder `docker compose down`. Daten überleben beides.
 `docker compose down -v` verwirft zusätzlich das Volume und damit die Datenbank.
 
-## Was die Seite anzeigt
+## Eine Terminfindung anlegen
 
-Die Seite zeigt den Text aus dem Backend und einen von drei Zuständen:
+1. <http://localhost:8080> öffnen und anmelden (siehe *Betreiberkonto* weiter unten).
+2. Titel, optional eine kurze Nachricht, und die Tage zur Auswahl eintragen.
+3. Speichern. Der Teilnehmerlink erscheint — kopieren und teilen.
+
+Die Liste zeigt jede Umfrage mit ihrem Link, der Zahl der Antworten und dem **Löschdatum**:
+letzter Kandidatentag plus 30 Tage. Nichts verschwindet, ohne vorher gesagt zu haben, wann.
+
+## Antworten — ohne Konto
+
+Wer den Link öffnet, sieht Titel, Nachricht, Tage, das Antwortformular und den bisherigen
+Stand — alles beim ersten Laden. **Kein Konto, keine Anmeldung, keine E-Mail-Adresse.**
+
+Je Tag stehen drei Möglichkeiten zur Wahl: *Ja*, *Vielleicht*, *Nein*. Einen Tag offen zu
+lassen ist eine gültige Antwort und bedeutet *keine Angabe* — gespeichert wird dafür nichts.
+
+Vor dem Namensfeld steht ausdrücklich, dass Name und Antworten für alle sichtbar sind, die den
+Link haben. Nach dem Absenden erscheint ein **persönlicher Link**: der einzige Weg zurück zur
+eigenen Antwort, denn es gibt kein Konto, über das man sie wiederfinden könnte.
+
+Dass jemand zweimal antwortet, lässt sich nicht verhindern — jeder ehrliche Mechanismus dagegen
+würde verlangen, Teilnehmende zu identifizieren, und genau das ist ausgeschlossen.
+
+## Ergebnisse
+
+Das Raster zeigt jede Antwort mit Namen und je Tag die Zahl der *Ja*, *Vielleicht* und *Nein*.
+Diese drei Zahlen ergeben **nicht** zwangsläufig die Zahl der Antworten: *keine Angabe* wird
+nicht mitgezählt. Wie viele überhaupt geantwortet haben, verrät die Zeilenzahl.
+
+Jeder Zustand trägt ein Zeichen, nicht nur eine Farbe — das Raster bleibt ohne Farbwahrnehmung
+lesbar, und eine leere Zelle ist von *Nein* unterscheidbar.
+
+## Löschen und Aufbewahrung
+
+Der Betreiber kann eine einzelne Antwort oder die ganze Umfrage löschen; vor dem Löschen steht,
+wie viele Antworten dabei vernichtet werden. Unabhängig davon verschwindet jede Umfrage 30 Tage
+nach ihrem letzten Kandidatentag von selbst. Beides entfernt die Daten wirklich — es versteckt
+sie nicht.
+
+Ein abgelaufener Link ist in dem Moment tot, in dem die Frist fällt, nicht erst wenn der
+Aufräumlauf ihn erreicht. Unbekannte, kaputte, abgelaufene und gelöschte Links sehen dabei alle
+gleich aus: Wer keinen gültigen Link hat, erfährt nicht einmal, ob es ihn je gab.
+
+## Betreiberkonto
+
+Es gibt genau ein Konto, gesetzt über Umgebungsvariablen. Keine Registrierung, keine
+Nutzerverwaltung, keine Passwort-Ändern-Maske. Das Passwort selbst steht **nie** in der
+Konfiguration — nur sein Hash:
+
+```bash
+docker compose run --rm app dotnet Rundfrage.Api.dll --hash-password
+# fragt auf stderr, gibt den Hash auf stdout aus
+```
+
+```bash
+# .env (git-ignoriert)
+ADMIN_USER=...
+ADMIN_PASSWORD_HASH=pbkdf2-sha256:600000:...:...
+```
+
+Ohne beide Variablen startet die Anwendung nicht. Ein Adminbereich mit erratbarem
+Standardpasswort wäre schlimmer als gar kein Schutz, weil er nach Schutz aussieht.
+
+Nach fünf Fehlversuchen ist das Konto 15 Minuten gesperrt — auch für das richtige Passwort,
+sonst wäre die Sperre selbst eine Auskunft. Einen Rücksetzweg gibt es bewusst nicht: Bei einem
+einzigen Konto könnte ihn niemand autorisieren, und er wäre der schwächste Weg hinein.
+
+## Was die Diagnoseseite anzeigt
+
+Unter `/status` liegt die Durchstich-Seite aus dem Grundgerüst. Sie zeigt den Text aus dem
+Backend und einen von drei Zuständen:
 
 | Anzeige | Bedeutung | So reproduzierbar |
 |---|---|---|

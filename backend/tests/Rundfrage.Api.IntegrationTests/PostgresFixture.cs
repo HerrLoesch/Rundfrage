@@ -9,8 +9,8 @@ namespace Rundfrage.Api.IntegrationTests;
 /// </summary>
 public sealed class PostgresFixture : IAsyncLifetime
 {
-    private readonly PostgreSqlContainer _container = new PostgreSqlBuilder()
-        .WithImage("postgres:17-alpine")
+    // The image goes to the constructor: the parameterless one is obsolete and will be removed.
+    private readonly PostgreSqlContainer _container = new PostgreSqlBuilder("postgres:17-alpine")
         .WithDatabase("rundfrage")
         .WithUsername("rundfrage")
         .WithPassword("rundfrage_test")

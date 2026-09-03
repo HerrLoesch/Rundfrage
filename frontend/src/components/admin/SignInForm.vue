@@ -12,6 +12,7 @@ const problemText = useProblemText()
 
 const user = ref('')
 const password = ref('')
+const busy = ref(false)
 
 const errorText = computed(() => {
   const problem = session.problem
@@ -24,40 +25,71 @@ const errorText = computed(() => {
 })
 
 async function submit() {
-  // Without this the form simply sat there after a correct password: the cookie was set, the
-  // API accepted it, and the operator never left the sign-in page.
-  if (await session.signIn(user.value, password.value)) {
-    await router.push({ name: 'admin-polls' })
+  busy.value = true
+  try {
+    if (await session.signIn(user.value, password.value)) {
+      await router.push({ name: 'admin-polls' })
+    }
+  } finally {
+    busy.value = false
   }
 }
 </script>
 
 <template>
-  <form class="sign-in" data-testid="sign-in-form" @submit.prevent="submit">
-    <h1>{{ t('signIn.title') }}</h1>
+  <v-container class="fill-height" max-width="480">
+    <v-row justify="center" class="w-100">
+      <v-col cols="12">
+        <v-card class="pa-2">
+          <v-card-item>
+            <v-card-title tag="h1">{{ t('signIn.title') }}</v-card-title>
+          </v-card-item>
 
-    <label for="sign-in-user">{{ t('signIn.user') }}</label>
-    <input id="sign-in-user" v-model="user" data-testid="sign-in-user" type="text" autocomplete="username" />
+          <v-card-text>
+            <v-form data-testid="sign-in-form" @submit.prevent="submit">
+              <v-text-field
+                v-model="user"
+                :label="t('signIn.user')"
+                data-testid="sign-in-user"
+                autocomplete="username"
+                prepend-inner-icon="mdi-account-outline"
+                class="mb-4"
+              />
 
-    <label for="sign-in-password">{{ t('signIn.password') }}</label>
-    <input
-      id="sign-in-password"
-      v-model="password"
-      data-testid="sign-in-password"
-      type="password"
-      autocomplete="current-password"
-    />
+              <v-text-field
+                v-model="password"
+                :label="t('signIn.password')"
+                data-testid="sign-in-password"
+                type="password"
+                autocomplete="current-password"
+                prepend-inner-icon="mdi-lock-outline"
+              />
 
-    <button type="submit" data-testid="sign-in-submit">{{ t('signIn.submit') }}</button>
+              <v-alert
+                v-if="errorText"
+                type="error"
+                class="mt-4"
+                role="alert"
+                data-testid="sign-in-error"
+              >
+                {{ errorText }}
+              </v-alert>
 
-    <p v-if="errorText" class="error" role="alert" data-testid="sign-in-error">{{ errorText }}</p>
-  </form>
+              <v-btn
+                type="submit"
+                color="primary"
+                block
+                size="large"
+                class="mt-6"
+                :loading="busy"
+                data-testid="sign-in-submit"
+              >
+                {{ t('signIn.submit') }}
+              </v-btn>
+            </v-form>
+          </v-card-text>
+        </v-card>
+      </v-col>
+    </v-row>
+  </v-container>
 </template>
-
-<style scoped>
-.sign-in { display: flex; flex-direction: column; gap: 0.5rem; max-width: 22rem; padding: 2rem; font-family: system-ui, sans-serif; }
-label { font-weight: 600; }
-input { padding: 0.5rem; font: inherit; }
-button { padding: 0.6rem; font: inherit; cursor: pointer; margin-top: 0.5rem; }
-.error { background: #fdecea; color: #b71c1c; border-left: 4px solid #c62828; padding: 0.5rem 0.75rem; }
-</style>

@@ -85,10 +85,13 @@ leak, which is why it is asserted by a test rather than trusted.
 
 ## R-4: One neutral not-found, not four
 
-> **Status after US1**: `NeutralNotFound` and `CapabilityToken.IsWellFormed` are written and
-> tested but **not yet wired to any route** — the participant endpoints that consume them arrive
-> with US2. Their green tests describe a component, not working behaviour; no request currently
-> produces this response.
+> **Status after US2**: wired. Every participant route, every admin lookup, and the
+> `/api/{**rest}` catch-all now produce this one response.
+>
+> **The catch-all had to be changed.** Feature 001 answered unmatched API paths with a bare
+> `Results.NotFound()` — an empty body, distinguishable from `{"code":"not_found"}`. An empty or
+> oddly-shaped token does not match the route at all and lands there, so it could be told apart
+> from a well-formed unknown one. Found by a test that sent `""` and a token containing a slash.
 
 **Decision**: A single `NeutralNotFound` helper produces the identical status, body and headers
 for all four causes in FR-027 and FR-040. Malformed tokens are **not** rejected early: they run
@@ -288,3 +291,50 @@ This feature modifies two things the scaffold established:
    from 001 (research.md R-1 of that feature) now gets the successor it was built to receive, and
    001's FR-013a test — schema creation against an empty database — starts asserting something
    substantial.
+
+
+---
+
+## R-13: A component event that fired twice (found during implementation)
+
+**Symptom**: every answer was submitted twice. The grid showed two rows after one click, and the
+only visible trace was a duplicate response.
+
+**Cause**: `AnswerForm` emitted `submit` without declaring it. Vue then treats the parent's
+`@submit` as a fallthrough attribute and binds it as a *native* listener on the component's root
+`<form>` — **in addition** to delivering the emitted event. The handler ran once per path.
+
+**Decision**: declare `defineEmits<{ submit: [] }>()`. A declared emit is removed from the
+fallthrough attributes, so only the component event remains.
+
+**Why it slipped through**: the component test mounts `AnswerForm` on its own and never exercises
+the parent binding, so it could not see the duplication. Only the end-to-end journey did. A
+regression test now asserts the event fires exactly once per click and that `submit` is declared.
+
+
+---
+
+## R-14: Vuetify without losing the accessibility argument
+
+**Decision**: render the interface through Vuetify, and keep `v-radio-group` / `v-radio` for the
+three-state day control.
+
+**Rationale**: R-11 chose native radios so that keyboard operation, labelling and the focus ring
+stay the platform's job (FR-050 to FR-052). Vuetify's `v-radio` renders a real
+`<input type="radio">` underneath, so that argument survives the visual rewrite intact —
+verified by a test that counts the native inputs per day group rather than trusting the wrapper.
+
+**Consequences recorded rather than discovered later**:
+
+- A fallthrough attribute such as `data-testid` lands on Vuetify's *wrapper*, not on the control.
+  End-to-end tests reach the input through one helper (`e2e/support/fields.ts`) instead of
+  repeating `.locator('input')` in thirty places.
+- `VCardActions` defaults its buttons to `variant="text"`, which silently turned the primary
+  action of the answer page into something that looked like a link. Set explicitly.
+- Component tests must mount *with* Vuetify. A test that mounts without it exercises a different
+  component tree than production, which is one way a passing test can describe something that
+  does not work. One shared harness (`frontend/tests/support/mount.ts`) does it the way the
+  application does.
+- The literal-string scanner had to grow. Vuetify takes most user-facing text as a **prop**, so
+  a hard-coded `label="Benutzername"` would have slipped past a check that only reads text
+  nodes. It now scans both.

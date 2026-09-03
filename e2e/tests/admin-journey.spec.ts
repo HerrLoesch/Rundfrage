@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test'
+import { field, textarea } from '../support/fields'
 
 /**
  * Taken from the environment, with no fallback.
@@ -33,8 +34,8 @@ const PASSWORD = required('E2E_ADMIN_PASSWORD')
 test.describe('Admin journey (US1)', () => {
   async function signIn(page: import('@playwright/test').Page) {
     await page.goto('/admin')
-    await page.getByTestId('sign-in-user').fill(USER)
-    await page.getByTestId('sign-in-password').fill(PASSWORD)
+    await field(page, 'sign-in-user').fill(USER)
+    await field(page, 'sign-in-password').fill(PASSWORD)
     await page.getByTestId('sign-in-submit').click()
   }
 
@@ -79,11 +80,11 @@ test.describe('Admin journey (US1)', () => {
     await expect(page.getByTestId('poll-form')).toBeVisible()
 
     const title = `Grillabend ${Date.now()}`
-    await page.getByTestId('poll-title').fill(title)
-    await page.getByTestId('poll-message').fill('Wann passt es euch?')
+    await field(page, 'poll-title').fill(title)
+    await textarea(page, 'poll-message').fill('Wann passt es euch?')
 
     for (const day of ['2026-11-20', '2026-11-18']) {
-      await page.getByTestId('poll-day-input').fill(day)
+      await field(page, 'poll-day-input').fill(day)
       await page.getByTestId('poll-add-day').click()
     }
 

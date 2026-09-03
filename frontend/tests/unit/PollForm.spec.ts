@@ -1,8 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { mount } from '@vue/test-utils'
-import { createPinia, setActivePinia } from 'pinia'
-import { createI18n } from 'vue-i18n'
-import de from '../../src/locales/de.json'
+import { mountComponent, de } from '../support/mount'
 
 vi.mock('../../src/api/client', () => ({
   signIn: vi.fn(),
@@ -16,18 +13,24 @@ vi.mock('../../src/api/client', () => ({
 import { createPoll } from '../../src/api/client'
 import PollForm from '../../src/components/admin/PollForm.vue'
 
-const i18n = createI18n({ legacy: false, locale: 'de', messages: { de } })
-const mountForm = () => mount(PollForm, { global: { plugins: [i18n] } })
+const mountForm = () => mountComponent(PollForm)
+const inputIn = (wrapper: ReturnType<typeof mountForm>, testid: string) =>
+  wrapper.get(`[data-testid="${testid}"]`).find('input')
+
+async function addDay(wrapper: ReturnType<typeof mountForm>, day: string) {
+  await inputIn(wrapper, 'poll-day-input').setValue(day)
+  await wrapper.get('[data-testid="poll-add-day"]').trigger('click')
+}
 
 describe('PollForm (FR-008 to FR-016)', () => {
-  beforeEach(() => setActivePinia(createPinia()))
+  beforeEach(() => vi.clearAllMocks())
 
   it('offers a title, a message and a way to add days', () => {
     const wrapper = mountForm()
 
-    expect(wrapper.find('[data-testid="poll-title"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="poll-message"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="poll-day-input"]').exists()).toBe(true)
+    expect(inputIn(wrapper, 'poll-title').exists()).toBe(true)
+    expect(wrapper.get('[data-testid="poll-message"]').find('textarea').exists()).toBe(true)
+    expect(inputIn(wrapper, 'poll-day-input').exists()).toBe(true)
     expect(wrapper.find('[data-testid="poll-add-day"]').exists()).toBe(true)
   })
 
@@ -35,10 +38,8 @@ describe('PollForm (FR-008 to FR-016)', () => {
     // FR-012, visible before the request is even sent.
     const wrapper = mountForm()
 
-    await wrapper.get('[data-testid="poll-day-input"]').setValue('2026-10-15')
-    await wrapper.get('[data-testid="poll-add-day"]').trigger('click')
-    await wrapper.get('[data-testid="poll-day-input"]').setValue('2026-10-15')
-    await wrapper.get('[data-testid="poll-add-day"]').trigger('click')
+    await addDay(wrapper, '2026-10-15')
+    await addDay(wrapper, '2026-10-15')
 
     expect(wrapper.findAll('[data-testid="poll-day"]')).toHaveLength(1)
   })
@@ -48,23 +49,21 @@ describe('PollForm (FR-008 to FR-016)', () => {
     const wrapper = mountForm()
 
     for (const day of ['2026-10-20', '2026-10-15', '2026-10-17']) {
-      await wrapper.get('[data-testid="poll-day-input"]').setValue(day)
-      await wrapper.get('[data-testid="poll-add-day"]').trigger('click')
+      await addDay(wrapper, day)
     }
 
     const shown = wrapper.findAll('[data-testid="poll-day"]').map((d) => d.attributes('data-date'))
     expect(shown).toEqual(['2026-10-15', '2026-10-17', '2026-10-20'])
   })
 
-  it('translates a server-side limit refusal', async () => {
-    // The contract returns a code; the frontend owns the words (FR-029).
+  it('translates a server-side limit refusal and names the limit', async () => {
+    // The contract returns a code; the frontend owns the words (FR-029, FR-015).
     vi.mocked(createPoll).mockRejectedValue({ code: 'title_too_long', limit: 300 })
 
     const wrapper = mountForm()
-    await wrapper.get('[data-testid="poll-title"]').setValue('x')
-    await wrapper.get('[data-testid="poll-day-input"]').setValue('2026-10-15')
-    await wrapper.get('[data-testid="poll-add-day"]').trigger('click')
-    await wrapper.get('[data-testid="poll-submit"]').trigger('submit')
+    await inputIn(wrapper, 'poll-title').setValue('x')
+    await addDay(wrapper, '2026-10-15')
+    await wrapper.get('[data-testid="poll-form"]').trigger('submit')
     await new Promise((r) => setTimeout(r, 0))
 
     expect(wrapper.get('[data-testid="poll-error"]').text()).toContain('300')
@@ -82,13 +81,12 @@ describe('PollForm (FR-008 to FR-016)', () => {
     })
 
     const wrapper = mountForm()
-    await wrapper.get('[data-testid="poll-title"]').setValue('Grillabend')
-    await wrapper.get('[data-testid="poll-day-input"]').setValue('2026-10-15')
-    await wrapper.get('[data-testid="poll-add-day"]').trigger('click')
-    await wrapper.get('[data-testid="poll-submit"]').trigger('submit')
+    await inputIn(wrapper, 'poll-title').setValue('Grillabend')
+    await addDay(wrapper, '2026-10-15')
+    await wrapper.get('[data-testid="poll-form"]').trigger('submit')
     await new Promise((r) => setTimeout(r, 0))
 
     expect(wrapper.get('[data-testid="poll-share-link"]').text()).toContain('abcdefghijklmnopqrstuv')
-    expect(wrapper.get('[data-testid="poll-retention"]').text()).toBeTruthy()
+    expect(wrapper.get('[data-testid="poll-retention"]').text()).toContain(de.poll.retention)
   })
 })

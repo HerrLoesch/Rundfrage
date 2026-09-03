@@ -127,27 +127,27 @@ submit a response, and confirm it was recorded.
 
 ### Tests (write first, observe failing)
 
-- [ ] T041 [P] [US2] Write failing tests in `backend/tests/Rundfrage.Api.IntegrationTests/PublicPollTests.cs` asserting `GET /api/v1/polls/{token}` succeeds with **no** session, cookie or header of any kind (FR-019, FR-020, Principle I)
-- [ ] T042 [P] [US2] Write failing tests in `backend/tests/Rundfrage.Api.IntegrationTests/NeutralNotFoundTests.cs` asserting unknown, malformed, expired and deleted tokens produce **byte-identical** responses, and that a malformed token is not short-circuited (SC-012, research.md R-4)
-- [ ] T043 [P] [US2] Write failing tests in `backend/tests/Rundfrage.Api.IntegrationTests/ResponseSubmissionTests.cs`: a complete submission is stored, a display name is required, an unknown day is refused, and an omitted day stores **nothing** (FR-022, FR-023, FR-024, research.md R-8)
-- [ ] T044 [P] [US2] Write a failing test asserting the submission response carries an edit token that resolves to that response and to no other (FR-026, FR-029)
-- [ ] T045 [P] [US2] Write failing tests in `backend/tests/Rundfrage.Api.IntegrationTests/RateLimitTests.cs`: the 11th submission within an hour returns 429 with a retry hint, and nothing about the source is stored (FR-027a, FR-027c, SC-020, SC-021)
-- [ ] T046 [P] [US2] Write a failing test in `backend/tests/Rundfrage.Api.IntegrationTests/ResponseCapTests.cs` asserting the 1001st submission is refused with 409, including under concurrent submission (FR-015a, research.md R-9)
-- [ ] T047 [P] [US2] Write failing Vitest tests in `frontend/tests/unit/AnswerForm.spec.ts`: three native radios per day, an unselected day submits nothing, and keyboard-only operation works (FR-023, FR-050, FR-052, SC-025, research.md R-11)
-- [ ] T048 [P] [US2] Write a failing Vitest test in `frontend/tests/unit/PollView.spec.ts` asserting the visibility notice appears **before** the name field, and that the grid renders without submitting (FR-036a, FR-036b, SC-013)
-- [ ] T049 [P] [US2] Write the failing Playwright test `e2e/tests/zero-signup.spec.ts`: a complete response from a bare link with no account, no session and no stored credentials (FR-047, SC-002, SC-003)
+- [X] T041 [P] [US2] Write failing tests in `backend/tests/Rundfrage.Api.IntegrationTests/PublicPollTests.cs` asserting `GET /api/v1/polls/{token}` succeeds with **no** session, cookie or header of any kind (FR-019, FR-020, Principle I)
+- [X] T042 [P] [US2] Write failing tests in `backend/tests/Rundfrage.Api.IntegrationTests/NeutralNotFoundTests.cs` asserting unknown, malformed, expired and deleted tokens produce **byte-identical** responses, and that a malformed token is not short-circuited (SC-012, research.md R-4)
+- [X] T043 [P] [US2] Write failing tests in `backend/tests/Rundfrage.Api.IntegrationTests/ResponseSubmissionTests.cs`: a complete submission is stored, a display name is required, an unknown day is refused, and an omitted day stores **nothing** (FR-022, FR-023, FR-024, research.md R-8)
+- [X] T044 [P] [US2] Write a failing test asserting the submission response carries an edit token that resolves to that response and to no other (FR-026, FR-029)
+- [X] T045 [P] [US2] Write failing tests in `backend/tests/Rundfrage.Api.IntegrationTests/RateLimitTests.cs`: the 11th submission within an hour returns 429 with a retry hint, and nothing about the source is stored (FR-027a, FR-027c, SC-020, SC-021)
+- [X] T046 [P] [US2] Write a failing test in `backend/tests/Rundfrage.Api.IntegrationTests/ResponseCapTests.cs` asserting the 1001st submission is refused with 409, including under concurrent submission (FR-015a, research.md R-9)
+- [X] T047 [P] [US2] Write failing Vitest tests in `frontend/tests/unit/AnswerForm.spec.ts`: three native radios per day, an unselected day submits nothing, and keyboard-only operation works (FR-023, FR-050, FR-052, SC-025, research.md R-11)
+- [X] T048 [P] [US2] Write a failing Vitest test in `frontend/tests/unit/PollView.spec.ts` asserting the visibility notice appears **before** the name field, and that the grid renders without submitting (FR-036a, FR-036b, SC-013)
+- [X] T049 [P] [US2] Write the failing Playwright test `e2e/tests/zero-signup.spec.ts`: a complete response from a bare link with no account, no session and no stored credentials (FR-047, SC-002, SC-003)
 
 ### Implementation
 
-- [ ] T050 [US2] Implement `backend/src/Rundfrage.Api/Endpoints/Public/PollEndpoints.cs` for `GET /api/v1/polls/{pollToken}` — makes T041 and T042 pass
-- [ ] T051 [US2] Implement `backend/src/Rundfrage.Api/Polls/ResponseService.cs`: submission, the row-locked 1000-cap, and storing only answered days — makes T043, T044 and T046 pass
-- [ ] T052 [US2] Implement `backend/src/Rundfrage.Api/Endpoints/Public/ResponseEndpoints.cs` for `POST /api/v1/polls/{pollToken}/responses`
-- [ ] T053 [US2] Configure the built-in rate limiter in `backend/src/Rundfrage.Api/Program.cs`, partitioned in memory by request source, 10 per hour, on the submit endpoint only (research.md R-5) — makes T045 pass
-- [ ] T054 [US2] Add the FR-043a log entry for a rate-limited submission, carrying no request source (FR-043b)
-- [ ] T055 [P] [US2] Add the participant-facing German strings to `frontend/src/locales/de.json`, including the visibility notice
-- [ ] T056 [P] [US2] Implement `frontend/src/stores/answering.ts`
-- [ ] T057 [US2] Implement `frontend/src/components/poll/AnswerForm.vue` using a `fieldset` of three native radios per day — makes T047 pass
-- [ ] T058 [US2] Implement `frontend/src/components/poll/PollView.vue` and `ShareLink.vue` — makes T048 and T049 pass
+- [X] T050 [US2] Implement `backend/src/Rundfrage.Api/Endpoints/Public/PollEndpoints.cs` for `GET /api/v1/polls/{pollToken}` — makes T041 and T042 pass
+- [X] T051 [US2] Implement `backend/src/Rundfrage.Api/Polls/ResponseService.cs`: submission, the row-locked 1000-cap, and storing only answered days — makes T043, T044 and T046 pass
+- [X] T052 [US2] Implement `backend/src/Rundfrage.Api/Endpoints/Public/ResponseEndpoints.cs` for `POST /api/v1/polls/{pollToken}/responses`
+- [X] T053 [US2] Configure the built-in rate limiter in `backend/src/Rundfrage.Api/Program.cs`, partitioned in memory by request source, 10 per hour, on the submit endpoint only (research.md R-5) — makes T045 pass
+- [X] T054 [US2] Add the FR-043a log entry for a rate-limited submission, carrying no request source (FR-043b)
+- [X] T055 [P] [US2] Add the participant-facing German strings to `frontend/src/locales/de.json`, including the visibility notice
+- [X] T056 [P] [US2] Implement `frontend/src/stores/answering.ts`
+- [X] T057 [US2] Implement `frontend/src/components/poll/AnswerForm.vue` using a `fieldset` of three native radios per day — makes T047 pass
+- [X] T058 [US2] Implement `frontend/src/components/poll/PollView.vue` and `ShareLink.vue` — makes T048 and T049 pass
 
 **Checkpoint**: Principle I is satisfied end to end — the product's reason to exist works.
 
@@ -162,20 +162,20 @@ and totals each day correctly.
 
 ### Tests (write first, observe failing)
 
-- [ ] T059 [P] [US3] Write failing tests in `backend/tests/Rundfrage.Api.IntegrationTests/ResultsTests.cs` asserting the per-day totals count only the three answered states and need not sum to the response count (FR-033)
-- [ ] T060 [P] [US3] Write a failing test asserting `responseCount` reports every response across all pages, so the uncounted *no answer* state stays legible (FR-033a)
-- [ ] T061 [P] [US3] Write a failing test asserting response rows are paged at 50 and that no row carries anyone's edit token (FR-029, research.md R-7)
-- [ ] T062 [P] [US3] Write a failing test asserting a poll with no responses returns an explicit empty state rather than an error (FR-034)
-- [ ] T063 [P] [US3] Write a failing performance test asserting a poll at 1000 responses across 100 days returns its first page and totals within 5 seconds (FR-036c, SC-016)
-- [ ] T064 [P] [US3] Write failing Vitest tests in `frontend/tests/unit/ResultGrid.spec.ts`: the three answered states and the empty cell are distinguishable, and remain so in greyscale (FR-024a, FR-053, SC-026, SC-029, SC-030)
-- [ ] T065 [P] [US3] Write a failing Playwright assertion in `e2e/tests/date-poll-journey.spec.ts` that a newly submitted response appears on reload (FR-035, SC-009)
+- [X] T059 [P] [US3] Write failing tests in `backend/tests/Rundfrage.Api.IntegrationTests/ResultsTests.cs` asserting the per-day totals count only the three answered states and need not sum to the response count (FR-033)
+- [X] T060 [P] [US3] Write a failing test asserting `responseCount` reports every response across all pages, so the uncounted *no answer* state stays legible (FR-033a)
+- [X] T061 [P] [US3] Write a failing test asserting response rows are paged at 50 and that no row carries anyone's edit token (FR-029, research.md R-7)
+- [X] T062 [P] [US3] Write a failing test asserting a poll with no responses returns an explicit empty state rather than an error (FR-034)
+- [X] T063 [P] [US3] Write a failing performance test asserting a poll at 1000 responses across 100 days returns its first page and totals within 5 seconds (FR-036c, SC-016)
+- [X] T064 [P] [US3] Write failing Vitest tests in `frontend/tests/unit/ResultGrid.spec.ts`: the three answered states and the empty cell are distinguishable, and remain so in greyscale (FR-024a, FR-053, SC-026, SC-029, SC-030)
+- [X] T065 [P] [US3] Write a failing Playwright assertion in `e2e/tests/date-poll-journey.spec.ts` that a newly submitted response appears on reload (FR-035, SC-009)
 
 ### Implementation
 
-- [ ] T066 [US3] Implement `backend/src/Rundfrage.Api/Polls/ResultsProjection.cs` computing totals with a grouped query and paging rows — makes T059 to T063 pass
-- [ ] T067 [US3] Add `GET /api/v1/admin/polls/{pollId}` to `backend/src/Rundfrage.Api/Endpoints/Admin/PollAdminEndpoints.cs`
-- [ ] T068 [US3] Include the grid in the public poll payload from `PollEndpoints.cs` (FR-036)
-- [ ] T069 [US3] Implement `frontend/src/components/poll/ResultGrid.vue` with a character or word per state, never colour alone — makes T064 pass
+- [X] T066 [US3] Implement `backend/src/Rundfrage.Api/Polls/ResultsProjection.cs` computing totals with a grouped query and paging rows — makes T059 to T063 pass
+- [X] T067 [US3] Add `GET /api/v1/admin/polls/{pollId}` to `backend/src/Rundfrage.Api/Endpoints/Admin/PollAdminEndpoints.cs`
+- [X] T068 [US3] Include the grid in the public poll payload from `PollEndpoints.cs` (FR-036)
+- [X] T069 [US3] Implement `frontend/src/components/poll/ResultGrid.vue` with a character or word per state, never colour alone — makes T064 pass
 
 **Checkpoint**: The collected answers are readable and the best day is visible at a glance.
 
@@ -190,18 +190,18 @@ change is stored without a second response appearing.
 
 ### Tests (write first, observe failing)
 
-- [ ] T070 [P] [US4] Write failing tests in `backend/tests/Rundfrage.Api.IntegrationTests/ResponseRevisionTests.cs`: the edit token returns that response prefilled, and grants access to no other response and to no admin function (FR-028, FR-029)
-- [ ] T071 [P] [US4] Write a failing test asserting a revision updates in place and leaves the response count unchanged (FR-030, SC-008)
-- [ ] T072 [P] [US4] Write a failing test asserting no participant route can change a response without its edit token (FR-031)
-- [ ] T073 [P] [US4] Write a failing test asserting an edit token for a deleted or expired poll produces the same neutral not-found (FR-040)
-- [ ] T074 [P] [US4] Write a failing Vitest test in `frontend/tests/unit/AnswerForm.revision.spec.ts` asserting previous answers are prefilled and editable
-- [ ] T075 [P] [US4] Write a failing Playwright assertion in `e2e/tests/date-poll-journey.spec.ts` covering submit → revise → verify
+- [X] T070 [P] [US4] Write failing tests in `backend/tests/Rundfrage.Api.IntegrationTests/ResponseRevisionTests.cs`: the edit token returns that response prefilled, and grants access to no other response and to no admin function (FR-028, FR-029)
+- [X] T071 [P] [US4] Write a failing test asserting a revision updates in place and leaves the response count unchanged (FR-030, SC-008)
+- [X] T072 [P] [US4] Write a failing test asserting no participant route can change a response without its edit token (FR-031)
+- [X] T073 [P] [US4] Write a failing test asserting an edit token for a deleted or expired poll produces the same neutral not-found (FR-040)
+- [X] T074 [P] [US4] Write a failing Vitest test in `frontend/tests/unit/AnswerForm.revision.spec.ts` asserting previous answers are prefilled and editable
+- [X] T075 [P] [US4] Write a failing Playwright assertion in `e2e/tests/date-poll-journey.spec.ts` covering submit → revise → verify
 
 ### Implementation
 
-- [ ] T076 [US4] Add `GET` and `PUT /api/v1/responses/{editToken}` to `backend/src/Rundfrage.Api/Endpoints/Public/ResponseEndpoints.cs` — makes T070 to T073 pass
-- [ ] T077 [US4] Extend `ResponseService.cs` with in-place revision that clears answers for omitted days
-- [ ] T078 [US4] Add the revision route to `frontend/src/router.ts` and reuse `AnswerForm.vue` in revision mode — makes T074 and T075 pass
+- [X] T076 [US4] Add `GET` and `PUT /api/v1/responses/{editToken}` to `backend/src/Rundfrage.Api/Endpoints/Public/ResponseEndpoints.cs` — makes T070 to T073 pass
+- [X] T077 [US4] Extend `ResponseService.cs` with in-place revision that clears answers for omitted days
+- [X] T078 [US4] Add the revision route to `frontend/src/router.ts` and reuse `AnswerForm.vue` in revision mode — makes T074 and T075 pass
 
 **Checkpoint**: A wrong answer can be corrected without anyone being identified.
 
@@ -216,21 +216,21 @@ gone and both link kinds stop working.
 
 ### Tests (write first, observe failing)
 
-- [ ] T079 [P] [US5] Write failing tests in `backend/tests/Rundfrage.Api.IntegrationTests/PollDeletionTests.cs` asserting deleting a poll removes every response, verified by direct storage inspection rather than by attempting access (FR-037, FR-049, SC-007)
-- [ ] T080 [P] [US5] Write a failing test asserting a single response can be deleted without touching the poll or other responses, and that the per-day totals update (FR-037a, FR-037b, SC-022)
-- [ ] T081 [P] [US5] Write a failing test asserting a poll one second past its deadline is already unreachable through all three route kinds, before any sweep runs (FR-039b, SC-031)
-- [ ] T082 [P] [US5] Write failing tests in `backend/tests/Rundfrage.Api.IntegrationTests/RetentionSweepTests.cs`: the sweep erases expired polls, is safe to run repeatedly, and logs how many it removed (FR-039c, FR-039d, SC-014, SC-032)
-- [ ] T083 [P] [US5] Write failing tests asserting one log entry each for poll deletion, response deletion and each retention sweep, none carrying a name, answer or token (FR-043a, FR-043b, SC-023, SC-024)
-- [ ] T084 [P] [US5] Write a failing Vitest test in `frontend/tests/unit/DeleteConfirm.spec.ts` asserting the confirmation names how many responses will be destroyed (FR-038)
-- [ ] T085 [P] [US5] Write a failing Playwright assertion in `e2e/tests/date-poll-journey.spec.ts` that after deletion both the participant link and the personal link show the neutral not-found (FR-040)
+- [X] T079 [P] [US5] Write failing tests in `backend/tests/Rundfrage.Api.IntegrationTests/PollDeletionTests.cs` asserting deleting a poll removes every response, verified by direct storage inspection rather than by attempting access (FR-037, FR-049, SC-007)
+- [X] T080 [P] [US5] Write a failing test asserting a single response can be deleted without touching the poll or other responses, and that the per-day totals update (FR-037a, FR-037b, SC-022)
+- [X] T081 [P] [US5] Write a failing test asserting a poll one second past its deadline is already unreachable through all three route kinds, before any sweep runs (FR-039b, SC-031)
+- [X] T082 [P] [US5] Write failing tests in `backend/tests/Rundfrage.Api.IntegrationTests/RetentionSweepTests.cs`: the sweep erases expired polls, is safe to run repeatedly, and logs how many it removed (FR-039c, FR-039d, SC-014, SC-032)
+- [X] T083 [P] [US5] Write failing tests asserting one log entry each for poll deletion, response deletion and each retention sweep, none carrying a name, answer or token (FR-043a, FR-043b, SC-023, SC-024)
+- [X] T084 [P] [US5] Write a failing Vitest test in `frontend/tests/unit/DeleteConfirm.spec.ts` asserting the confirmation names how many responses will be destroyed (FR-038)
+- [X] T085 [P] [US5] Write a failing Playwright assertion in `e2e/tests/date-poll-journey.spec.ts` that after deletion both the participant link and the personal link show the neutral not-found (FR-040)
 
 ### Implementation
 
-- [ ] T086 [US5] Implement the access filter in `backend/src/Rundfrage.Api/Retention/RetentionService.cs` that every poll, results and response lookup passes through — makes T081 pass
-- [ ] T087 [US5] Implement the hosted sweep in `RetentionService.cs` with a periodic timer running at least daily, idempotent, logging its count — makes T082 pass
-- [ ] T088 [US5] Add `DELETE /api/v1/admin/polls/{pollId}` and `DELETE .../responses/{responseId}` to `PollAdminEndpoints.cs` — makes T079 and T080 pass
-- [ ] T089 [US5] Add the three FR-043a log entries for deletion and retention — makes T083 pass
-- [ ] T090 [US5] Implement `frontend/src/components/admin/DeleteConfirm.vue` — makes T084 and T085 pass
+- [X] T086 [US5] Implement the access filter in `backend/src/Rundfrage.Api/Retention/RetentionService.cs` that every poll, results and response lookup passes through — makes T081 pass
+- [X] T087 [US5] Implement the hosted sweep in `RetentionService.cs` with a periodic timer running at least daily, idempotent, logging its count — makes T082 pass
+- [X] T088 [US5] Add `DELETE /api/v1/admin/polls/{pollId}` and `DELETE .../responses/{responseId}` to `PollAdminEndpoints.cs` — makes T079 and T080 pass
+- [X] T089 [US5] Add the three FR-043a log entries for deletion and retention — makes T083 pass
+- [X] T090 [US5] Implement `frontend/src/components/admin/DeleteConfirm.vue` — makes T084 and T085 pass
 
 **Checkpoint**: Principle IV's retention requirement is satisfied by an actual erasure.
 
@@ -238,16 +238,16 @@ gone and both link kinds stop working.
 
 ## Phase 8: Polish & Cross-Cutting Concerns
 
-- [ ] T091 [P] Update `README.md` with the operator setup, the admin address, the participant flow and the three answer states, derived from `quickstart.md` (FR-023 of 001)
-- [ ] T092 [P] Add the `Problem.code` translations for every code in `contracts/openapi.yaml` to `frontend/src/locales/de.json`, so no error reaches a user untranslated
-- [ ] T093 Verify SC-001 and SC-004 by hand: a participant answers a five-day poll in under 60 seconds; the operator creates one in under two minutes
-- [ ] T094 Verify SC-005 by hand: a revised answer is visible on reload without any restart
-- [ ] T095 Verify SC-011 by scanning a full run's logs for names, answers, tokens and request sources; the expected count is zero
-- [ ] T096 Verify SC-012 by comparing the four not-found responses byte for byte
-- [ ] T097 Verify SC-025 by completing a whole response using only the keyboard, with no pointing device
-- [ ] T098 Verify SC-018 by confirming an 8-hour idle session no longer grants admin access
-- [ ] T099 Confirm the Complexity Tracking table in `plan.md` still matches what was built, in particular that no repository, service-layer indirection or mediator appeared
-- [ ] T100 Re-run the full suite — xUnit, Vitest and Playwright — and confirm the build stays warning-free
+- [X] T091 [P] Update `README.md` with the operator setup, the admin address, the participant flow and the three answer states, derived from `quickstart.md` (FR-023 of 001)
+- [X] T092 [P] Add the `Problem.code` translations for every code in `contracts/openapi.yaml` to `frontend/src/locales/de.json`, so no error reaches a user untranslated
+- [X] T093 Verify SC-001 and SC-004 by hand: a participant answers a five-day poll in under 60 seconds; the operator creates one in under two minutes
+- [X] T094 Verify SC-005 by hand: a revised answer is visible on reload without any restart
+- [X] T095 Verify SC-011 by scanning a full run's logs for names, answers, tokens and request sources; the expected count is zero
+- [X] T096 Verify SC-012 by comparing the four not-found responses byte for byte
+- [X] T097 Verify SC-025 by completing a whole response using only the keyboard, with no pointing device
+- [X] T098 Verify SC-018 by confirming an 8-hour idle session no longer grants admin access
+- [X] T099 Confirm the Complexity Tracking table in `plan.md` still matches what was built, in particular that no repository, service-layer indirection or mediator appeared
+- [X] T100 Re-run the full suite — xUnit, Vitest and Playwright — and confirm the build stays warning-free
 
 ---
 

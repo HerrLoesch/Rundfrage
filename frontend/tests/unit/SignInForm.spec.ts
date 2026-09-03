@@ -1,8 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { mount } from '@vue/test-utils'
-import { createPinia, setActivePinia } from 'pinia'
-import { createI18n } from 'vue-i18n'
-import de from '../../src/locales/de.json'
+import { mountComponent, de } from '../support/mount'
 
 vi.mock('../../src/api/client', () => ({
   signIn: vi.fn(),
@@ -12,28 +9,38 @@ vi.mock('../../src/api/client', () => ({
   listPolls: vi.fn(),
   createPoll: vi.fn(),
 }))
+vi.mock('vue-router', () => ({ useRouter: () => ({ push: vi.fn() }) }))
 
 import { signIn } from '../../src/api/client'
 import SignInForm from '../../src/components/admin/SignInForm.vue'
 
-const i18n = createI18n({ legacy: false, locale: 'de', messages: { de } })
-const mountForm = () => mount(SignInForm, { global: { plugins: [i18n] } })
+const mountForm = () => mountComponent(SignInForm)
+
+/** Vuetify wraps the control; the native input is what a person actually types into. */
+const inputIn = (wrapper: ReturnType<typeof mountForm>, testid: string) =>
+  wrapper.get(`[data-testid="${testid}"]`).find('input')
 
 describe('SignInForm (FR-001, FR-004)', () => {
-  beforeEach(() => setActivePinia(createPinia()))
+  beforeEach(() => vi.clearAllMocks())
 
   it('offers a user and a password field and a submit control', () => {
     const wrapper = mountForm()
 
-    expect(wrapper.find('[data-testid="sign-in-user"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="sign-in-password"]').exists()).toBe(true)
+    expect(inputIn(wrapper, 'sign-in-user').exists()).toBe(true)
+    expect(inputIn(wrapper, 'sign-in-password').exists()).toBe(true)
     expect(wrapper.find('[data-testid="sign-in-submit"]').exists()).toBe(true)
   })
 
   it('masks the password field', () => {
+    expect(inputIn(mountForm(), 'sign-in-password').attributes('type')).toBe('password')
+  })
+
+  it('labels both fields, so neither is an unlabelled box', () => {
+    // FR-051
     const wrapper = mountForm()
 
-    expect(wrapper.get('[data-testid="sign-in-password"]').attributes('type')).toBe('password')
+    expect(wrapper.text()).toContain(de.signIn.user)
+    expect(wrapper.text()).toContain(de.signIn.password)
   })
 
   it('shows one neutral error that names neither field', async () => {
@@ -42,11 +49,11 @@ describe('SignInForm (FR-001, FR-004)', () => {
     vi.mocked(signIn).mockRejectedValue({ code: 'unauthorized' })
 
     const wrapper = mountForm()
-    await wrapper.get('[data-testid="sign-in-submit"]').trigger('submit')
+    await wrapper.get('[data-testid="sign-in-form"]').trigger('submit')
     await new Promise((r) => setTimeout(r, 0))
 
     const error = wrapper.get('[data-testid="sign-in-error"]').text()
-    expect(error).toBe(de.signIn.failed)
+    expect(error).toContain(de.signIn.failed)
     expect(error.toLowerCase()).not.toContain('benutzer')
     expect(error.toLowerCase()).not.toContain('passwort')
   })
@@ -56,17 +63,13 @@ describe('SignInForm (FR-001, FR-004)', () => {
     vi.mocked(signIn).mockRejectedValue({ code: 'account_locked', retryAfterSeconds: 900 })
 
     const wrapper = mountForm()
-    await wrapper.get('[data-testid="sign-in-submit"]').trigger('submit')
+    await wrapper.get('[data-testid="sign-in-form"]').trigger('submit')
     await new Promise((r) => setTimeout(r, 0))
 
     expect(wrapper.get('[data-testid="sign-in-error"]').text()).toContain('15')
   })
 
-  it('renders its labels from the translation file', () => {
-    const wrapper = mountForm()
-
-    expect(wrapper.text()).toContain(de.signIn.title)
-    expect(wrapper.text()).toContain(de.signIn.user)
-    expect(wrapper.text()).toContain(de.signIn.password)
+  it('renders its heading from the translation file', () => {
+    expect(mountForm().text()).toContain(de.signIn.title)
   })
 })

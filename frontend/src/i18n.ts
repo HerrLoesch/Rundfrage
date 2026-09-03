@@ -14,4 +14,10 @@ export const i18n = createI18n({
   locale: 'de',
   fallbackLocale: 'de',
   messages: { de },
+  datetimeFormats: {
+    de: {
+      short: { day: '2-digit', month: '2-digit' },
+      long: { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' },
+    },
+  },
 })
