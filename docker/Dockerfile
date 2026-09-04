@@ -56,4 +56,18 @@ ENV DATA_DIR=/data
 EXPOSE 8080
 ENV ASPNETCORE_HTTP_PORTS=8080
 
+# Liveness, so that an orchestrator can tell a working release from a broken one. Without it a
+# container that restart-loops - on a missing ADMIN_USER, say, which the application refuses to
+# start without - still counts as "running", and the deployment is reported as successful.
+#
+# It asks /api/v1/health, which answers without touching the storage. That is deliberate: FR-024
+# keeps the application serving when its storage cannot be reached, so a check that failed on
+# that would have the orchestrator kill or roll back a container behaving exactly as specified.
+#
+# wget is busybox's, which the Alpine base image already provides; there is no curl here.
+# start-period covers the first start, where the schema is applied before the port opens.
+HEALTHCHECK --interval=30s --timeout=3s --start-period=15s --retries=3 \
+    CMD wget --quiet --tries=1 --output-document=/dev/null \
+        http://127.0.0.1:8080/api/v1/health || exit 1
+
 ENTRYPOINT ["dotnet", "Rundfrage.Api.dll"]

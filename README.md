@@ -129,10 +129,22 @@ starten. Ein Import existiert nicht.
 
 ```bash
 docker compose down
-docker run --rm -v rundfrage_rundfrage-data:/data -v "$PWD":/in alpine \
+
+# Den Namen des Volumes nachschlagen, statt ihn zu raten. Lokal ist er aus dem Projektnamen
+# abgeleitet, unter Coolify aus der Resource — und in eine Sicherung, die ins falsche Volume
+# gelegt wird, sieht man erst hinein, wenn die Liste leer bleibt.
+volume=$(docker volume ls --quiet --filter name=rundfrage-data)
+echo "$volume"    # muss GENAU EINEN Namen zeigen
+
+docker run --rm -v "$volume":/data -v "$PWD":/in alpine \
   sh -c 'cp /in/rundfrage-2026-09-03T101500Z.db /data/rundfrage.db && chown -R 1654:1654 /data'
 docker compose up -d
 ```
+
+Zeigt `docker volume ls` mehrere Treffer, ist einer davon der produktive und die anderen sind
+Reste früherer Deployments. Welcher gerade in Benutzung ist, sagt
+`docker inspect <container> --format '{{json .Mounts}}'` — nicht die Änderungszeit und nicht die
+Größe.
 
 Das `chown` ist nicht kosmetisch. Die Anwendung läuft als Nicht-Root-Konto und legt neben der
 Datei zwei Begleitdateien an — dafür braucht sie Schreibrecht **am Verzeichnis**, nicht nur an der
@@ -239,6 +251,7 @@ Eine geänderte Übersetzung kann daher keinen Test brechen.
 | `DATA_DIR` | `/data` | Verzeichnis der Speicherdatei im Container |
 | `LOG_LEVEL` | `Information` | Serilog-Mindeststufe, ohne Neubau änderbar |
 | `APP_PORT` | `8080` | Host-Port der Anwendung |
+| `APP_BIND` | `127.0.0.1` | Host-Adresse, auf der dieser Port veröffentlicht wird. Hinter einem Proxy so lassen. |
 | `SUBMISSION_LIMIT_PER_HOUR` | `10` | Antworten pro Stunde und Quelle. In produktionsnahen Umgebungen unverändert lassen — E2E-Läufe heben ihn an, weil sie mehr als zehn von einer Maschine senden. |
 | `TRUSTED_PROXY_COUNT` | `0` | Zahl der Reverse Proxies davor. Siehe *Hinter einem Reverse Proxy*. |
 | `ADMIN_USER` | — | Betreiberkonto, ohne Standard |
@@ -274,6 +287,90 @@ etwa „glaub dem Header": Bei `docker compose up` liegt kein Proxy davor, und d
 nur die Behauptung des Aufrufenden über sich selbst.
 
 Beim Start steht in einer Zeile im Log, welcher der beiden Fälle gilt.
+
+## Betrieb unter Coolify
+
+Coolify baut aus diesem Repository (Build Pack *Docker Compose*, Datei `compose.yaml`). Vor dem
+ersten Deploy müssen vier Umgebungsvariablen in der Resource stehen:
+
+| Variable | Wert | Ohne sie |
+|---|---|---|
+| `ADMIN_USER` | frei gewählt | Die Anwendung **startet nicht** und läuft in eine Neustartschleife |
+| `ADMIN_PASSWORD_HASH` | siehe *Betreiberkonto* | dito |
+| `TRUSTED_PROXY_COUNT` | `1` | Das Antwortlimit trifft alle gemeinsam, das Sitzungs-Cookie bekommt kein `Secure` — siehe *Hinter einem Reverse Proxy* |
+| `APP_BIND` | `127.0.0.1` (Standard) | Die Anwendung hängt zusätzlich ungeschützt am öffentlichen Port 8080, neben dem Proxy und außerhalb seines TLS |
+
+Den Hash erzeugt man auf dem Server im Terminal der Resource — das Passwort selbst gehört nirgends
+in die Konfiguration:
+
+```bash
+dotnet Rundfrage.Api.dll --hash-password
+```
+
+### Das Volume ist die einzige Sache, die nicht wiederherstellbar ist
+
+Das Image ist aus dem Repository jederzeit neu baubar. Das Volume nicht. Coolify leitet dessen
+Namen aus der Resource ab, und solange die Resource dieselbe bleibt, überlebt es jedes Update.
+
+Verschiebt sich der Name aber je — Resource neu angelegt, Service umbenannt —, dann bekommt die
+Anwendung ein **leeres** Volume, legt das Schema an und liefert eine leere Umfrageliste aus.
+Das sieht nach einem normalen Start aus. Genau dagegen steht seit diesem Stand eine Warnung im
+Log, und sie ist die Zeile, nach der man nach jedem Update sucht:
+
+```text
+No storage was present at start, so a new and empty one was created.
+```
+
+Beim ersten Start ist sie richtig. Bei jedem späteren heißt sie: **sofort stoppen, bevor jemand
+antwortet.** Die alten Daten liegen dann noch im anderen Volume — aber nur so lange, bis jemand
+aufräumt. Der Normalfall ist die Zeile darüber:
+
+```text
+Existing storage opened.
+```
+
+Wer den Namen festnageln will, damit er sich nicht verschieben *kann*, tut das in zwei Schritten
+und nie in einem: erst nachsehen, wie das Volume in Benutzung heißt
+(`docker volume ls --filter name=rundfrage-data`), dann genau diesen Namen als `name:` in den
+`volumes:`-Block von `compose.yaml` eintragen. Andersherum — erst eintragen, dann deployen —
+mountet Coolify ein neues, leeres Volume, und das ist der Datenverlust, den das Festnageln
+verhindern sollte.
+
+### Ein Update fahren
+
+```text
+1. Sicherung ziehen        Adminbereich → „Sicherung herunterladen", NICHT cp
+2. Deploy auslösen         Coolify baut, startet neu, Healthcheck muss grün werden
+3. Log prüfen              „Existing storage opened."  — nicht die Warnung oben
+4. Anmelden                Umfrageliste zeigt, was vorher da war
+```
+
+Schritt 1 ist nicht optional, und zwar wegen Schritt 5, den es nicht gibt: **ein Image-Rollback
+in Coolify ist nach einer Schema-Migration kein Rollback.** Migrationen laufen beim Start
+automatisch und werden nicht zurückgenommen; die alte Anwendungsversion trifft danach auf ein
+Schema, das sie nicht kennt. Der Rückweg ist immer *alte Version deployen **und** die Sicherung
+von vorher einspielen* — und die gibt es nur, wenn sie vorher gezogen wurde.
+
+Was dabei **nicht** schiefgehen kann: eine fehlgeschlagene Migration. SQLite führt DDL
+transaktional aus, und `DatabaseStartup` meldet den Fehler, statt ihn zu werfen — die Anwendung
+startet, sagt „Speicher nicht erreichbar" und hat nichts angefasst.
+
+### Neustart, nicht Rolling Update
+
+Für diesen Dienst muss der alte Container **weg sein, bevor der neue startet**. Zwei Prozesse auf
+einer SQLite-Datei überstehen Lesen und Schreiben dank WAL und `busy_timeout` — zwei gleichzeitig
+laufende Migrationen nicht. Es gibt genau eine Instanz; horizontal skalieren lässt sich das hier
+nicht, und das ist eine Eigenschaft der Speicherform, kein Versäumnis.
+
+### Healthcheck
+
+Das Image bringt seinen eigenen mit (`docker/Dockerfile`), Coolify übernimmt ihn. Er fragt
+`/api/v1/health` und meldet ausschließlich, **ob dieser Prozess antwortet** — bewusst ohne den
+Speicher anzufassen. Sonst würde ein unerreichbarer Speicher einen Container abräumen lassen, der
+sich exakt so verhält, wie FR-024 es verlangt.
+
+Damit ist die Neustartschleife aus der Tabelle oben sichtbar: Ohne `ADMIN_USER` wird der Deploy
+rot, statt als erfolgreich gemeldet zu werden.
 
 ## Logs
 

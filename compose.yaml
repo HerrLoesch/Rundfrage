@@ -10,8 +10,22 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile
+    # The port inside the container. A reverse proxy that shares a network with this service -
+    # Coolify's Traefik does - reaches it here, over the container network, and needs no
+    # published port at all.
+    expose:
+      - "8080"
+    # Bound to the loopback address by default, which is what makes the line above the only way
+    # in from outside the host. Published on every interface, the application would ALSO sit on
+    # the server's public address on port 8080, beside the proxy and without its TLS - a second
+    # front door that nobody opened on purpose and that no certificate covers.
+    #
+    # Local use is unaffected: http://localhost:8080 is the loopback address.
+    #
+    # Set APP_BIND=0.0.0.0 for a deployment that really is meant to publish the port itself,
+    # with nothing in front of it.
     ports:
-      - "${APP_PORT:-8080}:8080"
+      - "${APP_BIND:-127.0.0.1}:${APP_PORT:-8080}:8080"
     environment:
       # Where the storage file lives inside the container. The volume below is mounted here, so
       # the data survives `docker compose down` and is copied by copying the volume.
@@ -43,4 +57,12 @@ services:
     restart: unless-stopped
 
 volumes:
+  # Left without an explicit `name:` on purpose, and that is a decision with a sharp edge on it.
+  #
+  # Compose derives the real volume name from the project; an orchestrator derives it from the
+  # resource. Either way it is stable as long as the deployment is, and a plain redeploy keeps
+  # the data. But if the name ever shifts - the resource is recreated, the service renamed - the
+  # application is handed an EMPTY volume, creates the schema, and serves an empty poll list.
+  # Nothing about that looks like a failure. The startup warning in Program.cs is what catches
+  # it; see "Betrieb unter Coolify" in README.md for pinning the name to the one in use.
   rundfrage-data:
