@@ -114,31 +114,57 @@ var app = builder.Build();
 // Neither step may stop the host. If the directory cannot be prepared or the schema cannot be
 // applied, the application still starts and serves; the admin area then says that storage is
 // unavailable rather than showing an empty list, and no answer is ever confirmed.
-StorageSetup.PrepareDirectory(dataDirectory, app.Services.GetRequiredService<ILogger<Program>>());
+var startupLog = app.Services.GetRequiredService<ILogger<Program>>();
+
+StorageSetup.PrepareDirectory(dataDirectory, startupLog);
+
+// Read before the schema is applied, because applying it is what creates the file. See the
+// warning below for why anyone cares.
+var storageExisted = File.Exists(StorageLocation.FileIn(dataDirectory));
 
 await using (var scope = app.Services.CreateAsyncScope())
 {
     await DatabaseStartup.ApplyMigrationsAsync(
         scope.ServiceProvider.GetRequiredService<RundfrageDbContext>(),
-        app.Services.GetRequiredService<ILogger<Program>>(),
+        startupLog,
         CancellationToken.None);
 }
 
+// 003 FR-006. A first start and a start that lost its volume look identical from the outside:
+// both find an empty directory, both create the schema, and both then serve an empty poll list
+// without complaining. That is the one failure of a deployment that costs data while reporting
+// success, so the two cases are told apart here and said out loud.
+if (!storageExisted)
+{
+    startupLog.LogWarning(
+        "No storage was present at start, so a new and empty one was created. On a first start "
+        + "that is expected. On any later start it means the volume holding the data was not "
+        + "mounted - the previous polls are still in it, and this instance is not writing to it. "
+        + "Stop before anyone answers: starting fresh is not recoverable by restarting.");
+}
+else
+{
+    startupLog.LogInformation("Existing storage opened.");
+}
+
 // FR-007a. After the schema, because that is when the file first exists.
-StorageSetup.SecureFile(dataDirectory, app.Services.GetRequiredService<ILogger<Program>>());
+StorageSetup.SecureFile(dataDirectory, startupLog);
 
 // --- Routing (FR-006a) ---------------------------------------------------------------------
 // Everything under /api/v1 is the API; everything else belongs to the web application, so the
 // SPA's client-side routes and the backend endpoints cannot collide on the shared origin.
 // Before everything, so the rate limiter partitions by the participant and not by the proxy,
 // and the session cookie's Secure flag follows the browser's scheme and not the proxy's.
-app.UseTrustedProxyHeaders(app.Services.GetRequiredService<ILogger<Program>>());
+app.UseTrustedProxyHeaders(startupLog);
 
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 
 var api = app.MapGroup("/api/v1");
+
+// Liveness for the container runtime, before anything that could need a session or the storage.
+api.MapHealthEndpoint();
 
 // --- Participant routes (Principle I) -------------------------------------------------------
 // No session, no account, no email. The token in the path is the authorisation.

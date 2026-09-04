@@ -111,6 +111,10 @@ jobs:
           } >> "$GITHUB_ENV"
 
       # Runs against the same single-container set developers start locally (FR-021).
+      #
+      # compose.yaml publishes the port on the loopback address, which is an IPv4 one. Both this
+      # job and the browser therefore address 127.0.0.1 literally rather than "localhost", which
+      # resolves to ::1 first on the runner and would reach the port only by falling back.
       - name: Start the system
         run: docker compose up -d --build
 
@@ -125,7 +129,7 @@ jobs:
           for i in $(seq 1 60); do
             code=$(curl -s -o /dev/null -w '%{http_code}' \
               -X POST -H 'Content-Type: application/json' -d '{}' \
-              http://localhost:8080/api/v1/admin/session || true)
+              http://127.0.0.1:8080/api/v1/admin/session || true)
             [ "$code" = "401" ] && echo "application ready after ${i}s" && exit 0
             sleep 1
           done
