@@ -1,0 +1,253 @@
+# Feature 005 additions to the API. Everything here lives under /api/v1 and, except where
+# noted, behind the existing operator session — the admin group already carries
+# RequireAuthorization(), so these inherit it rather than repeating it (002 FR-048).
+openapi: 3.1.0
+info:
+  title: Rundfrage — import and maintenance mode
+  version: "005"
+
+paths:
+  /api/v1/admin/polls/import:
+    post:
+      summary: Import one poll from a JSON export
+      description: >
+        Creates a NEW poll (FR-008). Never modifies an existing one. The imported poll receives a
+        new participant link and each response a new personal link (FR-011); links shared for the
+        original poll do not reach it. Parts of the file that cannot be taken are skipped and
+        reported rather than dropped (FR-012).
+
+        No request size limit applies — Kestrel's default and FormOptions' default are both lifted
+        for this route (research R-5), per the specification's recorded decision.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        "200":
+          description: >
+            The import ran. This does NOT mean a poll was created — a file holding only an expired
+            poll returns 200 with imported=false and a populated skipped list (FR-004).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ImportSummary" }
+        "400":
+          description: >
+            Refused before anything was created — not JSON, not this document, formatVersion too
+            new, or a limit that makes the poll uncreatable (FR-013).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "401": { description: No operator session (FR-002) }
+        "503":
+          description: Storage unreachable (003 FR-024). Nothing was created.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /api/v1/admin/restore/preview:
+    post:
+      summary: Report what restoring this backup would do, without doing it
+      description: >
+        FR-018. Reads the uploaded file only; the live storage is not touched. The upload is
+        removed when this call ends (FR-005a) — a confirmed restore uploads again.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: { type: string, format: binary }
+      responses:
+        "200":
+          description: What the backup holds and what would be lost
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RestorePreview" }
+        "400":
+          description: Not a backup this system can restore (FR-019)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "401": { description: No operator session }
+        "409":
+          description: Maintenance mode is off (FR-024)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /api/v1/admin/restore:
+    post:
+      summary: Replace all data with the contents of a backup
+      description: >
+        Irreversible in effect, atomic in execution (FR-020). Refused unless maintenance mode is
+        already on (FR-024). Preserves every token, so links that worked when the backup was taken
+        work again (FR-017). Does not change maintenance state (FR-023).
+
+        The retention sweep is suspended for the duration: without that, a sweep waking mid-restore
+        holds a transaction and the restore fails with 'database is locked' (research R-2).
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file, confirm]
+              properties:
+                file: { type: string, format: binary }
+                confirm:
+                  type: boolean
+                  description: Must be true. The operator has seen the preview (FR-018).
+      responses:
+        "200":
+          description: Restored
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RestoreSummary" }
+        "400": { description: Not a restorable backup, or confirm was not given }
+        "401": { description: No operator session }
+        "409":
+          description: >
+            Maintenance mode is off (FR-024), or the storage could not be locked exclusively
+            (research R-2). Neither has replaced anything.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "503": { description: Storage unreachable. Previous data intact (FR-021). }
+
+  /api/v1/admin/maintenance:
+    get:
+      summary: Whether maintenance mode is on
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MaintenanceState" }
+        "401": { description: No operator session }
+    put:
+      summary: Switch maintenance mode on or off
+      description: >
+        Takes effect for the next request; no restart (FR-033). Switching on when already on, or
+        off when already off, succeeds (spec Edge Cases). Never alters poll data (FR-034).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [enabled]
+              properties:
+                enabled: { type: boolean }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MaintenanceState" }
+        "401": { description: No operator session }
+
+  /api/v1/health:
+    get:
+      summary: Liveness (added in feature 005's predecessor commit)
+      description: >
+        Listed here only to pin FR-031: this MUST answer 200 while maintenance mode is on.
+        Maintenance is a deliberate state, not a fault; reporting it as one would have the
+        orchestrator replace or roll back the deployment mid-maintenance.
+      security: []
+      responses:
+        "200": { description: Answering — in every maintenance state }
+
+components:
+  schemas:
+    Error:
+      type: object
+      required: [code]
+      properties:
+        code:
+          type: string
+          description: >
+            A code the interface renders, never prose to display raw. FR-006 and FR-009 require the
+            defect to be named specifically enough to act on, which is why these are distinct codes
+            rather than one generic failure. Includes not_a_valid_export, format_version_too_new,
+            poll_too_large, not_a_backup, maintenance_required, storage_locked,
+            confirmation_required.
+        limit: { type: integer, nullable: true }
+
+    SkippedItem:
+      type: object
+      required: [kind, reason]
+      properties:
+        kind: { type: string, enum: [poll, response, answer] }
+        reason:
+          type: string
+          enum: [already_expired, unknown_day, unknown_availability, name_too_long, duplicate_day]
+        detail:
+          type: string
+          nullable: true
+          description: Which day or which name. Never the whole item, never free text from the file.
+
+    ImportSummary:
+      type: object
+      required: [imported, counts, skipped]
+      properties:
+        imported:
+          type: boolean
+          description: False with a populated skipped list is a normal outcome, not an error (FR-004).
+        pollId: { type: string, format: uuid, nullable: true }
+        participantUrl: { type: string, nullable: true }
+        counts:
+          type: object
+          properties:
+            days: { type: integer }
+            responses: { type: integer }
+            answers: { type: integer }
+        skipped:
+          type: array
+          items: { $ref: "#/components/schemas/SkippedItem" }
+
+    RestorePreview:
+      type: object
+      required: [pollsInBackup, responsesInBackup, pollsLost, responsesLost]
+      properties:
+        pollsInBackup: { type: integer }
+        responsesInBackup: { type: integer }
+        pollsLost:
+          type: integer
+          description: Polls that exist now and are not in the backup (FR-018).
+        responsesLost: { type: integer }
+        expired:
+          type: array
+          items: { type: string }
+          description: Titles in the backup already past retention. Restored anyway (FR-016a).
+
+    RestoreSummary:
+      type: object
+      required: [polls, responses]
+      description: >
+        Its presence is the success. A refusal returns an Error instead, so there is no
+        "restored nothing" state - and therefore no flag that could only ever be true.
+      properties:
+        polls: { type: integer }
+        responses: { type: integer }
+        expired:
+          type: array
+          items: { type: string }
+          description: Restored, reported, then removed by the ordinary retention sweep (FR-016a).
+
+    MaintenanceState:
+      type: object
+      required: [enabled]
+      properties:
+        enabled: { type: boolean }
+        since:
+          type: string
+          format: date-time
+          nullable: true
+          description: When it was switched on. Informational; the state is the marker's presence.
