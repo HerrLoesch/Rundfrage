@@ -5,10 +5,22 @@
     "moduleResolution": "bundler",
     "strict": true,
     "jsx": "preserve",
-    "types": ["vite/client", "vitest/globals"],
-    "lib": ["ES2022", "DOM"],
+    "types": [
+      "vite/client",
+      "vitest/globals",
+      "node"
+    ],
+    "lib": [
+      "ES2022",
+      "DOM",
+      "DOM.Iterable"
+    ],
     "skipLibCheck": true,
     "noEmit": true
   },
-  "include": ["src/**/*.ts", "src/**/*.vue", "tests/**/*.ts"]
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.vue",
+    "tests/**/*.ts"
+  ]
 }

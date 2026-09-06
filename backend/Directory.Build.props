@@ -1,0 +1,24 @@
+<Project>
+
+  <!--
+    Settings that apply to every project under backend/. MSBuild picks this file up automatically,
+    so the three .csproj files below stay about what each project *is* rather than repeating what
+    all of them share.
+
+    Introduced after a real miss: `RestoreService` took a `BerlinClock` it never read, the compiler
+    reported it as CS9113 the whole time, and nobody saw it - the incremental build had nothing to
+    recompile and so printed nothing. It surfaced only on a forced full rebuild, during review.
+    A warning that does not stop anything is a warning that eventually goes unread.
+  -->
+  <PropertyGroup>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+
+    <!--
+      Deliberately NOT suppressed here, one by one, as they appear. If a warning turns out to be
+      wrong for this codebase, the argument for silencing it belongs in the file that triggers it,
+      as a #pragma with a reason - visible to whoever reads that code - rather than as a project-
+      wide exemption nobody encounters again.
+    -->
+  </PropertyGroup>
+
+</Project>
