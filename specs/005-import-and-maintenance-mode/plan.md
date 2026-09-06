@@ -177,5 +177,11 @@ through it. US1 stays first and stays independently shippable.
 
 > Fill ONLY if Constitution Check has violations that must be justified.
 
-No violations. This feature adds no project, layer, service or dependency, and every new class
-answers one stated requirement.
+The feature itself adds no project, layer or service, and every new class answers one stated
+requirement. One dependency was added during review, and Principle III requires it to be argued
+here rather than in a commit message.
+
+| Violation | Why Needed | Simpler Alternative Rejected Because |
+|-----------|------------|-------------------------------------|
+| `vue-tsc` + `@types/node` (dev dependencies) | The frontend had **no type checking at all**. `vite build` hands sources to esbuild, which *removes* types instead of checking them, and plain `tsc` cannot read `.vue` files - where 1,586 of the frontend's 2,338 lines live. Measured during review: a template reading `summary.restored`, a field removed from its interface, built cleanly and shipped. | *Plain `tsc`*: covers only the 752 lines that are already the safest, and reports nothing about templates, props or emits between components. *Relying on the IDE*: checks whatever a developer happens to have open, and never runs in CI. *Relying on unit tests*: they caught the seeded error only because a test happened to render that branch; the same error behind an unrendered `v-if` passes 129 green tests. |
+| `typescript` pinned from `^7` to `^5` | `vue-tsc` 3.3.11 patches `typescript/lib/tsc`, and TypeScript 7 removed that subpath from its `exports` map, so the two cannot be installed together today. | *Keeping TypeScript 7 and skipping the check*: leaves the gap this entry exists to close. The pin costs nothing measurable: nothing in the project imports `typescript`, neither Vite nor Vitest depends on it at runtime, and it is an optional peer of vue/pinia/vuetify. TypeScript 7 was doing nothing here except being a checker that never ran. **Revisit when Vue's language tooling supports TypeScript 7** - at that point the pin can simply be lifted. |

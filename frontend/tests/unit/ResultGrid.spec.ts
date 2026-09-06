@@ -128,7 +128,9 @@ describe('ResultGrid', () => {
 
     expect(summaryRows(wrapper)).toHaveLength(0)
     expect(wrapper.find('[data-testid="totals-row"]').exists()).toBe(false)
-    expect(wrapper.get('[data-testid="summary-toggle"]').exists()).toBe(true)
+    // find, not get: get() throws when the element is missing, so exists() on its result can
+    // only ever be true. The assertion read as a check and was a constant.
+    expect(wrapper.find('[data-testid="summary-toggle"]').exists()).toBe(true)
   })
 
   it('shows the per-day totals for the three answered states once unfolded', async () => {
