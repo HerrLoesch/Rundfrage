@@ -47,7 +47,8 @@ public sealed class RetentionService(
 /// Runs the erasure sweep. FR-039c requires it at least daily; hourly keeps the window between
 /// "unreachable" and "gone" short without costing anything measurable.
 /// </summary>
-public sealed class RetentionSweep(IServiceProvider services, ILogger<RetentionSweep> logger)
+public sealed class RetentionSweep(
+    IServiceProvider services, RetentionSuspension suspension, ILogger<RetentionSweep> logger)
     : BackgroundService
 {
     public static readonly TimeSpan Interval = TimeSpan.FromHours(1);
@@ -60,9 +61,22 @@ public sealed class RetentionSweep(IServiceProvider services, ILogger<RetentionS
         {
             try
             {
-                await using var scope = services.CreateAsyncScope();
-                var retention = scope.ServiceProvider.GetRequiredService<RetentionService>();
-                await retention.EraseExpiredAsync(stoppingToken);
+                // research R-2: a sweep that wakes during a restore holds a transaction, and the
+                // restore then fails with 'database is locked'. TryAcquire rather than a wait,
+                // because this work can always happen an hour later - queueing behind a restore
+                // would only run a sweep against data the operator has just replaced.
+                using var held = suspension.TryAcquire();
+
+                if (held is null)
+                {
+                    logger.LogInformation("Retention sweep skipped: the storage is in use");
+                }
+                else
+                {
+                    await using var scope = services.CreateAsyncScope();
+                    var retention = scope.ServiceProvider.GetRequiredService<RetentionService>();
+                    await retention.EraseExpiredAsync(stoppingToken);
+                }
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
