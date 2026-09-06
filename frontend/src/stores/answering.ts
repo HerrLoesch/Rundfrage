@@ -24,6 +24,13 @@ export const useAnsweringStore = defineStore('answering', () => {
   const loading = ref(false)
   const problem = ref<ApiProblem | null>(null)
 
+  /**
+   * Maintenance is its own state rather than one more error. It is not a failure - the operator
+   * switched it on deliberately - and the participant is owed a notice, not an error message
+   * (005 FR-026, FR-032).
+   */
+  const maintenance = ref(false)
+
   const displayName = ref('')
   /** Day id -> availability. A day absent from this map is *no answer* (research.md R-8). */
   const answers = ref<Record<string, Availability>>({})
@@ -39,6 +46,7 @@ export const useAnsweringStore = defineStore('answering', () => {
   function reset() {
     notFound.value = false
     problem.value = null
+    maintenance.value = false
     justSubmitted.value = false
     justRevised.value = false
   }
@@ -67,6 +75,7 @@ export const useAnsweringStore = defineStore('answering', () => {
       // The neutral not-found is the only thing the server says about unknown, malformed,
       // expired and deleted alike, so there is one thing to show (SC-012).
       if (apiProblem.code === 'not_found') notFound.value = true
+      else if (apiProblem.code === 'maintenance') maintenance.value = true
       else problem.value = apiProblem
     } finally {
       loading.value = false
@@ -85,6 +94,7 @@ export const useAnsweringStore = defineStore('answering', () => {
     } catch (failure) {
       const apiProblem = failure as ApiProblem
       if (apiProblem.code === 'not_found') notFound.value = true
+      else if (apiProblem.code === 'maintenance') maintenance.value = true
       else problem.value = apiProblem
     } finally {
       loading.value = false
@@ -133,7 +143,7 @@ export const useAnsweringStore = defineStore('answering', () => {
   }
 
   return {
-    poll, notFound, loading, problem,
+    poll, notFound, loading, problem, maintenance,
     displayName, answers, editToken, justSubmitted, justRevised,
     loadPoll, loadOwnResponse, setAnswer, submit, revise,
   }

@@ -5,8 +5,12 @@ import { useI18n } from 'vue-i18n'
 import { usePollsStore } from '../../stores/polls'
 import { useSessionStore } from '../../stores/session'
 import PollForm from './PollForm.vue'
+import ImportPanel from './ImportPanel.vue'
 import DeleteConfirm from './DeleteConfirm.vue'
 import ResultGrid from '../poll/ResultGrid.vue'
+import MaintenanceSwitch from './MaintenanceSwitch.vue'
+import RestorePanel from './RestorePanel.vue'
+import { useMaintenanceStore } from '../../stores/maintenance'
 import {
   backupUrl,
   deletePoll,
@@ -16,6 +20,7 @@ import {
   type PollView,
 } from '../../api/client'
 
+const maintenance = useMaintenanceStore()
 const { t, d } = useI18n()
 const router = useRouter()
 const polls = usePollsStore()
@@ -36,6 +41,7 @@ const pendingDelete = ref<{ id: string; title: string; responseCount: number } |
 
 onMounted(async () => {
   await polls.load()
+  await maintenance.load()
 
   // The server decides whether the session is valid; this view reacts to its answer. That is
   // what makes a reload work - the cookie is sent, the request succeeds, and nothing local
@@ -98,6 +104,7 @@ async function confirmDelete() {
         >
           {{ t('backup.download') }}
         </v-btn>
+        <MaintenanceSwitch />
         <v-btn
           variant="outlined"
           prepend-icon="mdi-logout"
@@ -110,6 +117,19 @@ async function confirmDelete() {
     </div>
 
     <PollForm />
+
+    <!--
+      Importing sits below creating, because both make a poll and this is the less common way.
+      The restore panel is deliberately elsewhere and looks nothing like this one: adding one
+      poll and replacing everything must never be reachable by the same reflex (FR-001).
+    -->
+    <ImportPanel class="mb-6" @imported="polls.load()" />
+
+    <!--
+      Below the import and looking nothing like it: one adds a poll, the other replaces every
+      poll, and FR-001 requires that those never be reachable by the same reflex.
+    -->
+    <RestorePanel class="mb-6" @restored="polls.load()" />
 
     <v-alert
       v-if="storageUnavailable"

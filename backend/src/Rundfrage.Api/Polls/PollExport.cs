@@ -49,8 +49,14 @@ public sealed class PollExport(RundfrageDbContext db, BerlinClock clock)
 {
     /// <summary>
     /// Additive changes keep this number; removing a field, renaming one, or changing what an
-    /// existing one means raises it (FR-020b). It is a signal, not a promise: nothing commits to
-    /// reading an older version back (FR-020c), and there is no import.
+    /// existing one means raises it (FR-020b).
+    /// <para>
+    /// <b>This number is now read back.</b> Feature 005 imports documents carrying it, and refuses
+    /// a higher one rather than interpreting it - see <see cref="PollImport"/>. Until then nothing
+    /// committed to reading any version back, and this comment said so; that sentence has been
+    /// removed rather than left standing, because a comment asserting the opposite of the
+    /// behaviour is worse than no comment.
+    /// </para>
     /// </summary>
     public const int FormatVersion = 1;
 

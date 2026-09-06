@@ -5,6 +5,7 @@ import { useAnsweringStore } from '../../stores/answering'
 import AnswerForm from './AnswerForm.vue'
 import ResultGrid from './ResultGrid.vue'
 import ShareLink from './ShareLink.vue'
+import MaintenanceNotice from './MaintenanceNotice.vue'
 
 const props = defineProps<{ pollToken?: string; editToken?: string }>()
 
@@ -49,6 +50,12 @@ async function save() {
     </div>
 
     <!-- One message for all four causes, because the server gives one answer (SC-012). -->
+    <!--
+      Before the not-found branch on purpose: during maintenance nothing is looked up, so a real
+      poll and an invented one must reach the same notice (FR-032).
+    -->
+    <MaintenanceNotice v-else-if="store.maintenance" />
+
     <v-alert v-else-if="store.notFound" type="warning" data-testid="poll-not-found">
       {{ t('participate.notFound') }}
     </v-alert>
