@@ -97,8 +97,10 @@ Zwei Auslassungen sind Absicht:
 - **Ein nicht beantworteter Tag fehlt**, statt einen vierten Wert zu tragen. Abwesenheit *ist* der
   Zustand — auch im Speicher. Ein Platzhalter würde behaupten, es sei etwas festgehalten worden.
 
-`formatVersion` ist ein Signal, keine Zusage: Ein zusätzliches Feld lässt die Zahl stehen,
-ein entferntes oder umbenanntes erhöht sie. Ein Import existiert nicht.
+`formatVersion` ist ein Signal: Ein zusätzliches Feld lässt die Zahl stehen, ein entferntes oder
+umbenanntes erhöht sie. **Version 1 wird eingelesen** — siehe *Einlesen und Wiederherstellen*.
+Eine höhere Zahl wird abgelehnt statt gedeutet: Sie bedeutet, dass ein Feld seine Bedeutung
+geändert hat.
 
 ## Sichern und Wiederherstellen
 
@@ -124,8 +126,10 @@ man niemanden unterbrechen will — ist die Kopie stillschweigend unvollständig
 Antworten, mal um alle einschließlich des Schemas. Der Datei sieht man nicht an, welcher Fall
 vorliegt. Sie wiegt ungefähr richtig und versagt an dem Tag, an dem man sie braucht.
 
-**Wiederherstellen** heißt: die Datei als `rundfrage.db` in das gemountete Verzeichnis legen und
-starten. Ein Import existiert nicht.
+**Wiederherstellen** geht auf zwei Wegen. Im Adminbereich — Wartungsmodus einschalten, Sicherung
+hochladen, Vorschau bestätigen; siehe *Einlesen und Wiederherstellen*. Oder von Hand, wenn das
+System nicht mehr erreichbar ist: die Datei als `rundfrage.db` in das gemountete Verzeichnis legen
+und starten.
 
 ```bash
 docker compose down
@@ -150,6 +154,89 @@ Das `chown` ist nicht kosmetisch. Die Anwendung läuft als Nicht-Root-Konto und 
 Datei zwei Begleitdateien an — dafür braucht sie Schreibrecht **am Verzeichnis**, nicht nur an der
 Datei. Fehlt es, meldet der Speicher `attempt to write a readonly database`, und die Anwendung
 zeigt „Daten nicht erreichbar", obwohl die Sicherung in Ordnung ist.
+
+## Einlesen und Wiederherstellen
+
+Zwei Dinge, die gleich klingen und es nicht sind. Beide liegen im Adminbereich, absichtlich
+getrennt und absichtlich unterschiedlich aussehend.
+
+| | **Umfrage aus Datei einlesen** | **Sicherung wiederherstellen** |
+|---|---|---|
+| Liest | den JSON-Export *einer* Umfrage | die vollständige `.db`-Sicherung |
+| Wirkung | legt **eine neue** Umfrage an | ersetzt **alles** |
+| Links | neu — alte funktionieren nicht | bleiben, alte funktionieren wieder |
+| Rückgängig | nicht nötig, nichts wird angefasst | nur über eine ältere Sicherung |
+| Wartungsmodus | nicht nötig | **erforderlich** |
+
+### Eine Umfrage einlesen
+
+Datei wählen, *Einlesen*. Danach steht da, was übernommen wurde — und was nicht, mit Grund.
+
+**Der Teilnehmerlink ist ein neuer.** Der Export enthält bewusst keinerlei Token (siehe
+*Exportieren*), also kann er auch keinen wiederherstellen. Wer den alten Link hat, kommt nicht zur
+eingelesenen Umfrage; der neue muss erneut verteilt werden. Wer schon geantwortet hatte, kann seine
+Antwort nicht mehr ändern — sein persönlicher Link ist mit der alten Umfrage verschwunden.
+
+Nicht alles muss durchkommen, und was fehlt, wird benannt statt verschwiegen:
+
+```text
+Übernommen: 3 Tage, 12 Antworten.
+Nicht übernommen
+ • Eine Antwort nannte einen Tag, den die Umfrage nicht anbietet: 2027-06-11
+ • Ein Name war länger als 100 Zeichen.
+```
+
+„Nichts übernommen" ist ein gültiges Ergebnis, kein Fehler: Eine Datei, deren Umfrage bereits über
+dem Löschdatum liegt, ergibt genau das.
+
+Abgelehnt — und dann entsteht gar nichts — wird eine Datei, die kein Export dieses Systems ist,
+eine mit zu hoher `formatVersion`, oder eine, die eine Grenze sprengt (100 Tage, 1000 Antworten,
+300 Zeichen Titel).
+
+### Eine Sicherung wiederherstellen
+
+```text
+1. Wartungsmodus einschalten        ohne ihn wird abgelehnt, nicht nur gewarnt
+2. Sicherungsdatei wählen, Prüfen   liest nur die Datei, ändert nichts
+3. Vorschau lesen                   „Verloren gehen 2 Umfragen und 5 Antworten"
+4. Bestätigen                       der Knopf nennt den Verlust, nicht bloß „OK"
+5. Wartungsmodus ausschalten
+```
+
+Danach ist der Stand der Sicherung wieder da — **einschließlich aller Links**. Die Sicherung
+enthält die Token, anders als der JSON-Export, und deshalb ist sie der Weg für den Ernstfall.
+
+Der Wartungsmodus ist Pflicht und nicht Empfehlung. Das hat einen gemessenen Grund: Die
+Wiederherstellung braucht den Speicher exklusiv, und eine offene Transaktion lässt sie mit
+`database is locked` scheitern. Der Wartungsmodus sperrt die Teilnehmenden aus; die stündliche
+Aufräumroutine wird zusätzlich angehalten, weil sie keine Anfrage ist und der Wartungsmodus sie
+nicht erreicht. Ohne beides schlüge eine Wiederherstellung gelegentlich fehl — abhängig davon, zu
+welcher Uhrzeit man sie startet.
+
+Fehlgeschlagene Wiederherstellungen kosten keine Daten: Vor dem Austausch wird eine Sicherheitskopie
+des aktuellen Stands gezogen und bei einem Fehler zurückgespielt.
+
+## Wartungsmodus
+
+Im Adminbereich schaltbar. Solange er an ist, sehen Teilnehmende unter jedem Link nur einen
+Wartungshinweis — nicht den Titel, nicht die Tage, nicht die Ergebnisse. Antworten werden nicht
+angenommen und auch nicht scheinbar angenommen.
+
+Der Adminbereich bleibt vollständig nutzbar, einschließlich des Schalters zum Ausschalten. Ein
+Banner steht sichtbar oben, kein Hinweis, der wegblendet — der wahrscheinliche Fehler ist nicht,
+den Wartungsmodus zu vergessen einzuschalten, sondern ihn nach getaner Arbeit anzulassen.
+
+Drei Eigenschaften, die man beim Betrieb kennen sollte:
+
+- **Er überlebt einen Neustart.** Der Zustand liegt in einer Datei neben dem Speicher, nicht im
+  Speicher selbst. Ein Redeploy öffnet die Teilnehmerseite nicht heimlich wieder.
+- **Eine Wiederherstellung schaltet ihn nicht um.** Genau deshalb liegt er *neben* der Datenbank:
+  Läge er darin, würde das Einspielen einer älteren Sicherung ihn mitten in der Wartung ausschalten.
+- **Der Healthcheck bleibt grün.** Wartung ist ein gewollter Zustand, kein Fehler. Wäre er rot,
+  würde Coolify das Deployment mitten in der Wartung zurückrollen.
+
+Der Hinweis sagt für jeden Link dasselbe — auch für einen, hinter dem gar keine Umfrage steht. Sonst
+verriete er, welche Links echt sind.
 
 ## Löschen und Aufbewahrung
 
@@ -192,6 +279,19 @@ ADMIN_USER=...
 ADMIN_PASSWORD_HASH=pbkdf2-sha256:600000:...:...
 ```
 
+Für die lokale Testumgebung und die E2E-Tests wird derzeit folgendes Konto
+verwendet:
+
+```text
+Benutzer: admin
+Passwort: rundfrage-test-2026
+```
+
+Dieses Passwort ist ausschließlich für lokale Tests gedacht. In jeder
+Produktivumgebung müssen `ADMIN_USER` und `ADMIN_PASSWORD_HASH` mit einem neu
+gewählten Passwort gesetzt werden. Das Testpasswort darf dort nicht verwendet
+werden.
+
 Ohne beide Variablen startet die Anwendung nicht. Ein Adminbereich mit erratbarem
 Standardpasswort wäre schlimmer als gar kein Schutz, weil er nach Schutz aussieht.
 
@@ -229,10 +329,11 @@ Entwickelt wird testgetrieben — der Test steht vor der Implementierung.
 dotnet test backend/Rundfrage.slnx    # xUnit: Unit + Integration, ohne Docker
 cd frontend && npm run test:unit      # Vitest: Unit + Komponenten
 
-# E2E laufen gegen die laufende Instanz und brauchen deren Zugangsdaten.
-# Bewusst ohne Rückfallwert: ein Passwort im Repository wäre eines, das jemand deployen kann.
+# E2E laufen gegen die laufende Instanz. Die lokale, git-ignorierte .env enthält
+# dafür E2E_ADMIN_USER und E2E_ADMIN_PASSWORD.
 docker compose up -d --build
-cd e2e && E2E_ADMIN_USER=... E2E_ADMIN_PASSWORD=... npx playwright test
+set -a && source .env && set +a
+cd e2e && npx playwright test
 ```
 
 Die Integrationstests geben jeder Testklasse eine eigene temporäre Speicherdatei. Sie brauchen

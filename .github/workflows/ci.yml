@@ -46,7 +46,7 @@ jobs:
         run: dotnet test backend/Rundfrage.slnx --no-build --configuration Release --verbosity normal
 
   frontend:
-    name: Frontend (Vitest)
+    name: Frontend (Typecheck + Vitest)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -59,6 +59,14 @@ jobs:
 
       - name: Install
         run: npm ci
+        working-directory: frontend
+
+      # Before the build, because the build cannot fail for a type error and this can. Vite hands
+      # the sources to esbuild, which *removes* the types rather than checking them - so a
+      # template reading a field that does not exist compiles cleanly and breaks in a browser.
+      # Two thirds of this frontend lives in .vue files, which plain tsc cannot read at all.
+      - name: Typecheck
+        run: npm run typecheck
         working-directory: frontend
 
       - name: Build

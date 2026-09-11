@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, useId } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { Availability, PollView } from '../../api/client'
+import { useBestDays } from '../../composables/useBestDays'
 
 const props = defineProps<{ poll: PollView; deletable?: boolean }>()
 const emit = defineEmits<{ deleteResponse: [responseId: string] }>()
@@ -34,6 +35,16 @@ const summaryOpen = ref(false)
 const totalsByDay = computed(() =>
   Object.fromEntries(props.poll.totals.map((total) => [total.dayId, total])),
 )
+
+/**
+ * 006 FR-001: which days are best. Derived from the totals, which the server counts over the whole
+ * poll while paging only the response rows - so the mark cannot drift as the reader pages (FR-003,
+ * research R-1), and it follows a new answer by arriving rather than by being invalidated (FR-006).
+ */
+const best = useBestDays(computed(() => props.poll.totals))
+
+/** One id per marked day, so each mark can point at the sentence explaining the rule (FR-007). */
+const ruleId = useId()
 
 function answerFor(responseId: string, dayId: string): Availability | 'none' {
   const row = props.poll.responses.find((r) => r.id === responseId)
@@ -123,13 +134,42 @@ function formatDay(date: string): string {
               </th>
               <td v-for="day in poll.days" :key="day.id" class="text-center font-weight-bold">
                 {{ totalsByDay[day.id]?.[state] ?? 0 }}
+                <!--
+                  006. On the yes cell only, because the yes count is what the rule decided on
+                  (research R-2); marking all three would suggest all three numbers are being
+                  praised. An icon rather than a colour, so it survives colour being removed
+                  (FR-005), and focusable so the rule reaches a keyboard as well as a pointer
+                  (FR-007, research R-3).
+                -->
+                <v-icon
+                  v-if="state === 'yes' && best.has(day.id)"
+                  icon="mdi-star"
+                  size="small"
+                  color="primary"
+                  class="ms-1"
+                  tabindex="0"
+                  :title="t('results.bestDayRule')"
+                  :aria-label="t('results.bestDay')"
+                  :aria-describedby="ruleId"
+                  data-testid="best-day"
+                />
               </td>
               <td v-if="deletable"></td>
             </tr>
           </template>
 
           <tr>
-            <th scope="col">{{ t('results.participant') }}</th>
+            <th scope="col">
+              {{ t('results.participant') }}
+              <!--
+                Rendered once and referenced by every mark, rather than repeated on each of them:
+                a reader moving across a row of marked days should not hear the ranking rule
+                recited for every one (ui-contract §2).
+              -->
+              <span v-if="summaryOpen" :id="ruleId" class="d-sr-only">{{
+                t('results.bestDayRule')
+              }}</span>
+            </th>
             <th v-for="day in poll.days" :key="day.id" scope="col" class="text-center">
               {{ formatDay(day.date) }}
             </th>

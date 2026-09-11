@@ -41,7 +41,16 @@
     "not_found": "Nicht gefunden.",
     "unauthorized": "Nicht angemeldet.",
     "too_many_requests": "Zu viele Anfragen. Bitte in {minutes} Minuten erneut versuchen.",
-    "unexpected": "Es ist ein Fehler aufgetreten."
+    "unexpected": "Es ist ein Fehler aufgetreten.",
+    "not_a_valid_export": "Die Datei ist kein Export dieses Systems.",
+    "format_version_too_new": "Die Datei stammt aus einer neueren Version und kann nicht gelesen werden.",
+    "poll_too_large": "Die Datei überschreitet eine Grenze dieses Systems.",
+    "not_a_backup": "Die Datei ist keine Sicherung dieses Systems.",
+    "maintenance_required": "Dazu muss zuerst der Wartungsmodus eingeschaltet werden.",
+    "storage_locked": "Der Speicher ist gerade belegt. Bitte kurz warten und erneut versuchen.",
+    "confirmation_required": "Bitte den Vorgang ausdrücklich bestätigen.",
+    "storage_unavailable": "Die Daten sind derzeit nicht erreichbar.",
+    "maintenance": "Die Seite wird gerade gewartet."
   },
   "participate": {
     "answerTitle": "Deine Rückmeldung",
@@ -74,7 +83,9 @@
     "deleteResponse": "Antwort löschen",
     "summary": "Zusammenfassung je Tag",
     "summaryShow": "einblenden",
-    "summaryHide": "ausblenden"
+    "summaryHide": "ausblenden",
+    "bestDay": "bester Tag",
+    "bestDayRule": "Bester Tag: die meisten Ja, bei Gleichstand die wenigsten Nein"
   },
   "delete": {
     "poll": "Terminfindung löschen",
@@ -96,5 +107,59 @@
   },
   "export": {
     "poll": "Als JSON exportieren"
+  },
+  "import": {
+    "title": "Umfrage aus Datei einlesen",
+    "hint": "Eine zuvor exportierte JSON-Datei. Die eingelesene Umfrage bekommt einen neuen Teilnehmerlink — bereits geteilte Links führen nicht zu ihr.",
+    "choose": "Datei auswählen",
+    "submit": "Einlesen",
+    "running": "Wird eingelesen …",
+    "summaryTitle": "Ergebnis",
+    "nothingTaken": "Nichts übernommen.",
+    "taken": "Übernommen: {days} Tage, {responses} Antworten.",
+    "newLink": "Neuer Teilnehmerlink",
+    "newLinkHint": "Dieser Link ist neu. Links, die für die ursprüngliche Umfrage geteilt wurden, führen nicht hierher.",
+    "skippedTitle": "Nicht übernommen",
+    "skip": {
+      "already_expired": "Die Umfrage ist bereits über ihr Löschdatum hinaus.",
+      "unknown_day": "Eine Antwort nannte einen Tag, den die Umfrage nicht anbietet: {detail}",
+      "unknown_availability": "Eine Antwort trug einen unbekannten Wert für den {detail}.",
+      "name_too_long": "Ein Name war länger als {detail} Zeichen.",
+      "name_required": "Eine Antwort trug keinen Namen.",
+      "duplicate_day": "Eine Antwort nannte den {detail} zweimal mit unterschiedlichen Angaben."
+    }
+  },
+  "maintenance": {
+    "noticeTitle": "Wartung",
+    "noticeBody": "Diese Seite wird gerade gewartet. Antworten ist gleich wieder möglich.",
+    "switch": "Wartungsmodus",
+    "on": "eingeschaltet",
+    "off": "ausgeschaltet",
+    "since": "seit {moment}",
+    "bannerTitle": "Wartungsmodus ist eingeschaltet",
+    "bannerBody": "Teilnehmende sehen derzeit nur einen Wartungshinweis. Der Adminbereich bleibt nutzbar.",
+    "confirmOnTitle": "Wartungsmodus einschalten?",
+    "confirmOnBody": "Teilnehmende können danach nicht mehr antworten, bis der Wartungsmodus wieder ausgeschaltet wird.",
+    "confirmOn": "Einschalten",
+    "cancel": "Abbrechen"
+  },
+  "restore": {
+    "title": "Sicherung wiederherstellen",
+    "warning": "Dies ersetzt ALLE Umfragen und Antworten durch den Stand der Sicherung. Bereits geteilte Links funktionieren danach wieder, weil die Sicherung sie enthält.",
+    "needsMaintenance": "Erst den Wartungsmodus einschalten. Ohne ihn wird die Wiederherstellung abgelehnt.",
+    "choose": "Sicherungsdatei auswählen",
+    "check": "Prüfen",
+    "checking": "Wird geprüft …",
+    "previewTitle": "Das würde passieren",
+    "previewContains": "Die Sicherung enthält {polls} Umfragen mit {responses} Antworten.",
+    "previewLoses": "Verloren gehen {polls} Umfragen und {responses} Antworten, die es jetzt gibt und in der Sicherung nicht.",
+    "previewLosesNothing": "Es geht nichts verloren, was nicht auch in der Sicherung steht.",
+    "previewExpired": "Bereits über dem Löschdatum und daher bald entfernt: {titles}",
+    "confirm": "Endgültig wiederherstellen und {polls} Umfragen verwerfen",
+    "cancel": "Abbrechen",
+    "running": "Wird wiederhergestellt …",
+    "doneTitle": "Wiederhergestellt",
+    "done": "{polls} Umfragen mit {responses} Antworten sind wiederhergestellt. Alle Links funktionieren wieder.",
+    "doneExpired": "Bereits über dem Löschdatum und daher bei der nächsten Aufräumrunde entfernt: {titles}"
   }
 }

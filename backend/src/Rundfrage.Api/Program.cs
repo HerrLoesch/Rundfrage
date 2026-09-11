@@ -4,6 +4,7 @@ using Rundfrage.Api.Data;
 using Rundfrage.Api.Endpoints.Admin;
 using Rundfrage.Api.Endpoints.Public;
 using Rundfrage.Api.Http;
+using Rundfrage.Api.Maintenance;
 using Rundfrage.Api.Retention;
 using Rundfrage.Api.Polls;
 using Rundfrage.Api.Security;
@@ -58,12 +59,20 @@ builder.Services.AddSingleton<BerlinClock>();
 builder.Services.AddSingleton(AdminAccount.FromConfiguration(builder.Configuration));
 builder.Services.AddSingleton<SignInThrottle>();
 
+// FR-030: state beside the storage, not inside it, so a restore cannot switch it off.
+builder.Services.AddSingleton<MaintenanceState>();
+
 builder.Services.AddScoped<BackupService>();
 builder.Services.AddScoped<PollExport>();
+builder.Services.AddScoped<PollImport>();
 builder.Services.AddScoped<PollService>();
 builder.Services.AddScoped<ResponseService>();
 builder.Services.AddScoped<ResultsProjection>();
 builder.Services.AddScoped<RetentionService>();
+builder.Services.AddScoped<RestoreService>();
+
+// research R-2: one gate, so a restore and the hourly sweep cannot hold the storage at once.
+builder.Services.AddSingleton<RetentionSuspension>();
 
 // FR-039c: erases what the access filter has already made unreachable.
 builder.Services.AddHostedService<RetentionSweep>();
@@ -157,6 +166,11 @@ StorageSetup.SecureFile(dataDirectory, startupLog);
 // and the session cookie's Secure flag follows the browser's scheme and not the proxy's.
 app.UseTrustedProxyHeaders(startupLog);
 
+// FR-026 to FR-028, before routing so a route added later is covered without anyone saying so.
+// After the forwarded headers, so the notice is decided on the browser's request and not the
+// proxy's.
+app.UseMaintenanceMode();
+
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
@@ -179,6 +193,8 @@ var admin = api.MapGroup("/admin").RequireAuthorization();
 admin.MapSignInEndpoints();
 admin.MapPollAdminEndpoints();
 admin.MapBackupEndpoint();
+admin.MapImportEndpoints();
+admin.MapMaintenanceEndpoints();
 
 app.UseDefaultFiles();
 app.UseStaticFiles();

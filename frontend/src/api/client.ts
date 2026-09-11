@@ -188,3 +188,121 @@ export const backupUrl = `${BASE}/admin/backup`
 export function exportUrl(pollId: string): string {
   return `${BASE}/admin/polls/${encodeURIComponent(pollId)}/export`
 }
+
+// ---------------------------------------------------------------------------------------
+// Feature 005 — importing exported data
+// ---------------------------------------------------------------------------------------
+
+/** One thing the file held that was not taken, and why (FR-003, FR-012). */
+export interface ImportSkip {
+  kind: 'poll' | 'response' | 'answer'
+  reason: string
+  detail: string | null
+}
+
+export interface ImportCounts {
+  days: number
+  responses: number
+  answers: number
+}
+
+/**
+ * The answer to one import request. Not stored anywhere, and there is no history to fetch
+ * (FR-003a) - so nothing in the interface may offer to reopen a past one.
+ */
+export interface ImportSummary {
+  imported: boolean
+  pollId: string | null
+  participantToken: string | null
+  counts: ImportCounts
+  skipped: ImportSkip[]
+}
+
+/**
+ * Uploads one exported poll. Multipart rather than JSON, and therefore not routed through
+ * {@link request}: that path sets `Content-Type: application/json`, and a multipart body needs
+ * the browser to set its own header with the boundary it generated. Failures still reject with
+ * an {@link ApiProblem}, so callers read `code` exactly as everywhere else.
+ */
+export async function importPoll(file: File): Promise<ImportSummary> {
+  const body = new FormData()
+  body.append('file', file)
+
+  const response = await fetch(`${BASE}/admin/polls/import`, { method: 'POST', body })
+
+  if (!response.ok) {
+    let problem: ApiProblem = { code: 'unexpected' }
+    try {
+      problem = (await response.json()) as ApiProblem
+    } catch {
+      // A response without a JSON body stays "unexpected".
+    }
+    throw problem
+  }
+
+  return (await response.json()) as ImportSummary
+}
+
+// --- Maintenance mode (US2) --------------------------------------------------------------
+
+export interface MaintenanceView {
+  enabled: boolean
+  since: string | null
+}
+
+export async function readMaintenance(): Promise<MaintenanceView> {
+  return getJson<MaintenanceView>('/admin/maintenance')
+}
+
+export async function setMaintenance(enabled: boolean): Promise<MaintenanceView> {
+  return request<MaintenanceView>('/admin/maintenance', {
+    method: 'PUT',
+    body: JSON.stringify({ enabled }),
+  })
+}
+
+// --- Restoring a whole backup (US3) -------------------------------------------------------
+
+export interface RestorePreview {
+  pollsInBackup: number
+  responsesInBackup: number
+  pollsLost: number
+  responsesLost: number
+  expired: string[]
+}
+
+export interface RestoreSummary {
+  polls: number
+  responses: number
+  expired: string[]
+}
+
+async function postBackup<T>(path: string, file: File, confirm: boolean): Promise<T> {
+  const body = new FormData()
+  body.append('file', file)
+  if (confirm) body.append('confirm', 'true')
+
+  const response = await fetch(`${BASE}${path}`, { method: 'POST', body })
+
+  if (!response.ok) {
+    let problem: ApiProblem = { code: 'unexpected' }
+    try {
+      problem = (await response.json()) as ApiProblem
+    } catch {
+      // A response without a JSON body stays "unexpected".
+    }
+    throw problem
+  }
+
+  return (await response.json()) as T
+}
+
+/** Reads the backup only. Nothing live is touched (FR-018). */
+export async function previewRestore(file: File): Promise<RestorePreview> {
+  return postBackup<RestorePreview>('/admin/restore/preview', file, false)
+}
+
+/** Replaces everything. Refused unless maintenance mode is already on (FR-024). */
+export async function restoreBackup(file: File): Promise<RestoreSummary> {
+  return postBackup<RestoreSummary>('/admin/restore', file, true)
+}
