@@ -206,4 +206,50 @@ test.describe('Results summary and followable addresses', () => {
     await expect(tab.getByTestId('share-copy')).toBeVisible()
     await stranger.close()
   })
+
+  test('the best day is marked, and the mark explains itself on focus', async ({ page }) => {
+    // 006 FR-001, FR-007, SC-004a. The focus half is why this is an end-to-end test: jsdom has no
+    // focus ring and no tooltip, so "reachable without a pointer" can only be judged in a browser.
+    const title = `Bester Tag ${Date.now()}`
+    await signIn(page)
+    const path = await createPoll(page, title, ['2027-04-12', '2027-04-13'])
+
+    // One yes on the first day and nothing on the second, so the first day leads.
+    await answer(page, path, 'Anna', 'yes')
+
+    await page.goto(path)
+    await page.getByTestId('summary-toggle').click()
+
+    const marks = page.getByTestId('best-day')
+    await expect(marks).toHaveCount(1)
+    await expect(marks.first()).toHaveAttribute('aria-label', 'bester Tag')
+
+    // Reachable by keyboard, which is the half a pointer-only design would fail.
+    await marks.first().focus()
+    await expect(marks.first()).toBeFocused()
+  })
+
+  test('the creator sees the same day marked as the participant does', async ({ page }) => {
+    // 006 FR-004, SC-003. One component serves both views; this is the check that nobody has
+    // branched on the viewer.
+    const title = `Beide Ansichten ${Date.now()}`
+    await signIn(page)
+    const path = await createPoll(page, title, ['2027-04-20', '2027-04-21'])
+    await answer(page, path, 'Anna', 'yes')
+
+    await page.goto(path)
+    await page.getByTestId('summary-toggle').click()
+    const participantMarks = await page.getByTestId('best-day').count()
+
+    await page.goto('/admin')
+    await page
+      .getByTestId('poll-list-item')
+      .filter({ hasText: title })
+      .getByTestId('show-results')
+      .click()
+    await page.getByTestId('summary-toggle').click()
+
+    await expect(page.getByTestId('best-day')).toHaveCount(participantMarks)
+    expect(participantMarks).toBe(1)
+  })
 })

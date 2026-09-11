@@ -19,15 +19,20 @@ test.describe('Maintenance mode (US2)', () => {
     await expect(page.getByTestId('maintenance-toggle')).toBeVisible()
   }
 
+  /**
+   * Signs in first, every time. The `request` fixture is its own context and does not share the
+   * page's cookies, so a test that signed in through the browser has no session here - which is
+   * exactly how this suite failed the first time it ran.
+   */
   async function setMaintenance(request: import('@playwright/test').APIRequestContext, enabled: boolean) {
+    await request.post('/api/v1/admin/session', {
+      data: { user: ADMIN_USER, password: ADMIN_PASSWORD },
+    })
     const response = await request.put('/api/v1/admin/maintenance', { data: { enabled } })
     expect(response.ok()).toBe(true)
   }
 
   test.afterEach(async ({ request }) => {
-    await request.post('/api/v1/admin/session', {
-      data: { user: ADMIN_USER, password: ADMIN_PASSWORD },
-    })
     await setMaintenance(request, false)
   })
 
@@ -38,10 +43,11 @@ test.describe('Maintenance mode (US2)', () => {
     await signIn(page)
 
     await field(page, 'poll-title').fill('Wartungsprobe')
-    await field(page, 'poll-days').fill('2027-12-01')
+    await field(page, 'poll-day-input').fill('2027-12-01')
+    await page.getByTestId('poll-add-day').click()
     await page.getByTestId('poll-submit').click()
 
-    const link = await page.getByTestId('share-url').first().innerText()
+    const link = await page.getByTestId('poll-share-link').first().innerText()
     const path = new URL(link).pathname
 
     // Before: the poll is there.
@@ -62,9 +68,6 @@ test.describe('Maintenance mode (US2)', () => {
   })
 
   test('the notice is the same for a link that leads nowhere', async ({ request }) => {
-    await request.post('/api/v1/admin/session', {
-      data: { user: ADMIN_USER, password: ADMIN_PASSWORD },
-    })
     await setMaintenance(request, true)
 
     const invented = await request.get('/api/v1/polls/aaaaaaaaaaaaaaaaaaaaaa')
@@ -76,9 +79,6 @@ test.describe('Maintenance mode (US2)', () => {
   test('the health check stays green while maintenance is on', async ({ request }) => {
     // FR-031 and SC-011. If this went red, the orchestrator would roll the deployment back in
     // the middle of the maintenance window.
-    await request.post('/api/v1/admin/session', {
-      data: { user: ADMIN_USER, password: ADMIN_PASSWORD },
-    })
     await setMaintenance(request, true)
 
     const health = await request.get('/api/v1/health')

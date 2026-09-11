@@ -266,6 +266,17 @@ describe('ResultGrid', () => {
     expect(summaryRows(wrapper)).toHaveLength(3)
     expect(summaryRows(wrapper)[0].findAll('td')).toHaveLength(100)
     expect(elapsed).toBeLessThan(1000)
+
+    // 006: the marks survive the documented maximum, and land only on days holding the highest
+    // yes count. `yes: i % 7` peaks at six, so several days tie there and every one of them is
+    // marked (FR-002) - the pathological tie research R-3 accepted, exercised rather than assumed.
+    const yesCells = summaryRows(wrapper)[0].findAll('td')
+    const markedDays = yesCells
+      .map((cell, index) => (cell.find('[data-testid="best-day"]').exists() ? index : -1))
+      .filter((index) => index >= 0)
+
+    expect(markedDays.length).toBeGreaterThan(0)
+    expect(markedDays.every((index) => large.totals[index].yes === 6)).toBe(true)
   })
 
   it('shows the response count so the totals are interpretable', () => {
@@ -286,5 +297,226 @@ describe('ResultGrid', () => {
     // FR-037a is an operator capability, not a participant one.
     expect(mountGrid(POLL, false).find('[data-testid="delete-response"]').exists()).toBe(false)
     expect(mountGrid(POLL, true).find('[data-testid="delete-response"]').exists()).toBe(true)
+  })
+})
+
+/**
+ * 006: the best day is marked in the summary.
+ *
+ * The rule itself is proven in `bestDays.spec.ts` against the nine cases of data-model.md §1.
+ * What is checked here is everything the rule cannot see: where the mark sits, when it exists,
+ * what it says, and that it changed nothing else.
+ */
+describe('ResultGrid — the best day (006)', () => {
+  const unfold = async (wrapper: ReturnType<typeof mountGrid>) => {
+    await wrapper.get('[data-testid="summary-toggle"]').trigger('click')
+    return wrapper
+  }
+
+  const marks = (wrapper: ReturnType<typeof mountGrid>) =>
+    wrapper.findAll('[data-testid="best-day"]')
+
+  /** The cells of one summary row, in day order. */
+  const cellsOf = (wrapper: ReturnType<typeof mountGrid>, state: string) =>
+    wrapper.get(`[data-testid="summary-row"][data-state="${state}"]`).findAll('td')
+
+  const pollWhere = (...totals: Array<[string, number, number, number]>) => ({
+    ...POLL,
+    days: totals.map(([id]) => ({ id, date: '2027-05-01' })),
+    totals: totals.map(([dayId, yes, maybe, no]) => ({ dayId, yes, maybe, no })),
+  })
+
+  it('marks the day that leads, and only that day', async () => {
+    // FR-001. The default fixture has day-1 at two yes and day-2 at none.
+    const wrapper = await unfold(mountGrid())
+
+    expect(marks(wrapper)).toHaveLength(1)
+    expect(cellsOf(wrapper, 'yes')[0].find('[data-testid="best-day"]').exists()).toBe(true)
+    expect(cellsOf(wrapper, 'yes')[1].find('[data-testid="best-day"]').exists()).toBe(false)
+  })
+
+  it('marks the yes row only, never the maybe or no cells of the same day', async () => {
+    // research R-2: the yes count is what decided, so it is what carries the mark. Marking all
+    // three would suggest all three numbers are being praised.
+    const wrapper = await unfold(mountGrid())
+
+    expect(cellsOf(wrapper, 'maybe').some((c) => c.find('[data-testid="best-day"]').exists())).toBe(
+      false,
+    )
+    expect(cellsOf(wrapper, 'no').some((c) => c.find('[data-testid="best-day"]').exists())).toBe(
+      false,
+    )
+  })
+
+  it('shows no mark anywhere while the summary is folded', async () => {
+    // FR-008a: a folded grid looks exactly as it did before this feature.
+    expect(marks(mountGrid())).toHaveLength(0)
+  })
+
+  it('shows the same mark again after folding and unfolding', async () => {
+    // Not computed once and remembered: a mark cached on the first unfolding would pass every
+    // other test here and be wrong the moment anything changed underneath it.
+    const wrapper = await unfold(mountGrid())
+    const first = cellsOf(wrapper, 'yes').findIndex((c) =>
+      c.find('[data-testid="best-day"]').exists(),
+    )
+
+    await wrapper.get('[data-testid="summary-toggle"]').trigger('click')
+    expect(marks(wrapper)).toHaveLength(0)
+
+    await wrapper.get('[data-testid="summary-toggle"]').trigger('click')
+    const second = cellsOf(wrapper, 'yes').findIndex((c) =>
+      c.find('[data-testid="best-day"]').exists(),
+    )
+
+    expect(second).toBe(first)
+    expect(marks(wrapper)).toHaveLength(1)
+  })
+
+  it('names itself „bester Tag" without swallowing the rule into that name', async () => {
+    // ui-contract §2. The rule is a description, not part of the name - 004 FR-016a learned what
+    // happens when explanatory text is glued into an element's own text.
+    const mark = (await unfold(mountGrid())).get('[data-testid="best-day"]')
+
+    expect(mark.attributes('aria-label')).toBe(de.results.bestDay)
+    expect(mark.attributes('aria-label')).not.toContain(de.results.bestDayRule)
+    expect(mark.attributes('aria-describedby')).toBeTruthy()
+  })
+
+  it('carries the rule where hover and keyboard focus both reach it', async () => {
+    // FR-007, SC-004a, research R-3: a title alone is unreachable without a pointer, so the mark
+    // is focusable.
+    const wrapper = await unfold(mountGrid())
+    const mark = wrapper.get('[data-testid="best-day"]')
+
+    expect(mark.attributes('title')).toBe(de.results.bestDayRule)
+    expect(mark.attributes('tabindex')).toBe('0')
+
+    const described = wrapper.find(`#${mark.attributes('aria-describedby')}`)
+    expect(described.exists()).toBe(true)
+    expect(described.text()).toBe(de.results.bestDayRule)
+  })
+
+  it('is distinguishable without colour', async () => {
+    // FR-005, SC-004: a colour class alone excludes a reader who cannot see the difference, so the
+    // mark has to render a glyph. Asserted on the icon class because that is the only observable
+    // proxy for "a shape is drawn" in a DOM without a renderer - the mark IS the icon, so a search
+    // for one inside it finds nothing.
+    const mark = (await unfold(mountGrid())).get('[data-testid="best-day"]')
+
+    expect(mark.classes()).toContain('v-icon')
+    expect(mark.classes().some((c) => c.startsWith('mdi-'))).toBe(true)
+  })
+
+  it('reflects the whole poll rather than the responses on screen', async () => {
+    // FR-003, SC-005. The totals say day-1 leads; the responses visible on this page all favour
+    // day-2. A mark derived from the rows would follow the page and move as the reader pages.
+    const wrapper = await unfold(
+      mountGrid({
+        ...pollWhere(['day-1', 5, 0, 0], ['day-2', 1, 0, 0]),
+        page: 2,
+        pageCount: 4,
+        responseCount: 200,
+        responses: [
+          { id: 'r9', displayName: 'Zoe', answers: [{ dayId: 'day-2', availability: 'yes' }] },
+        ],
+      }),
+    )
+
+    expect(cellsOf(wrapper, 'yes')[0].find('[data-testid="best-day"]').exists()).toBe(true)
+    expect(cellsOf(wrapper, 'yes')[1].find('[data-testid="best-day"]').exists()).toBe(false)
+  })
+
+  it('leaves every count, every day and their order exactly as they were', async () => {
+    // FR-008, SC-006: the mark adds emphasis and nothing else.
+    const wrapper = await unfold(mountGrid())
+
+    expect(cellsOf(wrapper, 'yes').map((c) => c.text().replace(/\D/g, ''))).toEqual(['2', '0'])
+    expect(cellsOf(wrapper, 'maybe').map((c) => c.text())).toEqual(['1', '0'])
+    expect(cellsOf(wrapper, 'no').map((c) => c.text())).toEqual(['0', '1'])
+    expect(wrapper.findAll('[data-testid="result-row"]')).toHaveLength(2)
+  })
+
+  it('moves when the answers change', async () => {
+    // FR-006. Nothing is remembered, so nothing has to be invalidated: the mark follows the totals
+    // that arrive with the next response.
+    const wrapper = await unfold(mountGrid(pollWhere(['day-1', 3, 0, 0], ['day-2', 1, 0, 0])))
+    expect(cellsOf(wrapper, 'yes')[0].find('[data-testid="best-day"]').exists()).toBe(true)
+
+    await wrapper.setProps({ poll: pollWhere(['day-1', 3, 0, 0], ['day-2', 9, 0, 0]) })
+
+    expect(cellsOf(wrapper, 'yes')[0].find('[data-testid="best-day"]').exists()).toBe(false)
+    expect(cellsOf(wrapper, 'yes')[1].find('[data-testid="best-day"]').exists()).toBe(true)
+  })
+})
+
+/**
+ * 006 US2: ties, and the honest emptiness.
+ *
+ * The rule already returns a set, so these may well pass the moment US1 lands. That is the intended
+ * outcome, not a gap — they are the proof at the surface where an operator would see it fail, and
+ * the place a later "just take the first one" refactor would be caught.
+ */
+describe('ResultGrid — no single best day (006 US2)', () => {
+  const unfold = async (wrapper: ReturnType<typeof mountGrid>) => {
+    await wrapper.get('[data-testid="summary-toggle"]').trigger('click')
+    return wrapper
+  }
+
+  const pollWhere = (...totals: Array<[number, number, number]>) => ({
+    ...POLL,
+    days: totals.map((_, i) => ({ id: `day-${i + 1}`, date: '2027-05-01' })),
+    totals: totals.map(([yes, maybe, no], i) => ({ dayId: `day-${i + 1}`, yes, maybe, no })),
+  })
+
+  const markedIndexes = (wrapper: ReturnType<typeof mountGrid>) =>
+    wrapper
+      .get('[data-testid="summary-row"][data-state="yes"]')
+      .findAll('td')
+      .map((cell, index) => (cell.find('[data-testid="best-day"]').exists() ? index : -1))
+      .filter((index) => index >= 0)
+
+  it('marks both days when two are tied at the top', async () => {
+    // FR-002: neither is picked over the other, because nothing in the answers picks one.
+    const wrapper = await unfold(mountGrid(pollWhere([4, 0, 1], [4, 0, 1], [2, 0, 0])))
+
+    expect(markedIndexes(wrapper)).toEqual([0, 1])
+  })
+
+  it('marks exactly the three tied days among ten', async () => {
+    const tied: Array<[number, number, number]> = Array.from({ length: 10 }, (_, i) =>
+      i < 3 ? [7, 0, 0] : [2, 0, 0],
+    )
+
+    expect(markedIndexes(await unfold(mountGrid(pollWhere(...tied))))).toEqual([0, 1, 2])
+  })
+
+  it('shows no mark and no explanation when nobody has answered', async () => {
+    // FR-001b, SC-002a. This is what every poll looks like on the day it is created, so a line
+    // saying "no day leads yet" would appear on all of them - noise, not information.
+    const wrapper = await unfold(mountGrid(pollWhere([0, 0, 0], [0, 0, 0])))
+
+    expect(markedIndexes(wrapper)).toEqual([])
+    expect(wrapper.text()).not.toContain(de.results.bestDay)
+  })
+
+  it('shows no mark when only maybe and no were given', async () => {
+    // Whatever the no counts say: without a yes there is no best day (FR-001b).
+    const wrapper = await unfold(mountGrid(pollWhere([0, 4, 0], [0, 1, 3])))
+
+    expect(markedIndexes(wrapper)).toEqual([])
+  })
+
+  it('marks every tied day identically — no primary and secondary', async () => {
+    const wrapper = await unfold(mountGrid(pollWhere([4, 0, 1], [4, 0, 1], [4, 0, 1])))
+    const marks = wrapper.findAll('[data-testid="best-day"]')
+
+    expect(marks).toHaveLength(3)
+
+    const shapes = marks.map((m) => m.classes().filter((c) => c.startsWith('mdi-')).join())
+    const labels = marks.map((m) => m.attributes('aria-label'))
+
+    expect(new Set(shapes).size).toBe(1)
+    expect(new Set(labels).size).toBe(1)
   })
 })

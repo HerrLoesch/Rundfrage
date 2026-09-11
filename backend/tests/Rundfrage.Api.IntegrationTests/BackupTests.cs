@@ -247,7 +247,13 @@ public class BackupTests(SqliteFixture storage) : IClassFixture<SqliteFixture>
     public async Task Nothing_produced_for_a_download_outlives_the_request()
     {
         // FR-021: an export or a backup is produced on demand and never kept.
-        var before = Directory.GetFiles(Path.GetTempPath(), "rundfrage-backup-*.db").Length;
+        //
+        // Set comparison rather than a count. This was a count until feature 005 added two more
+        // producers of rundfrage-backup-* running concurrently - the safety copy a restore takes,
+        // and the fixture that builds backups for the restore tests - at which point the number
+        // moved for reasons unrelated to this endpoint. See TempFiles.
+        const string pattern = "rundfrage-backup-*.db";
+        var before = TempFiles.Snapshot(pattern);
 
         using var factory = new ApiFactory(storage.DataDirectory);
         var admin = await factory.CreateSignedInClientAsync();
@@ -255,7 +261,6 @@ public class BackupTests(SqliteFixture storage) : IClassFixture<SqliteFixture>
         await download.Content.ReadAsByteArrayAsync();
         download.Dispose();
 
-        var after = Directory.GetFiles(Path.GetTempPath(), "rundfrage-backup-*.db").Length;
-        Assert.Equal(before, after);
+        Assert.Empty(await TempFiles.SurvivorsSince(pattern, before));
     }
 }

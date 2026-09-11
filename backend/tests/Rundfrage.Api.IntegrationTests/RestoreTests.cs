@@ -272,17 +272,15 @@ public class RestoreTests : IDisposable
         var backup = await BackupAsync();
         await SetMaintenanceAsync(factory, true);
 
-        var before = TempUploads();
+        const string pattern = "rundfrage-upload-*";
+        var before = TempFiles.Snapshot(pattern);
 
         var admin = await factory.CreateSignedInClientAsync();
         await admin.PostAsync("/api/v1/admin/restore/preview", BackupFileFixture.ToFormContent(backup, false));
         (await RestoreAsync(factory, backup)).EnsureSuccessStatusCode();
 
-        Assert.Equal(before, TempUploads());
+        Assert.Empty(await TempFiles.SurvivorsSince(pattern, before));
     }
-
-    private static int TempUploads() =>
-        Directory.GetFiles(Path.GetTempPath(), "rundfrage-upload-*").Length;
 
     [Fact]
     public async Task Polls_already_past_retention_are_restored_and_named()

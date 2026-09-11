@@ -1,0 +1,3 @@
+- Hervorhebung des besten, zweitbesten und drittbesten Tages in der Zusammenfassung.
+- visueller Editor für Umfragen.
+- Funktion für eine Art Einkaufsliste oder Wunschzettel, wo vorgegeben wird was mitgebracht werden soll und Leute können sich eintragen.
