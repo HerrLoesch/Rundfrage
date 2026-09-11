@@ -83,7 +83,9 @@
     "deleteResponse": "Antwort löschen",
     "summary": "Zusammenfassung je Tag",
     "summaryShow": "einblenden",
-    "summaryHide": "ausblenden"
+    "summaryHide": "ausblenden",
+    "bestDay": "bester Tag",
+    "bestDayRule": "Bester Tag: die meisten Ja, bei Gleichstand die wenigsten Nein"
   },
   "delete": {
     "poll": "Terminfindung löschen",

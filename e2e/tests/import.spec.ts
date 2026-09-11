@@ -17,21 +17,25 @@ test.describe('Import (US1)', () => {
 
   test('an exported poll can be read back in, and a participant answers through the new link', async ({
     page,
-    request,
   }) => {
     await signIn(page)
 
     await field(page, 'poll-title').fill('Wiedereingelesen')
-    await field(page, 'poll-days').fill('2027-11-05')
+    await field(page, 'poll-day-input').fill('2027-11-05')
+    await page.getByTestId('poll-add-day').click()
     await page.getByTestId('poll-submit').click()
 
-    const originalLink = await page.getByTestId('share-url').first().innerText()
+    const originalLink = await page.getByTestId('poll-share-link').first().innerText()
 
     // Export through the API, the same bytes the operator would download.
-    const listing = await request.get('/api/v1/admin/polls')
+    //
+    // page.request, not the `request` fixture: the fixture is its own context with its own cookie
+    // jar, so a session established in the browser does not reach it. Written the other way round
+    // first, and this listing came back as {"code":"unauthorized"} rather than an array.
+    const listing = await page.request.get('/api/v1/admin/polls')
     const polls = (await listing.json()) as Array<{ id: string; title: string }>
     const created = polls.find((p) => p.title === 'Wiedereingelesen')!
-    const exported = await request.get(`/api/v1/admin/polls/${created.id}/export`)
+    const exported = await page.request.get(`/api/v1/admin/polls/${created.id}/export`)
     const document = await exported.text()
 
     await page.getByTestId('import-file').locator('input[type=file]').setInputFiles({
@@ -54,10 +58,13 @@ test.describe('Import (US1)', () => {
     await expect(page.getByTestId('poll-view-title')).toContainText('Wiedereingelesen')
   })
 
-  test('a file that is not an export is refused, and nothing is created', async ({ page, request }) => {
+  test('a file that is not an export is refused, and nothing is created', async ({ page }) => {
     await signIn(page)
 
-    const before = ((await (await request.get('/api/v1/admin/polls')).json()) as unknown[]).length
+    // Also page.request. With the unauthenticated fixture this read an object rather than an
+    // array, `.length` was undefined at both ends, and the assertion below compared undefined to
+    // undefined - passing while proving nothing.
+    const before = ((await (await page.request.get('/api/v1/admin/polls')).json()) as unknown[]).length
 
     await page.getByTestId('import-file').locator('input[type=file]').setInputFiles({
       name: 'nonsense.json',
@@ -69,7 +76,8 @@ test.describe('Import (US1)', () => {
     await expect(page.getByTestId('import-error')).toBeVisible()
     await expect(page.getByTestId('import-summary')).toHaveCount(0)
 
-    const after = ((await (await request.get('/api/v1/admin/polls')).json()) as unknown[]).length
+    const after = ((await (await page.request.get('/api/v1/admin/polls')).json()) as unknown[]).length
     expect(after).toBe(before)
+    expect(before).toBeGreaterThanOrEqual(0)
   })
 })

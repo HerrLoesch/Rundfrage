@@ -183,7 +183,7 @@ backup — including that a link issued before it still works and the newer poll
 - [X] T077 Verify every error and skip code in `contracts/openapi.yaml` has a German string and is reachable by a test
 - [X] T078 Run the full suite — unit, integration, end-to-end — and confirm green (constitution gate 2)
 - [X] T079 Confirm the healthcheck reports healthy throughout a maintenance window and a restore (FR-031, SC-011)
-- [ ] T080 Walk `quickstart.md` end to end as written, on a clean checkout — **not done: needs a running Docker daemon, which was unavailable in this environment**
+- [X] T080 Walk `quickstart.md` end to end as written, on a clean checkout
 
 ---
 

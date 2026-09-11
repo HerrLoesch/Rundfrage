@@ -279,6 +279,19 @@ ADMIN_USER=...
 ADMIN_PASSWORD_HASH=pbkdf2-sha256:600000:...:...
 ```
 
+Für die lokale Testumgebung und die E2E-Tests wird derzeit folgendes Konto
+verwendet:
+
+```text
+Benutzer: admin
+Passwort: rundfrage-test-2026
+```
+
+Dieses Passwort ist ausschließlich für lokale Tests gedacht. In jeder
+Produktivumgebung müssen `ADMIN_USER` und `ADMIN_PASSWORD_HASH` mit einem neu
+gewählten Passwort gesetzt werden. Das Testpasswort darf dort nicht verwendet
+werden.
+
 Ohne beide Variablen startet die Anwendung nicht. Ein Adminbereich mit erratbarem
 Standardpasswort wäre schlimmer als gar kein Schutz, weil er nach Schutz aussieht.
 
@@ -316,10 +329,11 @@ Entwickelt wird testgetrieben — der Test steht vor der Implementierung.
 dotnet test backend/Rundfrage.slnx    # xUnit: Unit + Integration, ohne Docker
 cd frontend && npm run test:unit      # Vitest: Unit + Komponenten
 
-# E2E laufen gegen die laufende Instanz und brauchen deren Zugangsdaten.
-# Bewusst ohne Rückfallwert: ein Passwort im Repository wäre eines, das jemand deployen kann.
+# E2E laufen gegen die laufende Instanz. Die lokale, git-ignorierte .env enthält
+# dafür E2E_ADMIN_USER und E2E_ADMIN_PASSWORD.
 docker compose up -d --build
-cd e2e && E2E_ADMIN_USER=... E2E_ADMIN_PASSWORD=... npx playwright test
+set -a && source .env && set +a
+cd e2e && npx playwright test
 ```
 
 Die Integrationstests geben jeder Testklasse eine eigene temporäre Speicherdatei. Sie brauchen
