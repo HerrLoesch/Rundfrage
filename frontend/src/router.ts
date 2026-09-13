@@ -1,4 +1,4 @@
-import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
+import { createRouter, createWebHistory, type RouteRecordRaw, type Router } from 'vue-router'
 
 /**
  * Two surfaces, split by who may reach them.
@@ -99,6 +99,50 @@ export const router = createRouter({
   history: createWebHistory(),
   routes,
 })
+
+/**
+ * A stale shell must not swallow a click.
+ *
+ * Every area is loaded lazily, by a chunk named after its content. A tab that was opened before an
+ * update still runs the old shell, and the old shell asks for chunk names the new build no longer
+ * ships. The import then rejects, the navigation is aborted, and without this nothing at all is
+ * shown: the address stays where it was and the only trace is a console error. That is the
+ * "clicking settings does nothing" bug, and settings was merely the first area nobody had opened
+ * before the update.
+ *
+ * The server asks the browser to revalidate index.html on every load, so a full load of the
+ * destination is the recovery: it fetches the current shell and the current chunk with it. Once
+ * per destination, remembered across the reload - if the fresh shell fails the same way the
+ * problem is not staleness, and reloading forever would be worse than the error. The mark is
+ * cleared as soon as the destination is reached, so the next update is recovered from just the
+ * same.
+ *
+ * Installed on any router rather than written against the one below, so the unit tests can drive
+ * it with a memory history and a stand-in for the full load.
+ */
+const failedImport =
+  /Failed to fetch dynamically imported module|Importing a module script failed|error loading dynamically imported module/i
+
+export function recoverFromStaleShell(
+  target: Router,
+  fullLoad: (path: string) => void = (path) => window.location.assign(path),
+): void {
+  const mark = (path: string) => `reloaded-for:${path}`
+
+  target.onError((error, to) => {
+    if (!(error instanceof Error) || !failedImport.test(error.message)) return
+    if (sessionStorage.getItem(mark(to.fullPath))) return
+
+    sessionStorage.setItem(mark(to.fullPath), '1')
+    fullLoad(to.fullPath)
+  })
+
+  target.afterEach((to) => {
+    sessionStorage.removeItem(mark(to.fullPath))
+  })
+}
+
+recoverFromStaleShell(router)
 
 // There is deliberately no navigation guard.
 //

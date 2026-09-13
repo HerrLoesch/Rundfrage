@@ -127,4 +127,39 @@ test.describe('Admin access', () => {
       await expect(page.getByTestId(entry)).not.toBeEmpty()
     }
   })
+
+  /**
+   * The tab that outlived an update. Its shell asks for a chunk the new build no longer ships,
+   * and before this was handled the click on settings did nothing at all - the navigation was
+   * aborted and the only trace was a console error. Now the destination is loaded in full once,
+   * which brings the current shell and the current chunk with it.
+   */
+  test('a tab whose shell predates an update still reaches settings on click', async ({ page }) => {
+    // The stale shell's chunk name is gone exactly once; after the full load the fresh shell
+    // asks for the current name, which the server has.
+    let requests = 0
+    await page.route(/\/assets\/SettingsView-.*\.js$/, (route) =>
+      requests++ === 0 ? route.fulfill({ status: 404, body: 'gone' }) : route.continue(),
+    )
+    await signIn(page)
+
+    await page.getByTestId('nav-settings').click()
+
+    await expect(page.getByTestId('settings-maintenance')).toBeVisible()
+    await expect(page).toHaveURL(/\/admin\/einstellungen$/)
+    expect(requests).toBe(2)
+  })
+
+  test('the shell is never served from cache without asking the server first', async ({ request }) => {
+    // index.html is the one file whose name stays the same while its content changes with every
+    // build; cached heuristically, it is what made the click above fail. The hashed assets are
+    // the opposite case and may be kept for good.
+    const shell = await request.get('/admin')
+    expect(shell.headers()['cache-control']).toBe('no-cache')
+
+    const asset = (await shell.text()).match(/\/assets\/index-[^"]+\.js/)?.[0]
+    expect(asset).toBeDefined()
+    const chunk = await request.get(asset!)
+    expect(chunk.headers()['cache-control']).toBe('public, max-age=31536000, immutable')
+  })
 })
