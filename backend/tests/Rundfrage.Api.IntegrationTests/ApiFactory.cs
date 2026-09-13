@@ -12,7 +12,8 @@ namespace Rundfrage.Api.IntegrationTests;
 
 /// <summary>Drives the real host against a chosen data directory with a known operator account.</summary>
 public sealed class ApiFactory(
-    string dataDirectory, int? submissionsPerHour = null, int? trustedProxies = null)
+    string dataDirectory, int? submissionsPerHour = null, int? trustedProxies = null,
+    string? webRoot = null)
     : WebApplicationFactory<Program>
 {
     /// <summary>
@@ -92,6 +93,14 @@ public sealed class ApiFactory(
 
         builder.UseSetting(AdminAccount.UserVariable, TestUser);
         builder.UseSetting(AdminAccount.PasswordHashVariable, TestPasswordHash);
+
+        // The test project carries no built frontend, so a test about how the shell is served
+        // brings a stand-in web root of its own. Left unset, the host serves whatever wwwroot
+        // it finds, which here is nothing.
+        if (webRoot is not null)
+        {
+            builder.UseWebRoot(webRoot);
+        }
 
         builder.ConfigureServices(services =>
             services.AddSingleton<IStartupFilter, ConnectedFromAnAddress>());

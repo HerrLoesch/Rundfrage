@@ -198,8 +198,30 @@ admin.MapBackupEndpoint();
 admin.MapImportEndpoints();
 admin.MapMaintenanceEndpoints();
 
+// --- Static files: the shell must never be stale ------------------------------------------
+// Vite names every chunk after its content, so a build replaces all of them and index.html
+// is the one file whose name stays the same while its content changes. Served without a
+// cache policy, browsers cached it heuristically - and after an update the stale shell asked
+// for chunk hashes that no longer existed, so the first area to be loaded lazily (settings)
+// failed silently on click.
+//
+// Hence two policies: hashed assets are immutable for a year, and everything else - above all
+// index.html, whether served for "/" here or for a deep link by the fallback below - carries
+// no-cache, which means "revalidate before use", not "do not store". Revalidation is cheap
+// (the ETag turns it into a 304) and it is what keeps every open tab on the current build.
+var staticFiles = new StaticFileOptions
+{
+    OnPrepareResponse = context =>
+    {
+        var headers = context.Context.Response.Headers;
+        headers.CacheControl = context.Context.Request.Path.StartsWithSegments("/assets")
+            ? "public, max-age=31536000, immutable"
+            : "no-cache";
+    },
+};
+
 app.UseDefaultFiles();
-app.UseStaticFiles();
+app.UseStaticFiles(staticFiles);
 
 // Unmatched API paths must 404 rather than fall through to the SPA shell. This catch-all has
 // lower route precedence than the specific endpoints above, so it only sees genuine misses.
@@ -211,7 +233,7 @@ app.UseStaticFiles();
 app.Map("/api/{**rest}", () => NeutralNotFound.Result()).AllowAnonymous();
 
 // Every other unmatched path serves the SPA shell so client-side routing works on reload.
-app.MapFallbackToFile("index.html");
+app.MapFallbackToFile("index.html", staticFiles);
 
 app.Run();
 
