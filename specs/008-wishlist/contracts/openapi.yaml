@@ -1,0 +1,547 @@
+# Feature 008 addition to the API. Everything under /api/v1/admin inherits the operator session
+# from the admin group's RequireAuthorization() (002 FR-048); everything else is anonymous and
+# authorised solely by the token in the path (Principle I).
+#
+# What this feature deliberately does NOT add:
+#   - no change to any existing route. The poll routes, the dashboard route, import, export,
+#     backup, maintenance and restore keep their shapes. The dashboard *page* gains a second
+#     read (GET /admin/wish-lists); the dashboard *route* is untouched (research.md R-5).
+#   - no percentage anywhere on the wire. The API carries counts; the interface formats the
+#     filled share and rounds it down (research.md R-7).
+#   - no export or import document for wish lists (spec, Out of Scope).
+#
+# One existing route changes behaviour rather than shape: the restore preview now also counts
+# wish lists and claims, because otherwise it would understate what a restore destroys
+# (research.md R-10). Its schema addition is at the bottom of this file.
+openapi: 3.1.0
+info:
+  title: Rundfrage — wish lists
+  version: "008"
+
+paths:
+  /api/v1/admin/wish-lists:
+    get:
+      summary: Every wish list with its status figures
+      description: >
+        The wish-list area's list (FR-044) and the dashboard's overview (FR-048a) read this same
+        payload, which is what makes FR-049 structural rather than something a test has to keep
+        true: there is one projection, not two (research.md R-5).
+
+        Ordering is fixed by FR-048c and applied here rather than in the interface: open lists
+        first by target date with the nearest first, then closed lists with the most recently
+        closed first. Both readers therefore agree on order as well as on figures.
+
+        The number of queries behind this route does not grow with the number of lists
+        (research.md R-12): the per-list counts are grouped aggregates over WishItems and
+        WishClaims. At FR-054's documented scale — 200 lists holding up to 200,000 claims — this
+        is two orders of magnitude below what feature 007 measured at 0.66 s.
+      operationId: listWishLists
+      tags: [admin]
+      responses:
+        "200":
+          description: >
+            The lists, possibly empty. An empty array means "none created" and the interface says
+            so in words rather than rendering zeros (FR-046, FR-052).
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/WishListSummary" }
+        "401": { description: No valid operator session. }
+        "503": { description: Storage unreachable — distinct from an empty array (FR-046, FR-052). }
+
+    post:
+      summary: Create a wish list
+      operationId: createWishList
+      tags: [admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WishListWrite" }
+      responses:
+        "201":
+          description: Created. Carries the participant link's token (FR-012).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WishListDetail" }
+        "400":
+          description: >
+            Refused, naming the defect: title_required, title_too_long, description_too_long,
+            target_date_required, items_required, item_name_required, item_name_too_long,
+            duplicate_item_name, wanted_count_invalid, too_many_items, too_many_places.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Refusal" }
+        "401": { description: No valid operator session. }
+
+  /api/v1/admin/wish-lists/{wishListId}:
+    parameters:
+      - { name: wishListId, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      summary: One wish list with its items and every name entered
+      description: >
+        The detail destination of FR-043. Carries what the operator edits and what they delete,
+        including each claim's display name — which appears here and in the participant view, and
+        nowhere on the dashboard (FR-050).
+      operationId: getWishList
+      tags: [admin]
+      responses:
+        "200":
+          description: The list.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WishListDetail" }
+        "404":
+          description: >
+            The same neutral payload the participant routes use. The admin area adds listing and
+            deletion, not privileged knowledge of what exists (002 FR-002).
+        "401": { description: No valid operator session. }
+    patch:
+      summary: Change title, description or target date
+      description: >
+        FR-029. Never changes the token (FR-035) and never removes a claim (FR-036). Moving the
+        target date to a day that has not ended reopens a closed list (FR-028c) — there is no
+        open/close control, because closedness is derived (data-model.md).
+      operationId: updateWishList
+      tags: [admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WishListPatch" }
+      responses:
+        "200":
+          description: The updated list.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WishListDetail" }
+        "400":
+          description: >
+            title_required, title_too_long, description_too_long — or malformed_request when the
+            body is valid JSON but not an object. The route reads the raw document (an absent
+            description and a cleared one are different instructions), and that reading cannot be
+            asked of `null`, an array or a number, so those are refused rather than thrown.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Refusal" }
+        "404": { description: Neutral. }
+        "401": { description: No valid operator session. }
+    delete:
+      summary: Delete a wish list, its items and every claim
+      description: >
+        FR-037 to FR-039. The only thing that ever removes a wish list: there is no expiry, no
+        derived deletion date and no background sweep (data-model.md). Afterwards the participant
+        link and every personal link issued for it answer exactly as an unknown link does. The
+        confirmation stating how many entries will be destroyed is the interface's (FR-038); the
+        count it shows comes from the summary this API already returns.
+      operationId: deleteWishList
+      tags: [admin]
+      responses:
+        "204": { description: Gone. }
+        "404": { description: Neutral. }
+        "401": { description: No valid operator session. }
+
+  /api/v1/admin/wish-lists/{wishListId}/items:
+    parameters:
+      - { name: wishListId, in: path, required: true, schema: { type: string, format: uuid } }
+    post:
+      summary: Add an item
+      description: FR-030. Starts with its full wanted count open and affects no existing item.
+      operationId: addWishItem
+      tags: [admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WishItemWrite" }
+      responses:
+        "201":
+          description: The list, including the new item.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WishListDetail" }
+        "400":
+          description: >
+            item_name_required, item_name_too_long, duplicate_item_name, wanted_count_invalid,
+            too_many_items, or too_many_places — the last carrying how many places remain
+            (FR-010a).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Refusal" }
+        "404": { description: Neutral. }
+        "401": { description: No valid operator session. }
+
+  /api/v1/admin/wish-lists/{wishListId}/items/{itemId}:
+    parameters:
+      - { name: wishListId, in: path, required: true, schema: { type: string, format: uuid } }
+      - { name: itemId, in: path, required: true, schema: { type: string, format: uuid } }
+    patch:
+      summary: Rename an item or change its wanted count
+      description: >
+        FR-031 to FR-033. Renaming keeps every claim. Raising the count opens places. Lowering it
+        below the claims already made is refused with count_below_entries, which carries that
+        number so the interface can say it (FR-033) — the alternative readings, silently dropping
+        claims or leaving the item oversubscribed, are rejected in the spec's Assumptions.
+      operationId: updateWishItem
+      tags: [admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WishItemWrite" }
+      responses:
+        "200":
+          description: The updated list.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WishListDetail" }
+        "400":
+          description: item_name_required, item_name_too_long, duplicate_item_name, wanted_count_invalid, too_many_places, count_below_entries.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Refusal" }
+        "404": { description: Neutral. }
+        "401": { description: No valid operator session. }
+    delete:
+      summary: Remove an item and the claims on it
+      description: >
+        FR-034. Destroys the item's claims with it; the confirmation naming how many is the
+        interface's, and the number comes from the detail payload.
+      operationId: deleteWishItem
+      tags: [admin]
+      responses:
+        "204": { description: Gone. }
+        "404": { description: Neutral. }
+        "401": { description: No valid operator session. }
+
+  /api/v1/admin/wish-lists/{wishListId}/claims/{claimId}:
+    parameters:
+      - { name: wishListId, in: path, required: true, schema: { type: string, format: uuid } }
+      - { name: claimId, in: path, required: true, schema: { type: string, format: uuid } }
+    delete:
+      summary: Delete one entry
+      description: >
+        FR-043a. Removes one name without touching the rest, opens its place again, and is the
+        only recourse for a participant who has lost their personal link (FR-022d). Permitted
+        whether the list is open or closed (data-model.md, state table).
+      operationId: deleteWishClaim
+      tags: [admin]
+      responses:
+        "204": { description: Gone. }
+        "404": { description: Neutral. }
+        "401": { description: No valid operator session. }
+
+  /api/v1/wish-lists/{listToken}:
+    parameters:
+      - { name: listToken, in: path, required: true, schema: { type: string, minLength: 22, maxLength: 22 } }
+    get:
+      summary: The participant view of a wish list
+      description: >
+        No session, no account, no email: the token in the path is the whole of the authorisation
+        (Principle I, FR-014). Carries the title, the description, the target date, every item
+        with its wanted count and open places, and the names already entered (FR-013, FR-019) —
+        the last because seeing what is taken before choosing is the point of a bring-list.
+
+        There is deliberately no shape check before the lookup: rejecting a malformed token early
+        would make it measurably faster than an unknown one, and telling those apart is what the
+        neutral 404 denies (002 research R-4).
+      operationId: getWishListByToken
+      tags: [participant]
+      responses:
+        "200":
+          description: The list. `closed` is derived from the target date, never stored.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ParticipantWishList" }
+        "404":
+          description: >
+            Unknown, malformed and deleted arrive here identically — one payload, so an observer
+            holding an old link cannot tell deletion from invalidity (SC-012).
+        "503": { description: Maintenance mode; inherited from the middleware, not checked here (research.md R-13). }
+
+    post:
+      summary: Claim one or more items
+      description: >
+        One submission, one personal link (FR-022b). Every claim it creates carries the same
+        freshly minted claim token, which is the link's whole mechanism — there is no submission
+        row (research.md R-2).
+
+        Capacity is enforced inside one immediate write transaction, so simultaneous submissions
+        for the last place queue instead of racing and an item can never hold more names than are
+        wanted (FR-017a, SC-002, research.md R-1). A submission is judged against the state at the
+        moment it arrives, never against what the participant's page was showing (FR-017b).
+
+        Rate limited by the existing submission policy: at most 10 submissions per hour per
+        request source, counted per submission however many items one carries (FR-023). The source
+        is held in memory and written nowhere (Principle IV).
+      operationId: claimWishItems
+      tags: [participant]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ClaimRequest" }
+      responses:
+        "201":
+          description: Stored. Carries the personal link's token and the list as it now stands.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ClaimResult" }
+        "400":
+          description: >
+            display_name_required, display_name_too_long, unknown_item (an item from another
+            list), or wish_list_closed (FR-028a, FR-028e).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Refusal" }
+        "409":
+          description: >
+            item_full (FR-017) — the same status feature 002 answers for poll_full, so "there is
+            no room" reads the same way across the system. The refusal carries the item's current
+            state, so the page can show what changed under it (FR-017b).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Refusal" }
+        "404": { description: Neutral. }
+        "429": { description: "code: too_many_requests, with retryAfterSeconds (FR-023)." }
+        "503": { description: Maintenance mode (FR-025). }
+
+  /api/v1/claims/{claimToken}:
+    parameters:
+      - { name: claimToken, in: path, required: true, schema: { type: string, minLength: 22, maxLength: 22 } }
+    get:
+      summary: What this personal link covers
+      description: >
+        Exactly the claims made by the submission that minted this token, and nothing else — no
+        other entry, no other wish list, no admin function (FR-022c). It reveals nothing the
+        participant link does not already show.
+      operationId: getClaims
+      tags: [participant]
+      responses:
+        "200":
+          description: The entries, with the list they belong to.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ClaimGroup" }
+        "404":
+          description: >
+            Unknown, malformed, or every covered entry already gone — including after the list was
+            deleted (FR-022e). One payload, indistinguishable.
+        "503": { description: Maintenance mode. }
+
+  /api/v1/claims/{claimToken}/{claimId}:
+    parameters:
+      - { name: claimToken, in: path, required: true, schema: { type: string, minLength: 22, maxLength: 22 } }
+      - { name: claimId, in: path, required: true, schema: { type: string, format: uuid } }
+    delete:
+      summary: Withdraw one entry
+      description: >
+        FR-022, FR-022a. Removes the entry and opens its place again immediately, so somebody else
+        can take it. Refused with wish_list_closed once the target day has ended, because a place
+        freed after closing can no longer be claimed by anybody (FR-028d) — after that, only the
+        operator can remove an entry.
+
+        Counts as one action against the same rate-limit budget as a claim, so alternating a claim
+        and a withdrawal cannot circumvent it (FR-023a).
+      operationId: withdrawClaim
+      tags: [participant]
+      responses:
+        "204": { description: Withdrawn; the place is open again. }
+        "400": { description: "wish_list_closed (FR-028d)." }
+        "404":
+          description: >
+            The token does not cover this entry, or the entry is already gone — withdrawn twice,
+            or deleted by the operator meanwhile. The interface says the entry is no longer there
+            and does not offer to restore it.
+        "429": { description: Rate limited (FR-023a). }
+        "503": { description: Maintenance mode. }
+
+components:
+  schemas:
+    WishListSummary:
+      description: >
+        One row of the wish-list area's list and of the dashboard's overview. Carries counts, never
+        a percentage (research.md R-7), and never a participant's name (FR-050).
+      type: object
+      required: [id, title, targetDate, closed, itemCount, entryCount, placeCount, untakenItemCount, completeItemCount, listToken]
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string, maxLength: 300 }
+        targetDate: { type: string, format: date, description: A whole calendar day in Europe/Berlin. }
+        closed: { type: boolean, description: Derived from targetDate and the current moment (FR-028c). }
+        itemCount: { type: integer, minimum: 0 }
+        entryCount: { type: integer, minimum: 0, description: FR-045.1 }
+        placeCount: { type: integer, minimum: 0, description: "FR-045.2 — the wanted counts added together." }
+        untakenItemCount: { type: integer, minimum: 0, description: "FR-045.4 — items with no entry at all." }
+        completeItemCount: { type: integer, minimum: 0, description: FR-045.5 }
+        listToken: { type: string, description: So the list can show the participant link (FR-044). }
+
+    WishListDetail:
+      description: One wish list with its items and every name on them (FR-043).
+      type: object
+      required: [id, title, targetDate, closed, listToken, items, entryCount, placeCount]
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string }
+        description: { type: string, nullable: true }
+        targetDate: { type: string, format: date }
+        closed: { type: boolean }
+        listToken: { type: string }
+        entryCount: { type: integer }
+        placeCount: { type: integer }
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/WishItemDetail" }
+
+    WishItemDetail:
+      type: object
+      required: [id, name, wantedCount, position, claims]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string, maxLength: 200 }
+        wantedCount: { type: integer, minimum: 1, maximum: 50 }
+        position: { type: integer, description: "Entry order — the display order for everyone (FR-009)." }
+        claims:
+          type: array
+          items:
+            type: object
+            required: [id, displayName]
+            properties:
+              id: { type: string, format: uuid }
+              displayName: { type: string, maxLength: 100 }
+
+    WishListWrite:
+      type: object
+      required: [title, targetDate, items]
+      properties:
+        title: { type: string, maxLength: 300 }
+        description: { type: string, maxLength: 2000, nullable: true }
+        targetDate: { type: string, format: date }
+        items:
+          type: array
+          minItems: 1
+          maxItems: 100
+          items: { $ref: "#/components/schemas/WishItemWrite" }
+
+    WishItemWrite:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, maxLength: 200 }
+        wantedCount:
+          type: integer
+          minimum: 1
+          maximum: 50
+          default: 1
+          description: Omitted means 1 (FR-006). The default lives on the server, not only in the form.
+
+    WishListPatch:
+      type: object
+      properties:
+        title: { type: string, maxLength: 300 }
+        description: { type: string, maxLength: 2000, nullable: true }
+        targetDate: { type: string, format: date }
+
+    ParticipantWishList:
+      description: >
+        What a link holder sees. Names are present because FR-019 requires them; nothing else
+        about a participant is, because nothing else is stored (Principle IV).
+      type: object
+      required: [title, targetDate, closed, items]
+      properties:
+        title: { type: string }
+        description: { type: string, nullable: true }
+        targetDate: { type: string, format: date }
+        closed: { type: boolean, description: When true the interface offers no entry form and says why (FR-028b). }
+        items:
+          type: array
+          items:
+            type: object
+            required: [id, name, wantedCount, openPlaces, names]
+            properties:
+              id: { type: string, format: uuid }
+              name: { type: string }
+              wantedCount: { type: integer }
+              openPlaces:
+                type: integer
+                minimum: 0
+                description: Zero means complete; the interface says so in text, not by colour alone (FR-018, FR-057).
+              names:
+                type: array
+                items: { type: string }
+
+    ClaimRequest:
+      type: object
+      required: [displayName, itemIds]
+      properties:
+        displayName: { type: string, maxLength: 100 }
+        itemIds:
+          type: array
+          minItems: 1
+          items: { type: string, format: uuid }
+          description: >
+            Several items in one submission (FR-016), costing one of the ten permitted per hour
+            (FR-023). All claims created carry one display name and one claim token.
+
+    ClaimResult:
+      type: object
+      required: [claimToken, list]
+      properties:
+        claimToken: { type: string, description: The personal link's token (FR-022). }
+        list: { $ref: "#/components/schemas/ParticipantWishList" }
+
+    ClaimGroup:
+      type: object
+      required: [listTitle, targetDate, closed, entries]
+      properties:
+        listTitle: { type: string }
+        targetDate: { type: string, format: date }
+        closed: { type: boolean }
+        entries:
+          type: array
+          items:
+            type: object
+            required: [claimId, itemName, displayName]
+            properties:
+              claimId: { type: string, format: uuid }
+              itemName: { type: string }
+              displayName: { type: string }
+
+    Refusal:
+      type: object
+      required: [code]
+      properties:
+        code: { type: string }
+        limit:
+          type: integer
+          description: >
+            The number the refusal is about, where one applies — the character limit, the places
+            remaining (too_many_places), or the claims already made (count_below_entries).
+        detail:
+          type: string
+          description: >
+            The word the refusal is about, where a number cannot carry it — today only
+            duplicate_item_name, which names the item the duplicate collides with so an operator
+            who typed five items does not have to guess which one (FR-008). Operator-written text
+            only; never a participant's display name (FR-050).
+        item:
+          type: object
+          description: >
+            Present on item_full only: the item that had no place left, so the participant's page
+            can show what changed under it (FR-017b).
+          properties:
+            id: { type: string, format: uuid }
+            openPlaces: { type: integer }
+
+    RestorePreviewAddition:
+      description: >
+        NOT a new schema — the fields feature 008 adds to the existing restore preview
+        (research.md R-10). Without them the confirmation understates what a restore destroys: it
+        would name the polls lost while silently replacing every wish list too.
+      type: object
+      properties:
+        wishListsInBackup: { type: integer }
+        wishListsLost: { type: integer }
+        claimsInBackup: { type: integer }
+        claimsLost: { type: integer }

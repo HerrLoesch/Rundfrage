@@ -164,6 +164,82 @@ public class SchemaCreationTests(SqliteFixture storage) : IClassFixture<SqliteFi
     }
 
     [Fact]
+    public async Task Creates_the_three_wish_list_tables()
+    {
+        // 008 data-model.md. Three tables, no change to the four above.
+        await using (var db = NewContext())
+        {
+            await DatabaseStartup.ApplyMigrationsAsync(db, NullLogger.Instance, CancellationToken.None);
+        }
+
+        var tables = await QueryStringsAsync(
+            "SELECT name FROM sqlite_master WHERE type = 'table'");
+
+        Assert.Contains("WishLists", tables);
+        Assert.Contains("WishItems", tables);
+        Assert.Contains("WishClaims", tables);
+    }
+
+    [Fact]
+    public async Task The_wish_list_token_is_unique_and_the_claim_token_is_merely_indexed()
+    {
+        // The list token is a capability and must not collide (008 FR-012). The claim token is
+        // deliberately NOT unique: every claim of one submission carries the same one, which is
+        // the whole mechanism of the personal link (008 FR-022b, research R-2).
+        await using (var db = NewContext())
+        {
+            await DatabaseStartup.ApplyMigrationsAsync(db, NullLogger.Instance, CancellationToken.None);
+        }
+
+        var indexes = await QueryStringsAsync(IndexDefinitions);
+
+        Assert.Contains(indexes, i => i.Contains("UNIQUE") && i.Contains("ListToken"));
+        Assert.Contains(indexes, i => i.Contains("ClaimToken"));
+        Assert.DoesNotContain(indexes, i => i.Contains("UNIQUE") && i.Contains("ClaimToken"));
+    }
+
+    [Fact]
+    public async Task An_item_name_cannot_be_used_twice_in_one_wish_list()
+    {
+        // 008 FR-008, enforced by the database rather than only by the code that checks.
+        await using (var db = NewContext())
+        {
+            await DatabaseStartup.ApplyMigrationsAsync(db, NullLogger.Instance, CancellationToken.None);
+        }
+
+        var indexes = await QueryStringsAsync(IndexDefinitions);
+
+        Assert.Contains(indexes, i =>
+            i.Contains("UNIQUE") && i.Contains("WishListId") && i.Contains("Name"));
+    }
+
+    [Fact]
+    public async Task A_claim_stores_no_identity_beyond_the_name_on_it()
+    {
+        // 008 Principle IV. The display name is a label; nothing beside it may identify anybody.
+        await using (var db = NewContext())
+        {
+            await DatabaseStartup.ApplyMigrationsAsync(db, NullLogger.Instance, CancellationToken.None);
+        }
+
+        await using var db2 = NewContext();
+        var connection = db2.Database.GetDbConnection();
+        await connection.OpenAsync();
+        await using var command = connection.CreateCommand();
+        command.CommandText = "SELECT lower(name) FROM pragma_table_info('WishClaims')";
+        var columns = new List<string>();
+        await using var reader = await command.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+        {
+            columns.Add(reader.GetString(0));
+        }
+
+        Assert.Equal(
+            new[] { "id", "wishitemid", "displayname", "claimtoken", "submittedat" }.Order(),
+            columns.Order());
+    }
+
+    [Fact]
     public async Task No_table_stores_a_request_source()
     {
         // FR-042 and SC-021. This is the check that would catch someone adding an IP column to

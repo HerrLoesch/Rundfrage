@@ -43,7 +43,7 @@ async function save() {
 </script>
 
 <template>
-  <v-container max-width="960" class="py-8">
+  <v-container class="rf-page rf-page--participant">
     <div v-if="store.loading" class="text-center py-12" data-testid="poll-loading">
       <v-progress-circular indeterminate color="primary" />
       <p class="mt-4 text-body-1">{{ t('participate.loading') }}</p>
@@ -61,10 +61,14 @@ async function save() {
     </v-alert>
 
     <template v-else-if="store.poll">
-      <h1 class="text-h4 mb-2" data-testid="poll-view-title">{{ store.poll.title }}</h1>
-      <p v-if="store.poll.message" class="text-body-1 mb-6" data-testid="poll-view-message">
-        {{ store.poll.message }}
-      </p>
+      <!-- The same header block the wish-list surface uses: title, optional message, one gap of
+           the shared size before whatever follows - so the two participant pages open alike. -->
+      <header class="rf-section-gap">
+        <h1 class="rf-title text-h4" data-testid="poll-view-title">{{ store.poll.title }}</h1>
+        <p v-if="store.poll.message" class="text-body-1 mt-2" data-testid="poll-view-message">
+          {{ store.poll.message }}
+        </p>
+      </header>
 
       <v-alert
         v-if="store.justSubmitted"

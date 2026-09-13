@@ -361,4 +361,55 @@ public class RestoreTests : IDisposable
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
+    [Fact]
+    public async Task The_preview_says_how_many_wish_lists_a_restore_would_destroy()
+    {
+        // 008 research R-10. This is the one place where adding a feature breaks an existing
+        // promise rather than extending it: 005 FR-018 makes the operator confirm a restore
+        // against a statement of what it will destroy, and before this the statement counted only
+        // polls and responses. An operator restoring a backup taken before wish lists existed was
+        // told "you lose 0 polls" while twelve wish lists went with it, unmentioned.
+        using var factory = NewFactory();
+        var admin = await factory.CreateSignedInClientAsync();
+
+        // A backup of the current state, taken while no wish list exists.
+        var backup = await BackupAsync();
+
+        // Then wish lists are created - the data the backup does not contain.
+        for (var i = 0; i < 3; i++)
+        {
+            var created = await admin.PostAsJsonAsync("/api/v1/admin/wish-lists", new
+            {
+                title = $"Wunschliste {i}",
+                targetDate = "2099-07-18",
+                items = new[] { new { name = "Kuchen", wantedCount = 2 } },
+            });
+            created.EnsureSuccessStatusCode();
+
+            var listToken = (await created.Content.ReadFromJsonAsync<JsonElement>())
+                .GetProperty("listToken").GetString()!;
+            var view = await factory.CreateClient()
+                .GetFromJsonAsync<JsonElement>($"/api/v1/wish-lists/{listToken}");
+            var itemId = view.GetProperty("items").EnumerateArray().First()
+                .GetProperty("id").GetGuid();
+
+            await factory.CreateClient().PostAsJsonAsync($"/api/v1/wish-lists/{listToken}",
+                new { displayName = "Anna", itemIds = new[] { itemId } });
+        }
+
+        // Previewing takes the storage exclusively, which the other preview tests arrange the
+        // same way.
+        await SetMaintenanceAsync(factory, true);
+
+        var response = await admin.PostAsync(
+            "/api/v1/admin/restore/preview", BackupFileFixture.ToFormContent(backup, confirm: false));
+        response.EnsureSuccessStatusCode();
+        var preview = await response.Content.ReadFromJsonAsync<JsonElement>();
+
+        Assert.Equal(0, preview.GetProperty("wishListsInBackup").GetInt32());
+        Assert.Equal(3, preview.GetProperty("wishListsLost").GetInt32());
+        Assert.Equal(0, preview.GetProperty("claimsInBackup").GetInt32());
+        Assert.Equal(3, preview.GetProperty("claimsLost").GetInt32());
+    }
+
 }

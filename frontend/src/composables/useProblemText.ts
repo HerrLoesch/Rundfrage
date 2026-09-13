@@ -19,6 +19,7 @@ export function useProblemText() {
     return t(key, {
       limit: problem.limit ?? 0,
       minutes: Math.ceil((problem.retryAfterSeconds ?? 0) / 60),
+      detail: problem.detail ?? '',
     })
   }
 }

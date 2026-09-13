@@ -81,7 +81,7 @@ async function removeResponse(responseId: string) {
 </script>
 
 <template>
-  <v-container max-width="1100" class="py-8">
+  <v-container class="rf-page rf-page--admin">
     <v-btn
       variant="text"
       prepend-icon="mdi-arrow-left"
@@ -101,7 +101,7 @@ async function removeResponse(responseId: string) {
     </v-alert>
 
     <div v-else-if="poll" data-testid="poll-answers">
-      <h1 class="text-h4">{{ poll.title }}</h1>
+      <h1 class="rf-title text-h4">{{ poll.title }}</h1>
       <p v-if="poll.message" class="text-body-1 mt-2 mb-4">{{ poll.message }}</p>
 
       <!--

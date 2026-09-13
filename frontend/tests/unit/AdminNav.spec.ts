@@ -24,12 +24,15 @@ const labels = (wrapper: Awaited<ReturnType<typeof nav>>) =>
   wrapper.findAll('[data-testid^="nav-"]').map((e) => e.text().trim())
 
 describe('Admin navigation', () => {
-  it('lists exactly the three areas that exist, in order (FR-003, FR-004)', async () => {
+  it('lists exactly the areas that exist, in order (FR-003, FR-004)', async () => {
+    // Four since feature 008 added wish lists. Still no entry for anything unbuilt: FR-004
+    // forbids a placeholder, and this list is the assertion that none has appeared.
     const wrapper = await nav('/admin')
 
     expect(labels(wrapper)).toEqual([
       de.nav.dashboard,
       de.poll.listTitle,
+      de.nav.wishLists,
       de.nav.settings,
     ])
   })
@@ -54,6 +57,7 @@ describe('Admin navigation', () => {
 
     expect(wrapper.get('[data-testid="nav-dashboard"]').attributes('href')).toBe('/admin')
     expect(wrapper.get('[data-testid="nav-polls"]').attributes('href')).toBe('/admin/terminfindungen')
+    expect(wrapper.get('[data-testid="nav-wish-lists"]').attributes('href')).toBe('/admin/wunschlisten')
     expect(wrapper.get('[data-testid="nav-settings"]').attributes('href')).toBe('/admin/einstellungen')
   })
 

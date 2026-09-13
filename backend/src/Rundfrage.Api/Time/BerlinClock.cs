@@ -64,18 +64,39 @@ public sealed class BerlinClock(TimeProvider timeProvider)
     public bool IsPast(DateOnly day) => day < Today;
 
     /// <summary>
+    /// The instant <paramref name="day"/> ends - midnight at its end, in this zone, as UTC.
+    /// </summary>
+    /// <remarks>
+    /// One expression for "when does this day end", used by both things that need it: a poll's
+    /// retention deadline (002 FR-039) and whether a wish list has closed (008 FR-028a). Two
+    /// copies of this arithmetic would be two chances to get a summer-time boundary wrong in
+    /// different ways.
+    /// <para>
+    /// Resolved per instant rather than as a fixed offset, so the day that summer time begins is
+    /// an hour shorter and the day it ends an hour longer, which is what FR-011b asks for.
+    /// </para>
+    /// </remarks>
+    public DateTime EndOfDayUtc(DateOnly day)
+    {
+        var endOfDay = day.ToDateTime(TimeOnly.MinValue).AddDays(1);
+
+        return TimeZoneInfo.ConvertTimeToUtc(
+            DateTime.SpecifyKind(endOfDay, DateTimeKind.Unspecified), Zone);
+    }
+
+    /// <summary>
+    /// 008 FR-028a: a wish list closes once its target day has ended. Derived here and stored
+    /// nowhere - there is no status column, so there is nothing that can be stale (FR-028c).
+    /// </summary>
+    public bool DayHasEnded(DateOnly day) => Now > EndOfDayUtc(day);
+
+    /// <summary>
     /// FR-039: the instant 30 days after the end of <paramref name="lastCandidateDay"/>, where the
     /// day ends at 23:59:59 in this zone. Resolving the offset per instant rather than once means
     /// a summer-time change between the day and the deadline is handled (FR-011b).
     /// </summary>
-    public DateTime RetentionDeadlineFor(DateOnly lastCandidateDay)
-    {
-        var endOfDay = lastCandidateDay.ToDateTime(TimeOnly.MinValue).AddDays(1);
-        var endOfDayUtc = TimeZoneInfo.ConvertTimeToUtc(
-            DateTime.SpecifyKind(endOfDay, DateTimeKind.Unspecified), Zone);
-
-        return endOfDayUtc + RetentionPeriod;
-    }
+    public DateTime RetentionDeadlineFor(DateOnly lastCandidateDay) =>
+        EndOfDayUtc(lastCandidateDay) + RetentionPeriod;
 
     /// <summary>
     /// FR-039b: expiry takes effect on access, so this is asked on every read rather than being

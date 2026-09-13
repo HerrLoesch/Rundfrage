@@ -123,6 +123,102 @@ namespace Rundfrage.Api.Data.Migrations
                     b.ToTable("Responses");
                 });
 
+            modelBuilder.Entity("Rundfrage.Api.Data.Entities.WishClaim", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ClaimToken")
+                        .IsRequired()
+                        .HasMaxLength(22)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("DisplayName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("SubmittedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("WishItemId")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClaimToken");
+
+                    b.HasIndex("WishItemId");
+
+                    b.ToTable("WishClaims");
+                });
+
+            modelBuilder.Entity("Rundfrage.Api.Data.Entities.WishItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT")
+                        .UseCollation("NOCASE");
+
+                    b.Property<int>("Position")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("WantedCount")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid>("WishListId")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("WishListId", "Name")
+                        .IsUnique();
+
+                    b.ToTable("WishItems");
+                });
+
+            modelBuilder.Entity("Rundfrage.Api.Data.Entities.WishList", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(2000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ListToken")
+                        .IsRequired()
+                        .HasMaxLength(22)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateOnly>("TargetDate")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ListToken")
+                        .IsUnique();
+
+                    b.HasIndex("TargetDate");
+
+                    b.ToTable("WishLists");
+                });
+
             modelBuilder.Entity("Rundfrage.Api.Data.Entities.CandidateDay", b =>
                 {
                     b.HasOne("Rundfrage.Api.Data.Entities.Poll", "Poll")
@@ -164,6 +260,28 @@ namespace Rundfrage.Api.Data.Migrations
                     b.Navigation("Poll");
                 });
 
+            modelBuilder.Entity("Rundfrage.Api.Data.Entities.WishClaim", b =>
+                {
+                    b.HasOne("Rundfrage.Api.Data.Entities.WishItem", "WishItem")
+                        .WithMany("Claims")
+                        .HasForeignKey("WishItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("WishItem");
+                });
+
+            modelBuilder.Entity("Rundfrage.Api.Data.Entities.WishItem", b =>
+                {
+                    b.HasOne("Rundfrage.Api.Data.Entities.WishList", "WishList")
+                        .WithMany("Items")
+                        .HasForeignKey("WishListId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("WishList");
+                });
+
             modelBuilder.Entity("Rundfrage.Api.Data.Entities.CandidateDay", b =>
                 {
                     b.Navigation("Answers");
@@ -179,6 +297,16 @@ namespace Rundfrage.Api.Data.Migrations
             modelBuilder.Entity("Rundfrage.Api.Data.Entities.PollResponse", b =>
                 {
                     b.Navigation("Answers");
+                });
+
+            modelBuilder.Entity("Rundfrage.Api.Data.Entities.WishItem", b =>
+                {
+                    b.Navigation("Claims");
+                });
+
+            modelBuilder.Entity("Rundfrage.Api.Data.Entities.WishList", b =>
+                {
+                    b.Navigation("Items");
                 });
 #pragma warning restore 612, 618
         }

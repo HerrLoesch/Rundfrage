@@ -19,9 +19,19 @@ vi.mock('../../src/api/client', () => ({
   signOut: vi.fn(),
   exportUrl: (id: string) => `/api/v1/admin/polls/${id}/export`,
   backupUrl: '/api/v1/admin/backup',
+  // Feature 008: the dashboard's second read (research R-5).
+  listWishLists: vi.fn(async () => []),
+  fetchWishList: vi.fn(),
+  createWishList: vi.fn(),
+  updateWishList: vi.fn(),
+  addWishItem: vi.fn(),
+  updateWishItem: vi.fn(),
+  removeWishItem: vi.fn(),
+  deleteWishClaim: vi.fn(),
+  deleteWishList: vi.fn(),
 }))
 
-import { fetchDashboard } from '../../src/api/client'
+import { fetchDashboard, listWishLists } from '../../src/api/client'
 import { routes } from '../../src/router'
 import { useMaintenanceStore } from '../../src/stores/maintenance'
 import DashboardView from '../../src/components/admin/DashboardView.vue'
@@ -193,5 +203,120 @@ describe('Dashboard', () => {
     const { push } = await dashboard()
 
     expect(push).toHaveBeenCalledWith(expect.objectContaining({ name: 'sign-in' }))
+  })
+})
+
+/**
+ * Feature 008's region of the dashboard (FR-048a to FR-052).
+ *
+ * It reads the same payload the wish-list area reads, so agreement between the two screens is
+ * structural rather than asserted twice (research R-5). What is asserted here is the part that is
+ * this screen's own: what it shows, what it must never show, and that it only reports.
+ */
+const aWishList = (overrides: Record<string, unknown> = {}) => ({
+  id: 'w1',
+  title: 'Sommerfest',
+  targetDate: '2099-07-18',
+  closed: false,
+  itemCount: 3,
+  entryCount: 3,
+  placeCount: 6,
+  untakenItemCount: 2,
+  completeItemCount: 0,
+  listToken: 'tok',
+  ...overrides,
+})
+
+describe('the dashboard wish-list overview', () => {
+  beforeEach(() => {
+    vi.mocked(fetchDashboard).mockResolvedValue({
+      pollCount: 1,
+      responseCount: 1,
+      unansweredPolls: 0,
+      deletionsDueSoon: 0,
+      nextDeletion: null,
+      yes: 1,
+      maybe: 0,
+      no: 0,
+    })
+    vi.mocked(listWishLists).mockReset()
+    vi.mocked(listWishLists).mockResolvedValue([aWishList()])
+  })
+
+  it('shows one row per wish list, naming it', async () => {
+    // FR-048a, and the narrowing 008 FR-048b made to 007 FR-034.
+    const { wrapper } = await dashboard()
+    await flush()
+
+    const rows = wrapper.findAll('[data-testid="dashboard-wish-list-row"]')
+    expect(rows).toHaveLength(1)
+    expect(rows[0].text()).toContain('Sommerfest')
+    expect(rows[0].text()).toContain('50')
+  })
+
+  it('leads each row into the area in one action, and offers no control of its own', async () => {
+    // FR-048d, FR-051: the dashboard reports; it does not act.
+    const { wrapper } = await dashboard()
+    await flush()
+
+    expect(wrapper.get('[data-testid="dashboard-wish-link-w1"]').attributes('href'))
+      .toBe('/admin/wunschlisten/w1')
+
+    const region = wrapper.get('[data-testid="dashboard-wish-lists"]').text()
+    expect(region).not.toContain(de.wish.create)
+    expect(region).not.toContain(de.wish.deleteList)
+  })
+
+  it('never shows a participant name', async () => {
+    // FR-050, and the half of 007 FR-034 that the amendment left standing.
+    vi.mocked(listWishLists).mockResolvedValue([aWishList({ entryCount: 2 })])
+
+    const { wrapper } = await dashboard()
+    await flush()
+
+    expect(wrapper.get('[data-testid="dashboard-wish-lists"]').text()).not.toContain('Anna')
+  })
+
+  it('says in words when no wish list exists, rather than showing zeros', async () => {
+    // FR-052.
+    vi.mocked(listWishLists).mockResolvedValue([])
+
+    const { wrapper } = await dashboard()
+    await flush()
+
+    expect(wrapper.find('[data-testid="dashboard-wish-lists-empty"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="dashboard-wish-list-row"]').exists()).toBe(false)
+  })
+
+  it('says the data is unreachable and shows no figure for it', async () => {
+    // FR-052 again: a zero here would be a claim about data the system just said it cannot read.
+    vi.mocked(listWishLists).mockRejectedValue({ code: 'storage_unavailable' })
+
+    const { wrapper } = await dashboard()
+    await flush()
+
+    expect(wrapper.find('[data-testid="dashboard-wish-lists-unavailable"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="dashboard-wish-list-row"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="dashboard-wish-lists-total"]').exists()).toBe(false)
+  })
+
+  it('shows wish lists even when no poll is stored', async () => {
+    // The poll figures have their own "nothing yet" state, and it must not swallow this region.
+    vi.mocked(fetchDashboard).mockResolvedValue({
+      pollCount: 0,
+      responseCount: 0,
+      unansweredPolls: 0,
+      deletionsDueSoon: 0,
+      nextDeletion: null,
+      yes: 0,
+      maybe: 0,
+      no: 0,
+    })
+
+    const { wrapper } = await dashboard()
+    await flush()
+
+    expect(wrapper.find('[data-testid="dashboard-empty"]').exists()).toBe(true)
+    expect(wrapper.findAll('[data-testid="dashboard-wish-list-row"]')).toHaveLength(1)
   })
 })

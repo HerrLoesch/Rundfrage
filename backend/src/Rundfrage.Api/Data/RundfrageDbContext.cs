@@ -23,6 +23,12 @@ public sealed class RundfrageDbContext(DbContextOptions<RundfrageDbContext> opti
 
     public DbSet<DayAnswer> DayAnswers => Set<DayAnswer>();
 
+    public DbSet<WishList> WishLists => Set<WishList>();
+
+    public DbSet<WishItem> WishItems => Set<WishItem>();
+
+    public DbSet<WishClaim> WishClaims => Set<WishClaim>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         builder.Entity<Poll>(poll =>
@@ -80,6 +86,74 @@ public sealed class RundfrageDbContext(DbContextOptions<RundfrageDbContext> opti
                 .WithOne(a => a.Response!)
                 .HasForeignKey(a => a.ResponseId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // --- Wish lists (feature 008) ----------------------------------------------------
+        builder.Entity<WishList>(list =>
+        {
+            list.HasKey(l => l.Id);
+            list.Property(l => l.Title).HasMaxLength(WishList.TitleMaxLength).IsRequired();
+            list.Property(l => l.Description).HasMaxLength(WishList.DescriptionMaxLength);
+            list.Property(l => l.ListToken)
+                .HasMaxLength(CapabilityToken.TokenLength)
+                .IsRequired();
+
+            // The token is the lookup key on every participant request (008 FR-012).
+            list.HasIndex(l => l.ListToken).IsUnique();
+
+            // The overview orders by it, open lists first and nearest date on top (008 FR-048c).
+            // There is deliberately no index on "closed", because there is no such column: it is
+            // derived from this date and the clock (008 FR-028c).
+            list.HasIndex(l => l.TargetDate);
+
+            list.HasMany(l => l.Items)
+                .WithOne(i => i.WishList!)
+                .HasForeignKey(i => i.WishListId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<WishItem>(item =>
+        {
+            item.HasKey(i => i.Id);
+
+            // NOCASE, so the index below agrees with the service about what "the same name" is.
+            // WishListService compares with OrdinalIgnoreCase - a BINARY column would accept
+            // "Kuchen" beside "kuchen" and the index would be backstopping a rule it does not
+            // share. The two still differ beyond ASCII: SQLite's NOCASE folds A-Z only, so
+            // "Äpfel"/"äpfel" is caught by the service and not by the index. That is the service
+            // being stricter than the index, which is the safe direction.
+            item.Property(i => i.Name)
+                .HasMaxLength(WishItem.NameMaxLength)
+                .UseCollation("NOCASE")
+                .IsRequired();
+
+            // 008 FR-008: two items of one list may not share a name. Enforced here rather than
+            // only in the service, so a second write path cannot quietly create the duplicate.
+            item.HasIndex(i => new { i.WishListId, i.Name }).IsUnique();
+
+            item.HasMany(i => i.Claims)
+                .WithOne(c => c.WishItem!)
+                .HasForeignKey(c => c.WishItemId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<WishClaim>(claim =>
+        {
+            claim.HasKey(c => c.Id);
+            claim.Property(c => c.DisplayName)
+                .HasMaxLength(WishClaim.DisplayNameMaxLength)
+                .IsRequired();
+            claim.Property(c => c.ClaimToken)
+                .HasMaxLength(CapabilityToken.TokenLength)
+                .IsRequired();
+
+            // Indexed but NOT unique: every claim of one submission carries the same token, and
+            // that sharing is what the personal link resolves through (008 FR-022b).
+            claim.HasIndex(c => c.ClaimToken);
+
+            // Deliberately no index on DisplayName, and no uniqueness: it is a label, and two
+            // people may legitimately bring the same thing under the same name (008 FR-020) -
+            // the same decision PollResponse.DisplayName records.
         });
 
         builder.Entity<DayAnswer>(answer =>

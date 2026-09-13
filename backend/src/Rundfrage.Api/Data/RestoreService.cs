@@ -7,11 +7,22 @@ using Rundfrage.Api.Time;
 namespace Rundfrage.Api.Data;
 
 /// <summary>What a backup holds, and what restoring it would cost (FR-018).</summary>
+/// <remarks>
+/// The wish-list counts were added by feature 008, and not as an extension: without them this
+/// record would have understated what a restore destroys. 005 FR-018 makes the operator confirm
+/// against a statement of the loss, and once wish lists exist a statement that counts only polls
+/// is wrong rather than incomplete - it would say "you lose 0 polls" while twelve wish lists went
+/// with them (008 research R-10).
+/// </remarks>
 public sealed record RestorePreview(
     int PollsInBackup,
     int ResponsesInBackup,
     int PollsLost,
     int ResponsesLost,
+    int WishListsInBackup,
+    int ClaimsInBackup,
+    int WishListsLost,
+    int ClaimsLost,
     IReadOnlyList<string> Expired);
 
 /// <summary>
@@ -102,17 +113,21 @@ public sealed class RestoreService(
             return (new RestoreRefusal(ErrorCodes.NotABackup), null);
         }
 
-        var (polls, responses, expired) = await ReadCountsAsync(path, ct);
-        var (currentPolls, currentResponses, _) = await ReadCountsAsync(StorageLocation.FileIn(storage.Path), ct);
+        var backup = await ReadCountsAsync(path, ct);
+        var current = await ReadCountsAsync(StorageLocation.FileIn(storage.Path), ct);
 
         // What the operator is told they will lose. Never negative: a backup larger than the
         // current state loses nothing, and "-3 polls will be lost" would be nonsense.
         return (null, new RestorePreview(
-            polls,
-            responses,
-            Math.Max(0, currentPolls - polls),
-            Math.Max(0, currentResponses - responses),
-            expired));
+            backup.Polls,
+            backup.Responses,
+            Math.Max(0, current.Polls - backup.Polls),
+            Math.Max(0, current.Responses - backup.Responses),
+            backup.WishLists,
+            backup.Claims,
+            Math.Max(0, current.WishLists - backup.WishLists),
+            Math.Max(0, current.Claims - backup.Claims),
+            backup.Expired));
     }
 
     public async Task<(RestoreRefusal? Refusal, RestoreSummary? Summary)> RestoreAsync(
@@ -147,14 +162,15 @@ public sealed class RestoreService(
 
             StorageSetup.SecureFile(storage.Path, logger);
 
-            var (polls, responses, expired) = await ReadCountsAsync(StorageLocation.FileIn(storage.Path), ct);
+            var restored = await ReadCountsAsync(StorageLocation.FileIn(storage.Path), ct);
 
             logger.LogInformation(
                 "Storage restored from a backup: {PollCount} polls, {ResponseCount} responses, "
-                + "{ExpiredCount} of them already past their retention date",
-                polls, responses, expired.Count);
+                + "{WishListCount} wish lists, {ExpiredCount} of the polls already past their "
+                + "retention date",
+                restored.Polls, restored.Responses, restored.WishLists, restored.Expired.Count);
 
-            return (null, new RestoreSummary(polls, responses, expired));
+            return (null, new RestoreSummary(restored.Polls, restored.Responses, restored.Expired));
         }
         catch (SqliteException ex) when (ex.SqliteErrorCode == SqliteBusy)
         {
@@ -253,12 +269,11 @@ public sealed class RestoreService(
     /// authority on time, and the first thing to disagree with the retention sweep it is meant to
     /// predict.
     /// </summary>
-    private async Task<(int Polls, int Responses, IReadOnlyList<string> Expired)> ReadCountsAsync(
-        string databasePath, CancellationToken ct)
+    private async Task<Counts> ReadCountsAsync(string databasePath, CancellationToken ct)
     {
         if (!File.Exists(databasePath))
         {
-            return (0, 0, []);
+            return Counts.None;
         }
 
         try
@@ -276,12 +291,17 @@ public sealed class RestoreService(
             {
                 if (!await reader.ReadAsync(ct))
                 {
-                    return (0, 0, []);
+                    return Counts.None;
                 }
 
                 polls = reader.GetInt32(0);
                 responses = reader.GetInt32(1);
             }
+
+            // Asked separately, and tolerantly: a backup taken before feature 008 has no wish-list
+            // tables at all, and such a file is still a perfectly restorable backup. Counting zero
+            // is the truth about it - failing to read it would refuse a valid restore.
+            var (wishLists, claims) = await ReadWishCountsAsync(connection, ct);
 
             // FR-016a: restored as they are, and named so the operator is not surprised when the
             // next sweep removes them.
@@ -299,12 +319,51 @@ public sealed class RestoreService(
                 }
             }
 
-            return (polls, responses, expired);
+            return new Counts(polls, responses, wishLists, claims, expired);
         }
         catch (SqliteException)
         {
-            return (0, 0, []);
+            return Counts.None;
         }
+    }
+
+    /// <summary>
+    /// The wish-list counts, or zero where the tables are absent.
+    /// </summary>
+    /// <remarks>
+    /// A backup taken before feature 008 has no such tables. That file is still a valid backup -
+    /// <see cref="VerifyAsync"/> deliberately asks only for Polls and Responses - so the absence
+    /// is answered with zero rather than with a refusal.
+    /// </remarks>
+    private static async Task<(int WishLists, int Claims)> ReadWishCountsAsync(
+        SqliteConnection connection, CancellationToken ct)
+    {
+        await using var present = connection.CreateCommand();
+        present.CommandText =
+            "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' "
+            + "AND name IN ('WishLists', 'WishClaims')";
+
+        if (Convert.ToInt64(await present.ExecuteScalarAsync(ct)) != 2)
+        {
+            return (0, 0);
+        }
+
+        await using var command = connection.CreateCommand();
+        command.CommandText =
+            "SELECT (SELECT COUNT(*) FROM WishLists), (SELECT COUNT(*) FROM WishClaims)";
+
+        await using var reader = await command.ExecuteReaderAsync(ct);
+
+        return await reader.ReadAsync(ct)
+            ? (reader.GetInt32(0), reader.GetInt32(1))
+            : (0, 0);
+    }
+
+    /// <summary>What one database file holds, as the preview and the summary report it.</summary>
+    private sealed record Counts(
+        int Polls, int Responses, int WishLists, int Claims, IReadOnlyList<string> Expired)
+    {
+        public static readonly Counts None = new(0, 0, 0, 0, []);
     }
 
     private static void TryDelete(string? path)

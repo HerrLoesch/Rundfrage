@@ -45,6 +45,11 @@ describe('RestorePanel (005 FR-016a, FR-018, FR-024, SC-005, ui-contract §3b)',
       responsesInBackup: 12,
       pollsLost: 2,
       responsesLost: 5,
+      // Feature 008: a restore replaces wish lists too, so the preview counts them (008 R-10).
+      wishListsInBackup: 1,
+      claimsInBackup: 4,
+      wishListsLost: 2,
+      claimsLost: 7,
       expired: [],
     })
     restore.mockResolvedValue({ polls: 3, responses: 12, expired: [] })
@@ -136,4 +141,15 @@ describe('RestorePanel (005 FR-016a, FR-018, FR-024, SC-005, ui-contract §3b)',
     expect(wrapper.get('[data-testid="restore-error"]').text()).toBe(de.error.not_a_backup)
     expect(wrapper.find('[data-testid="restore-preview"]').exists()).toBe(false)
   })
+  it('names the wish lists a restore would destroy, not only the polls', async () => {
+    // 008 research R-10: 005 FR-018 asks the confirmation to state the loss, and a statement
+    // that counted only polls would be wrong rather than merely incomplete.
+    const wrapper = mountWith(true)
+    await askForPreview(wrapper)
+
+    expect(wrapper.get('[data-testid="restore-preview-wish-lists"]').text()).toContain('1')
+    expect(wrapper.get('[data-testid="restore-preview-wish-lists-lost"]').text()).toContain('2')
+    expect(wrapper.get('[data-testid="restore-preview-wish-lists-lost"]').text()).toContain('7')
+  })
+
 })
