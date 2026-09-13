@@ -95,7 +95,12 @@ async function save() {
       <AnswerForm :mode="mode" :busy="busy" class="mb-6" @submit="save" />
 
       <!-- FR-036b: readable before answering, so someone can see where the group is first. -->
-      <ResultGrid :poll="store.poll" />
+      <!--
+        Paging is a read of the grid: it re-reads the poll and leaves the answer in progress
+        untouched, and it works through either link because the store remembers which one brought
+        the participant here (see changePage).
+      -->
+      <ResultGrid :poll="store.poll" @change-page="store.changePage" />
     </template>
   </v-container>
 </template>

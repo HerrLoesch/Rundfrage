@@ -22,6 +22,12 @@ export const useAnsweringStore = defineStore('answering', () => {
   const poll = ref<PollView | null>(null)
   const notFound = ref(false)
   const loading = ref(false)
+
+  /**
+   * How the poll on screen was reached, so that paging can ask the same source again. Held here
+   * rather than passed in, because this is the only place that knows it.
+   */
+  const source = ref<{ kind: 'poll' | 'response'; token: string } | null>(null)
   const problem = ref<ApiProblem | null>(null)
 
   /**
@@ -67,6 +73,7 @@ export const useAnsweringStore = defineStore('answering', () => {
   async function loadPoll(pollToken: string): Promise<void> {
     reset()
     forgetAnswer()
+    source.value = { kind: 'poll', token: pollToken }
     loading.value = true
     try {
       poll.value = await fetchPoll(pollToken)
@@ -84,6 +91,7 @@ export const useAnsweringStore = defineStore('answering', () => {
 
   async function loadOwnResponse(token: string): Promise<void> {
     reset()
+    source.value = { kind: 'response', token }
     loading.value = true
     try {
       const own = await fetchOwnResponse(token)
@@ -133,6 +141,31 @@ export const useAnsweringStore = defineStore('answering', () => {
     }
   }
 
+  /**
+   * Fetches another page of the grid.
+   *
+   * Two things this deliberately is not. It is not `loadPoll`, which resets the store and forgets
+   * the answer in progress - reading page two of the results must not throw away a half-filled
+   * form. And it takes no token: the grid is reached through two different links, and asking the
+   * component to remember which one it came through would put that knowledge in the one place
+   * that does not need it. The store already knows, because it did the loading.
+   *
+   * Paging is a read of the grid below the form, so it adds nothing between the link and the
+   * answer form (Principle I, 002 research R-7).
+   */
+  async function changePage(page: number): Promise<void> {
+    if (!source.value) return
+
+    try {
+      poll.value =
+        source.value.kind === 'poll'
+          ? await fetchPoll(source.value.token, page)
+          : (await fetchOwnResponse(source.value.token, page)).poll
+    } catch (failure) {
+      problem.value = failure as ApiProblem
+    }
+  }
+
   /** Refreshes the grid after submitting without clearing the confirmation. */
   async function loadPollQuietly(pollToken: string): Promise<void> {
     try {
@@ -145,6 +178,6 @@ export const useAnsweringStore = defineStore('answering', () => {
   return {
     poll, notFound, loading, problem, maintenance,
     displayName, answers, editToken, justSubmitted, justRevised,
-    loadPoll, loadOwnResponse, setAnswer, submit, revise,
+    loadPoll, loadOwnResponse, changePage, setAnswer, submit, revise,
   }
 })

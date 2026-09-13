@@ -1,28 +1,23 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { usePollsStore } from '../../stores/polls'
 import { useSessionStore } from '../../stores/session'
 import PollForm from './PollForm.vue'
 import ImportPanel from './ImportPanel.vue'
 import DeleteConfirm from './DeleteConfirm.vue'
-import ResultGrid from '../poll/ResultGrid.vue'
-import MaintenanceSwitch from './MaintenanceSwitch.vue'
-import RestorePanel from './RestorePanel.vue'
-import { useMaintenanceStore } from '../../stores/maintenance'
-import {
-  backupUrl,
-  deletePoll,
-  deleteResponse,
-  exportUrl,
-  fetchPollResults,
-  type PollView,
-} from '../../api/client'
+import { deletePoll, exportUrl } from '../../api/client'
 
-const maintenance = useMaintenanceStore()
 const { t, d } = useI18n()
+const route = useRoute()
 const router = useRouter()
+
+/**
+ * Set by the answers page when the poll at its address does not exist (FR-014g). Saying so here
+ * rather than there is deliberate: this is the page that can show what *does* exist.
+ */
+const pollIsGone = computed(() => route.query.gone === '1')
 const polls = usePollsStore()
 const session = useSessionStore()
 
@@ -35,58 +30,42 @@ const storageUnavailable = computed(
   () => polls.loadProblem !== null && polls.loadProblem.code !== 'unauthorized',
 )
 
-const openPollId = ref<string | null>(null)
-const openResults = ref<PollView | null>(null)
+/**
+ * Which form is revealed, if either (007 FR-014h, FR-014i).
+ *
+ * One value rather than two booleans, because at most one may be open and two booleans can
+ * represent the state where both are - which the interface would then have to prevent by
+ * remembering to. Closing is `null`, and that also discards what was entered, because the forms
+ * are unmounted rather than hidden (FR-014j).
+ */
+const revealed = ref<'create' | 'import' | null>(null)
+
+function reveal(which: 'create' | 'import') {
+  revealed.value = revealed.value === which ? null : which
+}
+
 const pendingDelete = ref<{ id: string; title: string; responseCount: number } | null>(null)
 
 onMounted(async () => {
   await polls.load()
-  await maintenance.load()
 
   // The server decides whether the session is valid; this view reacts to its answer. That is
   // what makes a reload work - the cookie is sent, the request succeeds, and nothing local
-  // needed to remember anything.
+  // needed to remember anything (FR-011).
   if (polls.loadProblem?.code === 'unauthorized') {
     session.isSignedIn = false
     await router.push({ name: 'sign-in' })
   }
 })
 
-async function signOut() {
-  await session.signOut()
-  await router.push({ name: 'sign-in' })
-}
-
 function linkFor(token: string) {
   return `${window.location.origin}/u/${token}`
-}
-
-async function toggleResults(pollId: string) {
-  if (openPollId.value === pollId) {
-    openPollId.value = null
-    openResults.value = null
-    return
-  }
-
-  openPollId.value = pollId
-  openResults.value = await fetchPollResults(pollId)
-}
-
-async function removeResponse(responseId: string) {
-  if (!openPollId.value) return
-  await deleteResponse(openPollId.value, responseId)
-  // Reload rather than patch locally: the per-day totals move with it (FR-037b), and the
-  // server is the only thing that knows the new numbers.
-  openResults.value = await fetchPollResults(openPollId.value)
-  await polls.load()
 }
 
 async function confirmDelete() {
   if (!pendingDelete.value) return
   await deletePoll(pendingDelete.value.id)
   pendingDelete.value = null
-  openPollId.value = null
-  openResults.value = null
   await polls.load()
 }
 </script>
@@ -95,41 +74,62 @@ async function confirmDelete() {
   <v-container max-width="1100" class="py-8">
     <div class="d-flex align-center justify-space-between mb-6">
       <h1 class="text-h4">{{ t('poll.listTitle') }}</h1>
+
+      <!--
+        The two ways a poll comes into being, as actions rather than as forms.
+
+        Both used to stand permanently open above the list, which meant an operator scrolled past
+        two forms to reach the polls they came for. The accepted cost is that creating a poll now
+        takes one action where it took none - recorded in SC-005 rather than glossed over - and
+        the empty state below cancels even that.
+      -->
       <div class="d-flex ga-2">
         <v-btn
-          variant="outlined"
-          prepend-icon="mdi-database-arrow-down-outline"
-          :href="backupUrl"
-          data-testid="download-backup"
+          variant="flat"
+          color="primary"
+          prepend-icon="mdi-plus"
+          data-testid="poll-create-toggle"
+          @click="reveal('create')"
         >
-          {{ t('backup.download') }}
+          {{ revealed === 'create' ? t('poll.createHide') : t('poll.create') }}
         </v-btn>
-        <MaintenanceSwitch />
         <v-btn
           variant="outlined"
-          prepend-icon="mdi-logout"
-          data-testid="sign-out"
-          @click="signOut"
+          prepend-icon="mdi-file-upload-outline"
+          data-testid="poll-import-toggle"
+          @click="reveal('import')"
         >
-          {{ t('signIn.signOut') }}
+          {{ revealed === 'import' ? t('poll.importHide') : t('poll.importShow') }}
         </v-btn>
       </div>
     </div>
 
-    <PollForm />
-
     <!--
-      Importing sits below creating, because both make a poll and this is the less common way.
-      The restore panel is deliberately elsewhere and looks nothing like this one: adding one
-      poll and replacing everything must never be reachable by the same reflex (FR-001).
+      Unmounted when closed, not hidden. Leaving the entry in a hidden form would mean a poll
+      half-written yesterday is one click from being created today (FR-014j).
     -->
-    <ImportPanel class="mb-6" @imported="polls.load()" />
-
     <!--
-      Below the import and looking nothing like it: one adds a poll, the other replaces every
-      poll, and FR-001 requires that those never be reachable by the same reflex.
+      Left open after a poll is created, deliberately. The form is where the new participant link
+      appears, and that link is the reason the operator came - closing the form on success would
+      hide the one thing they still need to copy.
     -->
-    <RestorePanel class="mb-6" @restored="polls.load()" />
+    <PollForm v-if="revealed === 'create'" class="mb-6" />
+    <!--
+      Left open after a file is read, for the same reason the creation form is: the panel is where
+      the summary and the *new* participant link appear, and 005 FR-011 makes that link the whole
+      point - shared links for the original poll do not reach the imported one. Closing on success
+      would hide the one thing the operator still has to copy.
+    -->
+    <ImportPanel v-if="revealed === 'import'" class="mb-6" @imported="polls.load()" />
+
+    <v-alert
+      v-if="pollIsGone"
+      type="info"
+      class="mb-4"
+      data-testid="poll-gone"
+    >
+      {{ t('poll.gone') }}
+    </v-alert>
 
     <v-alert
       v-if="storageUnavailable"
@@ -139,12 +139,27 @@ async function confirmDelete() {
       {{ t('storage.unavailable') }}
     </v-alert>
 
+    <!--
+      The empty state offers creating directly (FR-014l). With nothing stored there is nothing for
+      the action above to be preferable to, so making the operator find it first would be a step
+      that buys nothing.
+    -->
     <v-alert
       v-else-if="polls.polls.length === 0 && !polls.loading"
       type="info"
       data-testid="poll-list-empty"
     >
-      {{ t('poll.empty') }}
+      <div>{{ t('poll.empty') }}</div>
+      <v-btn
+        variant="flat"
+        color="primary"
+        prepend-icon="mdi-plus"
+        class="mt-3"
+        data-testid="poll-create-empty"
+        @click="reveal('create')"
+      >
+        {{ t('poll.create') }}
+      </v-btn>
     </v-alert>
 
     <v-card
@@ -190,25 +205,26 @@ async function confirmDelete() {
         <span :id="`newtab-${poll.id}`" class="d-sr-only mb-3 d-block">
           {{ t('share.newTab') }}
         </span>
-
-        <ResultGrid
-          v-if="openPollId === poll.id && openResults"
-          :poll="openResults"
-          deletable
-          class="mt-4"
-          @delete-response="removeResponse"
-        />
       </v-card-text>
 
       <v-card-actions>
+        <!--
+          A link now, not an expander. The answers were the largest thing on this page and the
+          only one without an address of its own - so they could not be linked to, bookmarked or
+          reloaded, which every other area can (007 FR-014a, SC-006).
+        -->
         <v-btn
           variant="tonal"
           prepend-icon="mdi-table-eye"
+          :to="{ name: 'poll-answers', params: { pollId: poll.id } }"
           data-testid="show-results"
-          @click="toggleResults(poll.id)"
         >
           {{ t('results.title') }}
         </v-btn>
+        <!--
+          Export and delete stay here rather than moving to the answers page. Moving them would
+          have added a step to two tasks that have none today (FR-014d, SC-005).
+        -->
         <v-btn
           variant="tonal"
           prepend-icon="mdi-code-json"

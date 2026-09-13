@@ -40,10 +40,37 @@ export function mountComponent<T>(
   setActivePinia(createPinia())
   prepare?.()
 
+  // Plugins are *merged*, not replaced. Spreading options.global over a `plugins` key would
+  // silently drop i18n and Vuetify the moment a caller supplied a router, and the component
+  // would then fail to resolve every Vuetify element - a failure that reads like a broken
+  // component rather than a broken mount.
+  const { plugins = [], ...restGlobal } = options.global ?? {}
+
   return mount(component, {
     ...options,
-    global: { plugins: [i18n, vuetify], ...(options.global ?? {}) },
+    global: { ...restGlobal, plugins: [i18n, vuetify, ...plugins] },
   })
+}
+
+/**
+ * Mounts a component inside a `v-app`.
+ *
+ * Vuetify's layout components - v-app-bar, v-navigation-drawer, v-main - register themselves with
+ * a layout their parent provides, and throw "Could not find injected layout" without one. App.vue
+ * used to supply it, so specs that mounted App got it for free; now that each surface draws its
+ * own chrome in a layout route, the specs for those need the root themselves.
+ */
+export function mountInApp<T>(
+  component: T,
+  options: ComponentMountingOptions<T> = {},
+  prepare?: () => void,
+) {
+  const host = {
+    components: { Subject: component as object },
+    template: '<v-app><Subject /></v-app>',
+  }
+
+  return mountComponent(host as never, options as never, prepare)
 }
 
 export { de }

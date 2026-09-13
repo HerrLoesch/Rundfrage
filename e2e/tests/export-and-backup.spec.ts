@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test'
 import { readFileSync } from 'node:fs'
 import { field, radio } from '../support/fields'
-import { ADMIN_USER, ADMIN_PASSWORD } from '../support/credentials'
+import { gotoSettings, revealPollForm, signInToPolls } from '../support/admin'
 
 /**
  * US2 and the backup half of US1, through the browser that actually downloads them.
@@ -11,12 +11,13 @@ import { ADMIN_USER, ADMIN_PASSWORD } from '../support/credentials'
  * on disk parses.
  */
 test.describe('Export and backup', () => {
+  /**
+   * 007: signing in lands on the dashboard, so reaching a control is now "sign in, then go to the
+   * area it lives in". The shared helper carries that so a future rearrangement is one edit.
+   */
   async function signIn(page: import('@playwright/test').Page) {
-    await page.goto('/admin')
-    await field(page, 'sign-in-user').fill(ADMIN_USER)
-    await field(page, 'sign-in-password').fill(ADMIN_PASSWORD)
-    await page.getByTestId('sign-in-submit').click()
-    await expect(page.getByTestId('poll-form')).toBeVisible()
+    await signInToPolls(page)
+    await revealPollForm(page)
   }
 
   test('a poll with two answers downloads as JSON that parses', async ({ page, context }) => {
@@ -44,7 +45,7 @@ test.describe('Export and backup', () => {
       await participant.close()
     }
 
-    await page.goto('/admin')
+    await page.goto('/admin/terminfindungen')
     const card = page.getByTestId('poll-list-item').filter({ hasText: title })
 
     const download = await Promise.all([
@@ -71,9 +72,10 @@ test.describe('Export and backup', () => {
   })
 
   test('the whole storage downloads as one backup file', async ({ page }) => {
-    // FR-003. The button is beside the list rather than on a card, because a backup is the
-    // storage and not one poll.
+    // FR-003. A backup is the storage and not one poll, which is why 007 FR-019 moved it out of
+    // the poll area entirely and into settings.
     await signIn(page)
+    await gotoSettings(page)
 
     const download = await Promise.all([
       page.waitForEvent('download'),

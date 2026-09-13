@@ -1,0 +1,142 @@
+# Feature 007 addition to the API — exactly one route. Everything here lives under /api/v1 behind
+# the existing operator session: the admin group already carries RequireAuthorization(), so this
+# inherits it rather than repeating it (002 FR-048).
+#
+# What this feature deliberately does NOT add:
+#   - no schema change, no migration (data-model.md);
+#   - no change to any existing route. The poll list, poll results, export, import, backup,
+#     restore and maintenance routes are untouched. The admin area rearranges where the frontend
+#     calls them from, not what they are.
+#
+# NOTE ON QUOTING: the properties "yes", "maybe" and "no" keep the spelling the API already uses
+# for per-day totals (002 DayTotalsView emits yes/maybe/no), so the dashboard and the results grid
+# agree on what an availability is called. "yes" and "no" MUST stay quoted here — YAML 1.1 reads
+# them as booleans unquoted, and the keys would silently become true/false.
+openapi: 3.1.0
+info:
+  title: Rundfrage — admin dashboard figures
+  version: "007"
+
+paths:
+  /api/v1/admin/dashboard:
+    get:
+      summary: The dashboard's figures, in one read
+      description: >
+        Returns five of the six figures FR-028 requires. Maintenance mode — figure 5 — is
+        deliberately absent: the shell already reads it for the banner (FR-026), and carrying it
+        here as well would create two sources for one state that FR-029 requires to agree
+        (data-model.md, "Figure 5").
+
+        Every figure is scoped to polls within their retention deadline, matching the access
+        filter every other read passes through (002 FR-039b). A poll past its deadline is already
+        unreachable elsewhere, so counting it here would contradict the poll list on the same
+        screen.
+
+        The number of queries behind this route is fixed and does not grow with the number of
+        polls (FR-028b). The yes/maybe/no aggregate is a single grouped count over DayAnswer;
+        because an unanswered day stores no row at all, that count cannot include a non-answer,
+        which is what makes FR-028a true without a filter (research.md R-3).
+
+        PERFORMANCE (measured 2026-09-12): the aggregate is a full scan, linear in the number of
+        day-answer rows at about 0.27 s and 219 MiB per million. At FR-028c's amended scale —
+        500 polls holding up to 2,500,000 day-answers — it reads in 0.80 s, within SC-011's two
+        seconds with roughly a 2.5-fold margin. Beyond that scale the figures stay correct and
+        only the timing claim lapses; at 50,000,000 rows it would take about 14 seconds against a
+        10.7 GB database. FR-028c and SC-011 were amended on this measurement (research.md R-4).
+      operationId: getDashboard
+      tags: [admin]
+      responses:
+        "200":
+          description: The figures. Zero is a legitimate reading for any count.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardView"
+        "401":
+          description: >
+            No valid operator session. The frontend redirects to the sign-in form, as every other
+            admin read already does (FR-011); signing in again leads to the dashboard and never
+            back to what was interrupted (FR-011a).
+        "503":
+          description: >
+            Storage cannot be read. The frontend MUST show that the data is unreachable and MUST
+            NOT present any figure (FR-032) — a partially filled dashboard would make claims about
+            data the system just said it could not read.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [code]
+                properties:
+                  code:
+                    const: storage_unavailable
+                    description: >
+                      The same shape BackupEndpoint and ImportEndpoints already return. The
+                      frontend distinguishes "unreachable" from "not signed in" by this code, so
+                      it is part of the contract rather than an incidental body.
+
+components:
+  schemas:
+    DashboardView:
+      type: object
+      description: >
+        Eight numbers, flat and unnested. No poll title, no participant name, no individual answer
+        and no access record appears here — FR-034 forbids it, and a flat record makes that
+        checkable at a glance instead of requiring a reader to inspect what a nested object holds.
+      required:
+        - pollCount
+        - responseCount
+        - unansweredPolls
+        - deletionsDueSoon
+        - nextDeletion
+        - "yes"
+        - maybe
+        - "no"
+      properties:
+        pollCount:
+          type: integer
+          minimum: 0
+          description: >
+            Figure 1. Polls within their retention deadline. Zero means nothing is stored, and
+            FR-031 requires the view to say so in words rather than render a 0.
+        responseCount:
+          type: integer
+          minimum: 0
+          description: >
+            Figure 2. Responses, not day-answers: one person answering counts once however many
+            days they marked. Agrees with the sum of the poll list's response counts (FR-029).
+        unansweredPolls:
+          type: integer
+          minimum: 0
+          description: Figure 3. Live polls that have received no response yet.
+        deletionsDueSoon:
+          type: integer
+          minimum: 0
+          description: >
+            Figure 4a. Live polls whose retention deadline falls within the next seven days.
+        nextDeletion:
+          type: [string, "null"]
+          format: date-time
+          description: >
+            Figure 4b. The earliest retention deadline among ALL live polls, not only those inside
+            the seven-day window — so a dashboard with nothing due this week can still answer
+            "when is the next one?" without a second query.
+
+            Null exactly when no poll exists. That is a different state from "nothing is due
+            soon", which is deletionsDueSoon == 0 with this field still set, and the view must not
+            collapse the two into one sentence.
+        "yes":
+          type: integer
+          minimum: 0
+          description: >
+            Figure 6. Total "yes" across every answer in the system. A group with no rows is
+            reported as 0 here; the view decides whether three zeros mean "nobody has answered at
+            all" (FR-028 scenario 8, say so in words) or a genuine zero among many answers.
+        maybe:
+          type: integer
+          minimum: 0
+          description: Figure 6. Total "maybe". See "yes" for how absent groups are reported.
+        "no":
+          type: integer
+          minimum: 0
+          description: Figure 6. Total "no". See "yes" for how absent groups are reported.

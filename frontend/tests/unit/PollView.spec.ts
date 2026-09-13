@@ -100,4 +100,27 @@ describe('PollView - submitting, then saving again', () => {
 
     expect(wrapper.get('[data-testid="answer-submit"]').text()).toContain(de.participate.save)
   })
+
+  /**
+   * 002 research R-7. A participant reading the grid is subject to the same server-side paging as
+   * the creator, and a poll at the 1000-response limit showed fifty rows with no way onward.
+   *
+   * Paging is a read of the grid below the form, so it adds nothing between the link and the
+   * answer form and Principle I is untouched.
+   */
+  it('re-reads the poll when the grid asks for another page', async () => {
+    // `as never` matches how this suite already feeds the fixture past its loose literal types.
+    vi.mocked(fetchPoll).mockResolvedValue(
+      { ...POLL, page: 1, pageCount: 3, responseCount: 150 } as never,
+    )
+
+    const wrapper = mountComponent(PollView, { props: { pollToken: 'tok' } })
+    await settle()
+    vi.mocked(fetchPoll).mockClear()
+
+    await wrapper.findComponent({ name: 'ResultGrid' }).vm.$emit('changePage', 2)
+    await settle()
+
+    expect(fetchPoll).toHaveBeenCalledWith('tok', 2)
+  })
 })
