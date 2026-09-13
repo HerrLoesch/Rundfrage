@@ -11,6 +11,11 @@ export interface ApiProblem {
   code: string
   limit?: number
   retryAfterSeconds?: number
+  /**
+   * The word that makes a refusal actionable where a number cannot - today only the item name a
+   * duplicate collides with (008 FR-008). Operator-written text, never a participant's name.
+   */
+  detail?: string
 }
 
 /**
@@ -268,6 +273,14 @@ export interface RestorePreview {
   responsesInBackup: number
   pollsLost: number
   responsesLost: number
+  /**
+   * Feature 008. Without these the confirmation would understate the loss: a backup taken before
+   * wish lists existed replaces them all while naming only the polls (008 research R-10).
+   */
+  wishListsInBackup: number
+  claimsInBackup: number
+  wishListsLost: number
+  claimsLost: number
   expired: string[]
 }
 
@@ -331,4 +344,199 @@ export interface DashboardView {
 
 export async function fetchDashboard(): Promise<DashboardView> {
   return getJson<DashboardView>('/admin/dashboard')
+}
+
+// ---------------------------------------------------------------------------------------
+// Feature 008 — wish lists
+// ---------------------------------------------------------------------------------------
+
+/**
+ * One row of the wish-list area's list and of the dashboard's overview.
+ *
+ * Counts, never a percentage: the share is formatted here in the interface and rounded down, so
+ * 999 of 1000 reads 99 % and only a genuinely complete list reads 100 % (research R-7). Both
+ * screens read this same payload, which is what keeps them in agreement (FR-049).
+ */
+export interface WishListSummary {
+  id: string
+  title: string
+  targetDate: string
+  /** Derived from the target date and the clock. Never stored (FR-028c). */
+  closed: boolean
+  itemCount: number
+  entryCount: number
+  placeCount: number
+  untakenItemCount: number
+  completeItemCount: number
+  listToken: string
+}
+
+export interface WishClaimView {
+  id: string
+  displayName: string
+}
+
+export interface WishItemDetail {
+  id: string
+  name: string
+  wantedCount: number
+  position: number
+  claims: WishClaimView[]
+}
+
+export interface WishListDetail {
+  id: string
+  title: string
+  description: string | null
+  targetDate: string
+  closed: boolean
+  listToken: string
+  entryCount: number
+  placeCount: number
+  items: WishItemDetail[]
+}
+
+/** One item as the operator writes it. An omitted count means one (FR-006). */
+export interface WishItemDraft {
+  name: string
+  wantedCount?: number | null
+}
+
+export async function listWishLists(): Promise<WishListSummary[]> {
+  return getJson<WishListSummary[]>('/admin/wish-lists')
+}
+
+export async function fetchWishList(wishListId: string): Promise<WishListDetail> {
+  return getJson<WishListDetail>(`/admin/wish-lists/${encodeURIComponent(wishListId)}`)
+}
+
+export async function createWishList(
+  title: string,
+  description: string | null,
+  targetDate: string,
+  items: WishItemDraft[],
+): Promise<WishListDetail> {
+  return request<WishListDetail>('/admin/wish-lists', {
+    method: 'POST',
+    body: JSON.stringify({ title, description, targetDate, items }),
+  })
+}
+
+/** FR-029. Omitted fields are left as they are; the token never changes (FR-035). */
+export async function updateWishList(
+  wishListId: string,
+  patch: { title?: string; description?: string | null; targetDate?: string },
+): Promise<WishListDetail> {
+  return request<WishListDetail>(`/admin/wish-lists/${encodeURIComponent(wishListId)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(patch),
+  })
+}
+
+export async function addWishItem(
+  wishListId: string,
+  item: WishItemDraft,
+): Promise<WishListDetail> {
+  return request<WishListDetail>(`/admin/wish-lists/${encodeURIComponent(wishListId)}/items`, {
+    method: 'POST',
+    body: JSON.stringify(item),
+  })
+}
+
+/** Renaming keeps every claim (FR-031); lowering below them is refused (FR-033). */
+export async function updateWishItem(
+  wishListId: string,
+  itemId: string,
+  patch: { name?: string; wantedCount?: number },
+): Promise<WishListDetail> {
+  return request<WishListDetail>(
+    `/admin/wish-lists/${encodeURIComponent(wishListId)}/items/${encodeURIComponent(itemId)}`,
+    { method: 'PATCH', body: JSON.stringify(patch) },
+  )
+}
+
+export async function removeWishItem(wishListId: string, itemId: string): Promise<void> {
+  await request<void>(
+    `/admin/wish-lists/${encodeURIComponent(wishListId)}/items/${encodeURIComponent(itemId)}`,
+    { method: 'DELETE' },
+  )
+}
+
+/** FR-043a: one entry, whether the list is open or closed. */
+export async function deleteWishClaim(wishListId: string, claimId: string): Promise<void> {
+  await request<void>(
+    `/admin/wish-lists/${encodeURIComponent(wishListId)}/claims/${encodeURIComponent(claimId)}`,
+    { method: 'DELETE' },
+  )
+}
+
+export async function deleteWishList(wishListId: string): Promise<void> {
+  await request<void>(`/admin/wish-lists/${encodeURIComponent(wishListId)}`, { method: 'DELETE' })
+}
+
+// --- Participant surface (Principle I) ----------------------------------------------------
+// Anonymous by design: no session, no header, no account. The token in the path is the whole
+// of the authorisation.
+
+export interface ParticipantWishItem {
+  id: string
+  name: string
+  wantedCount: number
+  /** Zero means complete. Said in words by the page, never by colour alone (FR-057). */
+  openPlaces: number
+  names: string[]
+}
+
+export interface ParticipantWishList {
+  title: string
+  description: string | null
+  targetDate: string
+  /** When true the page offers no entry form and says why (FR-028b). */
+  closed: boolean
+  items: ParticipantWishItem[]
+}
+
+export interface ClaimAccepted {
+  claimToken: string
+  list: ParticipantWishList
+}
+
+export interface ClaimEntry {
+  claimId: string
+  itemName: string
+  displayName: string
+}
+
+export interface ClaimGroup {
+  listTitle: string
+  targetDate: string
+  closed: boolean
+  entries: ClaimEntry[]
+}
+
+export async function fetchWishListByToken(listToken: string): Promise<ParticipantWishList> {
+  return request<ParticipantWishList>(`/wish-lists/${encodeURIComponent(listToken)}`)
+}
+
+/** Several items in one submission, costing one of the ten permitted per hour (FR-016, FR-023). */
+export async function claimWishItems(
+  listToken: string,
+  displayName: string,
+  itemIds: string[],
+): Promise<ClaimAccepted> {
+  return request<ClaimAccepted>(`/wish-lists/${encodeURIComponent(listToken)}`, {
+    method: 'POST',
+    body: JSON.stringify({ displayName, itemIds }),
+  })
+}
+
+export async function fetchClaims(claimToken: string): Promise<ClaimGroup> {
+  return request<ClaimGroup>(`/claims/${encodeURIComponent(claimToken)}`)
+}
+
+export async function withdrawClaim(claimToken: string, claimId: string): Promise<void> {
+  await request<void>(
+    `/claims/${encodeURIComponent(claimToken)}/${encodeURIComponent(claimId)}`,
+    { method: 'DELETE' },
+  )
 }

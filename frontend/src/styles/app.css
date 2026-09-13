@@ -1,0 +1,253 @@
+/*
+ * The page rhythm, in one file.
+ *
+ * Every surface used to set its own container width, its own vertical padding and its own gap
+ * between one block and the next: six widths, three heading sizes and four different "space
+ * before the next thing" across twelve components. Nothing was individually wrong and the whole
+ * read as scattered, because the eye measures a layout against itself - a 24px gap is only
+ * correct if the 24px gap above it was one too.
+ *
+ * So the scale lives here and the components spend it. Four steps, no more: a page's outer
+ * breathing room, the gap between top-level sections, the gap between sibling cards, and the gap
+ * between a heading and what it introduces. A fifth step would be a decision every component
+ * would then have to make again.
+ */
+:root {
+  /* Outer breathing room above and below a page's content. */
+  --rf-page-y: 40px;
+
+  /* Between top-level sections of one page. */
+  --rf-section: 32px;
+
+  /* Between sibling cards in a list. */
+  --rf-stack: 16px;
+
+  /* Between a heading and the thing it introduces. */
+  --rf-heading: 16px;
+
+  /* Inside a card, and the inset of anything that lines up with a card's content. */
+  --rf-card-pad: 24px;
+
+  /* The two content widths: one per surface, not one per page. */
+  --rf-width-admin: 1120px;
+  --rf-width-participant: 960px;
+}
+
+@media (max-width: 600px) {
+  :root {
+    --rf-page-y: 24px;
+    --rf-section: 24px;
+    --rf-card-pad: 16px;
+  }
+}
+
+/* --- The page shell ------------------------------------------------------------------- */
+
+/*
+ * Applied to the v-container of every routed view. The width comes from the surface the page
+ * belongs to, so an operator moving between areas sees the content column stay where it was
+ * instead of jumping by two hundred pixels.
+ */
+.rf-page {
+  padding-block: var(--rf-page-y);
+  padding-inline: 24px;
+  width: 100%;
+  margin-inline: auto;
+}
+
+.rf-page--admin { max-width: var(--rf-width-admin); }
+.rf-page--participant { max-width: var(--rf-width-participant); }
+
+@media (max-width: 600px) {
+  .rf-page { padding-inline: 16px; }
+}
+
+/* Sections and stacks, so the gap is named rather than guessed at each call site. */
+.rf-section { margin-block-start: var(--rf-section); }
+.rf-section-gap { margin-block-end: var(--rf-section); }
+.rf-stack > * + * { margin-block-start: var(--rf-stack); }
+.rf-heading-gap { margin-block-end: var(--rf-heading); }
+
+/* --- Typography ----------------------------------------------------------------------- */
+
+/*
+ * One scale for the whole application: a page has one h1, its sections have h2s, and a card's
+ * own title is an h3. Vuetify's text-h4/h5/h6 carry the sizes; these rules carry the weight and
+ * the tightening, which the utility classes do not.
+ */
+.rf-title {
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+}
+
+/* --- A list row's metadata ------------------------------------------------------------ */
+
+/*
+ * The figures under a row's title. Previously a run of inline spans separated by margins, which
+ * wrapped into a ragged block the moment a title grew. A flex row with one gap keeps the items
+ * on a shared baseline and wraps them as whole units.
+ */
+.rf-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 20px;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.rf-meta__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+/* --- A participant address ------------------------------------------------------------ */
+
+/*
+ * The one place a raw URL is shown as itself. Monospace because it is a string to be copied
+ * rather than prose to be read, and breakable because a token has no spaces in it.
+ */
+.rf-address {
+  display: block;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.8125rem;
+  word-break: break-all;
+  color: rgb(var(--v-theme-primary));
+
+  /*
+   * Underlined on hover only. Twenty-five list rows each carrying a permanently underlined blue
+   * URL is the loudest thing on the page, and the address competes with the title it belongs to.
+   * The monospace face and the colour already say "this is a link and a string"; the underline
+   * comes back the moment a pointer is on it, and focus is ringed either way.
+   */
+  text-decoration: none;
+}
+
+.rf-address:hover { text-decoration: underline; }
+
+/* --- Field groups --------------------------------------------------------------------- */
+
+/*
+ * A row of fields that must line up: the wide one takes the space, the narrow one keeps its
+ * width, and they share a baseline. `align-items: flex-start` rather than center, because a
+ * field showing a validation message grows downwards and would otherwise drag its neighbour.
+ */
+.rf-field-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.rf-field-row__grow { flex: 1 1 220px; min-width: 0; }
+.rf-field-row__narrow { flex: 0 0 7.5rem; }
+
+/*
+ * Vuetify's outlined fields hang their floating label above the input's top edge. Directly
+ * inside a v-card-item that label is clipped by the card, which is what "Bezeichnung" was doing
+ * - rendered as a half-height smear along the border. The padding is the label's room.
+ */
+.rf-field-row--inset { padding-block-start: 6px; }
+
+/* --- The type scale ------------------------------------------------------------------- */
+
+/*
+ * Vuetify's precompiled stylesheet ships the layout utilities (`d-flex`, `text-medium-emphasis`,
+ * `font-weight-medium`) but **not** the typography scale: `.text-h3`, `.text-body-2`,
+ * `.text-overline` and their siblings are generated from SASS, and this project consumes the
+ * plain CSS build. Every one of the seventy-five typography classes already written across these
+ * components therefore resolved to nothing, and the whole application rendered at one size in one
+ * weight - which is most of why it read as unfinished. An `h1` looked like a heading only because
+ * browsers style `h1`.
+ *
+ * Supplying the scale here rather than switching the build to SASS keeps the existing markup
+ * working unchanged and, more usefully, makes the scale *this project's* rather than a framework
+ * default nobody chose. The sizes are tightened a step from Material's, which are drawn for
+ * marketing pages and leave an admin table looking shouty.
+ */
+.text-h3 { font-size: 2.5rem; line-height: 1.15; font-weight: 600; letter-spacing: -0.02em; }
+.text-h4 { font-size: 2rem; line-height: 1.2; font-weight: 600; letter-spacing: -0.02em; }
+.text-h5 { font-size: 1.5rem; line-height: 1.25; font-weight: 600; letter-spacing: -0.01em; }
+.text-h6 { font-size: 1.125rem; line-height: 1.35; font-weight: 600; letter-spacing: -0.005em; }
+
+.text-subtitle-1 { font-size: 1rem; line-height: 1.5; font-weight: 400; }
+.text-subtitle-2 { font-size: 0.875rem; line-height: 1.45; font-weight: 500; }
+
+.text-body-1 { font-size: 1rem; line-height: 1.6; font-weight: 400; }
+.text-body-2 { font-size: 0.875rem; line-height: 1.55; font-weight: 400; }
+.text-caption { font-size: 0.75rem; line-height: 1.45; font-weight: 400; }
+
+/*
+ * The label above a figure. Uppercase and tracked out, so it reads as a caption for the number
+ * rather than as a sentence competing with it.
+ */
+.text-overline {
+  font-size: 0.6875rem;
+  line-height: 1.4;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/*
+ * Figures line up in a column only if their digits are the same width. Applied to the dashboard
+ * tiles and to anything else that stacks numbers.
+ */
+.rf-figure {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum';
+}
+
+/* --- Figure tiles --------------------------------------------------------------------- */
+
+/*
+ * A label, a number and a note, in that order and with a fixed gap between them. Written as a
+ * grid rather than as margins on the children, so a tile with a two-line note keeps the same
+ * rhythm as one with none - and `h-100` on the card then makes a row of them end on one line.
+ */
+.rf-tile {
+  display: grid;
+  gap: 4px;
+  padding: var(--rf-card-pad);
+}
+
+/* Figures that are read against each other, side by side and evenly spaced. */
+.rf-split {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 40px;
+}
+
+/* --- Tables --------------------------------------------------------------------------- */
+
+/*
+ * A table that may grow long scrolls inside its own card instead of pushing the page. The
+ * horizontal rule is not optional: a table is the one thing on these pages wide enough to make
+ * the body scroll sideways, which the layout must never do.
+ */
+.rf-table-scroll {
+  max-height: 22rem;
+  overflow-y: auto;
+  overflow-x: auto;
+}
+
+/* --- Links ---------------------------------------------------------------------------- */
+
+/*
+ * An in-page link. Underlined only on hover, because a table column of permanently underlined
+ * blue is noise; the colour plus the pointer carries it, and focus is still visibly ringed.
+ *
+ * This class was already being used on the dashboard without ever having been defined, so those
+ * links fell through to the browser default and were the only Times-blue underlined text in the
+ * application.
+ */
+.rf-link {
+  color: rgb(var(--v-theme-primary));
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.rf-link:hover { text-decoration: underline; }

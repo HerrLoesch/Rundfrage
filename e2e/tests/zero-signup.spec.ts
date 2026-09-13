@@ -1,6 +1,6 @@
 import { test, expect, type Page } from '@playwright/test'
 import { field, radio } from '../support/fields'
-import { revealPollForm, signInToPolls } from '../support/admin'
+import { revealPollForm, revealWishListForm, signInToPolls, signInToWishLists } from '../support/admin'
 
 /**
  * FR-047 and Principle I, proven from the outside.
@@ -197,4 +197,39 @@ test.describe('Answering without an account', () => {
 
     await context.close()
   })
+  test('a wish list is claimed without an account, and shows no way into the admin area', async ({
+    browser,
+    page,
+  }) => {
+    // 008 FR-014 and FR-026. The same absences the poll link is held to: no account, no step
+    // before the form, and no navigation towards an area a participant cannot enter.
+    await signInToWishLists(page)
+    await revealWishListForm(page)
+    await field(page, 'wish-form-title').fill(`Ohne Konto ${Date.now()}`)
+    await field(page, 'wish-form-target-date').fill('2099-07-18')
+    await field(page, 'wish-form-item-name-0').fill('Kuchen')
+    await field(page, 'wish-form-item-count-0').fill('2')
+    await page.getByTestId('wish-form-submit').click()
+
+    const link = await page.getByTestId('wish-share-url').textContent()
+    const path = new URL(link!.trim()).pathname
+
+    const stranger = await browser.newContext()
+    const strangerPage = await stranger.newPage()
+    await strangerPage.goto(path)
+
+    // The form is on the page that loaded - zero steps between the link and it.
+    await expect(strangerPage.getByTestId('wish-claim-form')).toBeVisible()
+    await expect(strangerPage.getByTestId('admin-nav')).toHaveCount(0)
+    await expect(strangerPage.locator('a[href*="/admin"]')).toHaveCount(0)
+
+    // And claiming needs nothing but a name.
+    await strangerPage.locator('[data-testid^="wish-choose-"]').first().locator('input').check()
+    await field(strangerPage, 'wish-name').fill('Anna')
+    await strangerPage.getByTestId('wish-submit').click()
+    await expect(strangerPage.getByTestId('wish-submitted')).toBeVisible()
+
+    await stranger.close()
+  })
+
 })

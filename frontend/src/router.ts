@@ -52,6 +52,22 @@ export const routes: RouteRecordRaw[] = [
         component: () => import('./components/poll/PollView.vue'),
         props: true,
       },
+      {
+        // A wish list's participant capability, beside the poll's and with the same properties:
+        // no session, no guard, no navigation, nothing in front of it (008 FR-014, FR-026).
+        path: '/w/:listToken',
+        name: 'wish-list-public',
+        component: () => import('./components/wish/WishListView.vue'),
+        props: true,
+      },
+      {
+        // The per-submission capability - "z" for Zusage, beside "a" for Antwort
+        // (008 FR-022, research R-8).
+        path: '/z/:claimToken',
+        name: 'claim',
+        component: () => import('./components/wish/ClaimView.vue'),
+        props: true,
+      },
     ],
   },
   {
@@ -78,6 +94,22 @@ export const routes: RouteRecordRaw[] = [
         path: 'terminfindungen/:pollId',
         name: 'poll-answers',
         component: () => import('./components/admin/PollAnswersView.vue'),
+        props: true,
+      },
+      {
+        // The second feature area. Feature 007 built the navigation to hold more than one and
+        // refused to place a placeholder in it; this is the first entry to take one of those
+        // places (008 FR-041).
+        path: 'wunschlisten',
+        name: 'wish-lists',
+        component: () => import('./components/admin/WishListsView.vue'),
+      },
+      {
+        // One wish list: an address of its own, so it can be linked to and survives a reload
+        // like every other admin address (008 FR-043, SC-008).
+        path: 'wunschlisten/:wishListId',
+        name: 'wish-list',
+        component: () => import('./components/admin/WishListDetailView.vue'),
         props: true,
       },
       {

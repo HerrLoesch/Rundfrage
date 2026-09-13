@@ -71,6 +71,49 @@ nach dem Absenden einer Antwort. Sie öffnet in einem neuen Tab, damit die Seite
 stehen bleibt. Der Text bleibt trotzdem die reine Adresse — diese Links werden weit häufiger
 irgendwo eingefügt als angeklickt.
 
+## Wunschliste
+
+Neben der Terminfindung kann Rundfrage die zweite Frage stellen, die vor einem Treffen ansteht:
+**wer bringt was mit?** Eine Wunschliste hat einen Titel, ein Zieldatum, optional eine
+Beschreibung — und die Dinge, die gebraucht werden, jeweils mit einer Anzahl. Wer nichts angibt,
+wünscht sich das Ding genau einmal.
+
+Das Anlegen erzeugt einen Link. Wer ihn hat, sieht die ganze Liste: jeden Eintrag, wie viele davon
+noch frei sind und wer sich schon eingetragen hat. Man trägt seinen Namen ein und ist fertig —
+kein Konto, keine Anmeldung, kein Schritt davor. Mehrere Sachen auf einmal gehen in einem Rutsch.
+
+**Die Anzahl ist verbindlich.** Ein Eintrag, der zweimal gewünscht ist, nimmt genau zwei Namen an;
+danach steht dort „Vollständig" und es wird nichts mehr angeboten. Auch wenn zwei Leute im selben
+Moment auf den letzten Platz klicken, kommt genau einer durch — der andere erfährt, dass der Platz
+gerade weg ist.
+
+Nach dem Absenden bekommt man einen **persönlichen Link**. Damit — und nur damit — kann man den
+eigenen Eintrag wieder zurückziehen, der Platz ist dann sofort wieder frei. Wer den Link verliert,
+wendet sich an die Person, die die Liste angelegt hat; sie kann jeden Eintrag entfernen.
+
+Der Admin kann die Liste jederzeit ändern: Titel, Beschreibung und Zieldatum, Einträge
+hinzufügen, umbenennen, in der Anzahl erhöhen oder entfernen. Der Teilnehmer-Link bleibt dabei
+derselbe, und schon eingetragene Namen bleiben stehen. Zwei Dinge sind bewusst unbequem: eine
+Anzahl lässt sich **nicht** unter die bereits eingetragenen Namen senken — die Meldung sagt, wie
+viele es sind —, und das Entfernen eines Eintrags nennt vorher, wie viele Zusagen dabei
+verlorengehen.
+
+**Ist das Zieldatum vorbei, schließt die Liste.** Sie bleibt vollständig lesbar und wird als
+„Geschlossen" gekennzeichnet, nimmt aber nichts Neues mehr an — auch kein Zurückziehen, weil ein
+frei gewordener Platz danach niemandem mehr nützt. Ein späteres Zieldatum öffnet sie wieder; einen
+Schalter dafür gibt es nicht, weil „geschlossen" nichts Gespeichertes ist, sondern ein Blick auf
+den Kalender.
+
+**Gelöscht wird eine Wunschliste nur, wenn der Admin es sagt.** Anders als eine Terminfindung hat
+sie kein Ablaufdatum und wird von keinem Hintergrundlauf angefasst. Die Bestätigung nennt vorher,
+wie viele Zusagen mit verschwinden.
+
+Im Adminbereich steht zu jeder Liste, wie weit sie ist: wie viele Zusagen es gibt, wie viele der
+gewünschten Plätze belegt sind (in Prozent, abgerundet — 999 von 1000 sind 99 %), und wie viele
+Einträge noch **gar niemand** übernommen hat. Das Dashboard zeigt dieselben Zahlen für alle
+Wunschlisten auf einen Blick, offene zuerst und das nächste Zieldatum oben. Namen von Teilnehmern
+stehen dort nicht.
+
 ## Exportieren
 
 Jede Umfrage lässt sich im Adminbereich als **JSON** herunterladen: Titel, Nachricht, die Tage in

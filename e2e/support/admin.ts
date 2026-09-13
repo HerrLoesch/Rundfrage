@@ -44,6 +44,25 @@ export async function gotoPolls(page: Page): Promise<void> {
   await expect(page.getByTestId('poll-create-toggle')).toBeVisible()
 }
 
+/** The wish-list area: creating, listing and opening one wish list (008 FR-041). */
+export async function gotoWishLists(page: Page): Promise<void> {
+  await openNavigation(page)
+  await page.getByTestId('nav-wish-lists').click()
+  await expect(page.getByTestId('wish-create-toggle')).toBeVisible()
+}
+
+/** Signs in and goes straight to the wish-list area. */
+export async function signInToWishLists(page: Page): Promise<void> {
+  await signIn(page)
+  await gotoWishLists(page)
+}
+
+/** Reveals the wish-list creation form, which is behind an action (008 FR-042). */
+export async function revealWishListForm(page: Page): Promise<void> {
+  await page.getByTestId('wish-create-toggle').click()
+  await expect(page.getByTestId('wish-list-form')).toBeVisible()
+}
+
 /** Settings: maintenance mode, the backup download and the restore (007 FR-019). */
 export async function gotoSettings(page: Page): Promise<void> {
   await openNavigation(page)

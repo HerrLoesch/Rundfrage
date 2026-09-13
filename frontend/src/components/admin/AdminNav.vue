@@ -28,9 +28,10 @@ const visible = computed({
 /**
  * The whole navigation, as a list rather than as data (Principle III).
  *
- * Three entries, so there is no registry, no configuration and no plugin point. FR-003 fixes the
- * order - dashboard first, feature areas in the middle, settings last - and FR-004 forbids an
- * entry for anything unbuilt, which is why there is exactly one middle entry today.
+ * Four entries, so there is still no registry, no configuration and no plugin point. FR-003 fixes
+ * the order - dashboard first, feature areas in the middle, settings last - and FR-004 forbids an
+ * entry for anything unbuilt. Feature 008 added the second middle entry by adding a line here,
+ * which is what the shape was for.
  *
  * "Terminfindungen" reuses poll.listTitle rather than adding a second word for the poll list
  * (FR-002a): two catalogue entries for one concept is how a rename ends up half-applied.
@@ -69,6 +70,15 @@ const entries = computed(() => [
     label: t('poll.listTitle'),
     icon: 'mdi-calendar-multiselect',
     testid: 'nav-polls',
+  },
+  {
+    // Owns both of its route names, so the area stays marked current while one list's detail is
+    // shown - the same correction the poll entry records above (008 FR-041).
+    to: '/admin/wunschlisten',
+    owns: ['wish-lists', 'wish-list'],
+    label: t('nav.wishLists'),
+    icon: 'mdi-gift-outline',
+    testid: 'nav-wish-lists',
   },
   {
     to: '/admin/einstellungen',

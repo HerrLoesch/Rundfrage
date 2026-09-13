@@ -470,6 +470,14 @@ of the per-poll summaries; then delete a poll and confirm every affected figure 
   dashboard. The distribution in FR-028.6 is an aggregate and names nobody; presenting it MUST NOT
   require recording anything that is not recorded today.
 
+  **Amended 2026-09-13 by feature 008 (008 FR-048b).** The rule above stands with one narrowing:
+  **wish-list titles MAY appear on the dashboard.** Everything else is unchanged — no participant
+  display name, no individual answer, no poll title and no access record, and nothing new may be
+  recorded to make a figure possible. The narrowing is deliberate and small: the interest this
+  requirement protects is the participants', and a wish-list title is written by the operator, for
+  the operator, and names nobody. Feature 008's dashboard overview shows one row per wish list
+  (008 FR-048a); the poll figures keep the aggregate-only form this requirement gave them.
+
 #### Presentation
 
 - **FR-035**: All text introduced by this feature MUST come from the translation catalogue, with no

@@ -95,14 +95,21 @@ public class AdminAuthorizationTests : IDisposable
             var path = SubstituteRouteParameters(endpoint.RoutePattern.RawText!);
 
             var request = new HttpRequestMessage(new HttpMethod(method), path);
-            if (method is "POST" or "PUT")
+            if (method is "POST" or "PUT" or "PATCH")
             {
+                // PATCH joined this list with feature 008. A body-taking endpoint carries a
+                // Consumes constraint, so a request without a content type is filtered out during
+                // endpoint selection and falls through to the catch-all as a 404 - which would
+                // make this test report "not protected" for a route that is. The body is what
+                // makes the request reach the endpoint whose authorisation is under test.
                 request.Content = JsonContent.Create(new { title = "x", days = new[] { "2026-10-15" } });
             }
 
             var response = await client.SendAsync(request);
 
-            Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+            Assert.True(
+                response.StatusCode == HttpStatusCode.Unauthorized,
+                $"{method} {path} answered {(int)response.StatusCode}");
             Assert.Equal("{\"code\":\"unauthorized\"}", await response.Content.ReadAsStringAsync());
         }
     }

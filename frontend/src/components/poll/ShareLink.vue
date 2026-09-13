@@ -32,8 +32,18 @@ async function copy() {
 </script>
 
 <template>
-  <v-alert type="success" data-testid="share-link" class="share">
-    <div class="text-subtitle-2 font-weight-bold mb-1">{{ props.label }}</div>
+  <!--
+    A panel, not a success alert.
+
+    It used to be `v-alert type="success"`, which was wrong in two ways at once. On the wish-list
+    detail page nothing had just succeeded - the link is a standing property of the list, and a
+    green congratulation sat there permanently. And where something *had* succeeded, the caller
+    wrapped this in its own success alert, so a green box appeared inside a green box.
+
+    Neutral here; the caller says whether the occasion is a happy one.
+  -->
+  <section class="rf-share" data-testid="share-link">
+    <div class="text-overline text-medium-emphasis mb-1">{{ props.label }}</div>
 
     <div class="d-flex align-center ga-2 flex-wrap">
       <!--
@@ -48,7 +58,7 @@ async function copy() {
         rel denies the opened page any handle on this one (FR-016b).
       -->
       <a
-        class="url flex-grow-1"
+        class="rf-address flex-grow-1"
         :href="url"
         target="_blank"
         rel="noopener noreferrer"
@@ -68,12 +78,17 @@ async function copy() {
       </v-btn>
     </div>
 
-    <div v-if="props.hint" class="text-body-2 mt-2" :data-testid="props.hintTestid">
+    <p v-if="props.hint" class="text-body-2 text-medium-emphasis mt-2 mb-0" :data-testid="props.hintTestid">
       {{ props.hint }}
-    </div>
-  </v-alert>
+    </p>
+  </section>
 </template>
 
 <style scoped>
-.url { word-break: break-all; font-family: ui-monospace, monospace; }
+.rf-share {
+  padding: 16px;
+  border: thin solid rgba(var(--v-border-color), var(--v-border-opacity));
+  border-radius: 8px;
+  background: rgb(var(--v-theme-background));
+}
 </style>

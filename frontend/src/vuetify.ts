@@ -40,11 +40,26 @@ export const vuetify = createVuetify({
       },
     },
   },
+  /**
+   * The component defaults are half of the visual consistency; `styles/app.css` is the other.
+   *
+   * Set here rather than repeated per call site, because a default that lives in twelve templates
+   * is twelve chances to disagree - which is what a card with `elevation-1` beside one with
+   * `variant="outlined"` beside one with neither had already produced.
+   */
   defaults: {
     VTextField: { variant: 'outlined', density: 'comfortable', hideDetails: 'auto' },
     VTextarea: { variant: 'outlined', density: 'comfortable', hideDetails: 'auto' },
+    VSelect: { variant: 'outlined', density: 'comfortable', hideDetails: 'auto' },
+    VFileInput: { variant: 'outlined', density: 'comfortable', hideDetails: 'auto' },
     VBtn: { variant: 'flat' },
-    VCard: { elevation: 1, rounded: 'lg' },
+
+    // A hairline border rather than a shadow. Shadows stack visually: a card inside a card
+    // inside an alert produced three overlapping glows and no hierarchy at all. A border draws
+    // exactly one line whatever it is nested in.
+    VCard: { elevation: 0, rounded: 'lg', border: 'thin' },
     VAlert: { variant: 'tonal', density: 'comfortable' },
+    VDialog: { maxWidth: 520 },
+    VChip: { size: 'small' },
   },
 })

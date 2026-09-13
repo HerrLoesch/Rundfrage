@@ -7,6 +7,7 @@ using Rundfrage.Api.Http;
 using Rundfrage.Api.Maintenance;
 using Rundfrage.Api.Retention;
 using Rundfrage.Api.Polls;
+using Rundfrage.Api.Wishes;
 using Rundfrage.Api.Security;
 using Rundfrage.Api.Time;
 using Rundfrage.Api.Observability;
@@ -68,6 +69,12 @@ builder.Services.AddScoped<PollImport>();
 builder.Services.AddScoped<PollService>();
 builder.Services.AddScoped<ResponseService>();
 builder.Services.AddScoped<DashboardProjection>();
+
+// Feature 008. A sibling of the poll services, not an abstraction over both: they share
+// mechanisms - tokens, the write transaction, the shell - and no behaviour (Principle III).
+builder.Services.AddScoped<WishListService>();
+builder.Services.AddScoped<ClaimService>();
+builder.Services.AddScoped<WishListProjection>();
 builder.Services.AddScoped<ResultsProjection>();
 builder.Services.AddScoped<RetentionService>();
 builder.Services.AddScoped<RestoreService>();
@@ -185,6 +192,7 @@ api.MapHealthEndpoint();
 // No session, no account, no email. The token in the path is the authorisation.
 api.MapPollEndpoints();
 api.MapResponseEndpoints();
+api.MapWishEndpoints();
 
 // --- Admin (FR-001, FR-048) ----------------------------------------------------------------
 // The requirement is applied to the whole group, not to individual handlers. FR-048 asserts
@@ -193,6 +201,7 @@ api.MapResponseEndpoints();
 var admin = api.MapGroup("/admin").RequireAuthorization();
 admin.MapSignInEndpoints();
 admin.MapPollAdminEndpoints();
+admin.MapWishListAdminEndpoints();
 admin.MapDashboardEndpoint();
 admin.MapBackupEndpoint();
 admin.MapImportEndpoints();
