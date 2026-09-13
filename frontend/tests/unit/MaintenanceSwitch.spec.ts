@@ -32,19 +32,19 @@ describe('MaintenanceSwitch (005 FR-025, ui-contract §2)', () => {
     expect(mountWith({ enabled: false }).wrapper.text()).toContain(de.maintenance.switch)
   })
 
-  it('shows a persistent banner while maintenance is on, not a toast', () => {
-    // A toast is missed, and the failure mode of this feature is leaving the site down after the
-    // work is finished.
+  /**
+   * 007 FR-026a. The banner used to be rendered here, and it moved to the shell so that the
+   * warning is on screen in every admin area rather than only on the page holding this switch.
+   * The banner's own behaviour is asserted in AdminShell.spec.ts; what matters here is that this
+   * component no longer claims it, because two components rendering one warning would show it
+   * twice on the settings page (research.md R-6).
+   */
+  it('renders the toggle and no banner; the shell owns the warning (007 FR-026a)', () => {
     const { wrapper } = mountWith({ enabled: true })
 
-    expect(wrapper.find('[data-testid="maintenance-banner"]').exists()).toBe(true)
-    expect(wrapper.text()).toContain(de.maintenance.bannerTitle)
-  })
-
-  it('shows no banner while maintenance is off', () => {
-    expect(
-      mountWith({ enabled: false }).wrapper.find('[data-testid="maintenance-banner"]').exists(),
-    ).toBe(false)
+    expect(wrapper.find('[data-testid="maintenance-toggle"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="maintenance-banner"]').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain(de.maintenance.bannerTitle)
   })
 
   it('asks before switching on, and does not switch on until confirmed', async () => {
@@ -74,18 +74,13 @@ describe('MaintenanceSwitch (005 FR-025, ui-contract §2)', () => {
     expect(wrapper.find('[data-testid="maintenance-confirm"]').exists()).toBe(false)
   })
 
-  it('says since when it was switched on, with the moment in it', () => {
-    // Existence alone would pass against an empty element. What the operator needs is the date.
+  /**
+   * "Since when" moved with the banner (007 FR-026). Asserted in AdminShell.spec.ts, including
+   * that the moment itself is rendered and not merely an empty element.
+   */
+  it('leaves the moment to the shell as well (007 FR-026)', () => {
     const { wrapper } = mountWith({ enabled: true, since: '2026-09-05T10:15:00Z' })
 
-    const since = wrapper.get('[data-testid="maintenance-since"]')
-
-    expect(since.text()).toContain('2026')
-    expect(since.text()).toContain('September')
-  })
-
-  it('says nothing about a moment while maintenance is off', () => {
-    expect(mountWith({ enabled: false }).wrapper.find('[data-testid="maintenance-since"]').exists())
-      .toBe(false)
+    expect(wrapper.find('[data-testid="maintenance-since"]').exists()).toBe(false)
   })
 })

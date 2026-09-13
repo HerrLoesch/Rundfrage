@@ -5,7 +5,16 @@ import type { Availability, PollView } from '../../api/client'
 import { useBestDays } from '../../composables/useBestDays'
 
 const props = defineProps<{ poll: PollView; deletable?: boolean }>()
-const emit = defineEmits<{ deleteResponse: [responseId: string] }>()
+const emit = defineEmits<{
+  deleteResponse: [responseId: string]
+  /**
+   * The rows of one page live on the server, so the grid reports which page is wanted and the
+   * view that owns the request fetches it - the same split deleteResponse already uses. Keeping
+   * the request out of here is what lets one component serve both the participant view and the
+   * creator's, which read through different endpoints (006 FR-004).
+   */
+  changePage: [page: number]
+}>()
 
 const { t, d } = useI18n()
 
@@ -210,6 +219,47 @@ function formatDay(date: string): string {
           </tr>
         </tbody>
       </v-table>
+      <!--
+        Only when there is somewhere to go. Server-side paging at fifty has been the design since
+        002 (research R-7) and the payload has always carried page/pageCount, but nothing rendered
+        a control - so a poll at the 1000-response limit showed fifty and hid the rest.
+
+        Below the table rather than above it: it acts on the rows, and a control above them would
+        sit between the summary and the thing the summary describes.
+      -->
+      <div
+        v-if="poll.pageCount > 1"
+        class="d-flex align-center justify-center ga-4 mt-4"
+        data-testid="results-paging"
+      >
+        <v-btn
+          variant="text"
+          prepend-icon="mdi-chevron-left"
+          :disabled="poll.page <= 1"
+          data-testid="results-previous"
+          @click="emit('changePage', poll.page - 1)"
+        >
+          {{ t('results.previous') }}
+        </v-btn>
+
+        <!--
+          A live region: paging replaces the rows in place, and without this a screen reader is
+          told nothing at all about having moved.
+        -->
+        <span class="text-body-2" aria-live="polite" data-testid="results-page">
+          {{ t('results.page', { page: poll.page, pageCount: poll.pageCount }) }}
+        </span>
+
+        <v-btn
+          variant="text"
+          append-icon="mdi-chevron-right"
+          :disabled="poll.page >= poll.pageCount"
+          data-testid="results-next"
+          @click="emit('changePage', poll.page + 1)"
+        >
+          {{ t('results.next') }}
+        </v-btn>
+      </div>
     </v-card-text>
   </v-card>
 </template>

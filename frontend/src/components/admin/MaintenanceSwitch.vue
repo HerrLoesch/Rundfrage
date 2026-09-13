@@ -1,16 +1,18 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useMaintenanceStore } from '../../stores/maintenance'
 
-const { t, d } = useI18n()
+const { t } = useI18n()
 const store = useMaintenanceStore()
 
 const confirming = ref(false)
 
-const sinceText = computed(() =>
-  store.since ? t('maintenance.since', { moment: d(new Date(store.since), 'long') }) : null,
-)
+// The warning banner used to live here, below the switch. It belongs to the shell now (007
+// FR-026a), and it had to move for this control to move: the documented failure mode of
+// maintenance mode is forgetting to switch it back off, so the warning has to be where the
+// operator cannot avoid it - whereas this control now sits on the settings page, which is the one
+// place they are certain to be looking when they already remember (research.md R-6).
 
 /**
  * Asymmetric on purpose (ui-contract §2). Switching *on* takes participants away, so it asks
@@ -45,23 +47,6 @@ function confirmOn() {
       {{ t('maintenance.switch') }}:
       {{ store.enabled ? t('maintenance.on') : t('maintenance.off') }}
     </v-btn>
-
-    <!--
-      A banner, not a toast. A toast is missed, and the failure mode of this feature is leaving
-      the participant side switched off after the work is finished.
-    -->
-    <v-alert
-      v-if="store.enabled"
-      type="warning"
-      class="mt-4"
-      data-testid="maintenance-banner"
-    >
-      <div class="text-subtitle-2 font-weight-bold">{{ t('maintenance.bannerTitle') }}</div>
-      <div class="text-body-2">{{ t('maintenance.bannerBody') }}</div>
-      <div v-if="sinceText" class="text-body-2 mt-1" data-testid="maintenance-since">
-        {{ sinceText }}
-      </div>
-    </v-alert>
 
     <!--
       An inline confirmation rather than a dialog. The operator is already looking at this

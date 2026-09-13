@@ -28,7 +28,7 @@ async function submit() {
   busy.value = true
   try {
     if (await session.signIn(user.value, password.value)) {
-      await router.push({ name: 'admin-polls' })
+      await router.push({ name: 'dashboard' })
     }
   } finally {
     busy.value = false

@@ -1,3 +1,4 @@
+using Rundfrage.Api.Polls;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -168,5 +169,54 @@ public class RevisionTests(SqliteFixture storage) : IClassFixture<SqliteFixture>
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
         Assert.Equal("{\"code\":\"not_found\"}", await response.Content.ReadAsStringAsync());
+    }
+
+    /// <summary>
+    /// The personal link reads the grid too, and the grid is paged fifty at a time (002 research
+    /// R-7). Without a page parameter here the participant who came back through their own link
+    /// could see the first fifty answers and no more, while the same grid reached through the
+    /// poll link could page - one component behaving differently depending on how it was opened.
+    /// </summary>
+    [Fact]
+    public async Task The_personal_link_can_ask_for_another_page_of_the_grid()
+    {
+        using var factory = new ApiFactory(storage.DataDirectory, submissionsPerHour: 1000);
+        var answered = await AnswerAsync(factory);
+
+        var anonymous = factory.CreateClient();
+
+        // Enough answers to fill a second page.
+        for (var i = 0; i < ResultsProjection.PageSize; i++)
+        {
+            var submitted = await anonymous.PostAsJsonAsync(
+                $"/api/v1/polls/{answered.PollToken}/responses",
+                new
+                {
+                    displayName = $"Person {i}",
+                    answers = new[] { new { dayId = answered.DayIds[0], availability = "no" } },
+                });
+            submitted.EnsureSuccessStatusCode();
+        }
+
+        var first = await anonymous.GetFromJsonAsync<JsonElement>(
+            $"/api/v1/responses/{answered.EditToken}");
+        var second = await anonymous.GetFromJsonAsync<JsonElement>(
+            $"/api/v1/responses/{answered.EditToken}?page=2");
+
+        Assert.Equal(1, first.GetProperty("poll").GetProperty("page").GetInt32());
+        Assert.Equal(2, second.GetProperty("poll").GetProperty("pageCount").GetInt32());
+        Assert.Equal(2, second.GetProperty("poll").GetProperty("page").GetInt32());
+
+        // A different page really means different rows.
+        var firstNames = first.GetProperty("poll").GetProperty("responses").EnumerateArray()
+            .Select(r => r.GetProperty("displayName").GetString()).ToArray();
+        var secondNames = second.GetProperty("poll").GetProperty("responses").EnumerateArray()
+            .Select(r => r.GetProperty("displayName").GetString()).ToArray();
+
+        Assert.NotEmpty(secondNames);
+        Assert.Empty(firstNames.Intersect(secondNames));
+
+        // The participant's own answers still come back with it, whichever page is asked for.
+        Assert.Equal("Anna", second.GetProperty("displayName").GetString());
     }
 }

@@ -519,4 +519,74 @@ describe('ResultGrid — no single best day (006 US2)', () => {
     expect(new Set(shapes).size).toBe(1)
     expect(new Set(labels).size).toBe(1)
   })
+
+  /**
+   * The paging control, which the API and the catalogue have been waiting for since 002.
+   *
+   * `ResultsProjection` pages server-side at fifty and the payload has carried `page`/`pageCount`
+   * all along; 002 research R-7 chose paging over a virtual list, and 004's UI contract lists
+   * "the paging control and its page size" among the things it leaves unchanged. Nothing ever
+   * rendered it, so a poll at 002's limit of 1000 responses showed fifty of them and offered no
+   * way to the other 950. Found by review of feature 007, which gave the grid an address of its
+   * own and made the gap plain.
+   */
+  describe('paging', () => {
+    const paged = (page: number, pageCount: number) => ({
+      ...POLL,
+      page,
+      pageCount,
+      responseCount: pageCount * 50,
+    })
+
+    it('offers no paging control when everything fits on one page', () => {
+      // The common case by far. A control that always says "1 of 1" is noise.
+      expect(mountGrid().find('[data-testid="results-paging"]').exists()).toBe(false)
+    })
+
+    it('says which page is shown, and of how many', () => {
+      const wrapper = mountGrid(paged(2, 5))
+
+      expect(wrapper.get('[data-testid="results-paging"]').text())
+        .toContain(de.results.page.replace('{page}', '2').replace('{pageCount}', '5'))
+    })
+
+    it('asks for the next page rather than changing anything itself', () => {
+      // The rows live on the server, so the grid reports the intent and the view that owns the
+      // request acts on it - the same split the delete control already uses.
+      const wrapper = mountGrid(paged(2, 5))
+
+      wrapper.get('[data-testid="results-next"]').trigger('click')
+
+      expect(wrapper.emitted('changePage')).toEqual([[3]])
+    })
+
+    it('asks for the previous page', () => {
+      const wrapper = mountGrid(paged(2, 5))
+
+      wrapper.get('[data-testid="results-previous"]').trigger('click')
+
+      expect(wrapper.emitted('changePage')).toEqual([[1]])
+    })
+
+    it('cannot be asked to go before the first page', () => {
+      const wrapper = mountGrid(paged(1, 5))
+
+      expect(wrapper.get('[data-testid="results-previous"]').attributes('disabled')).toBeDefined()
+      expect(wrapper.get('[data-testid="results-next"]').attributes('disabled')).toBeUndefined()
+    })
+
+    it('cannot be asked to go past the last page', () => {
+      const wrapper = mountGrid(paged(5, 5))
+
+      expect(wrapper.get('[data-testid="results-next"]').attributes('disabled')).toBeDefined()
+      expect(wrapper.get('[data-testid="results-previous"]').attributes('disabled')).toBeUndefined()
+    })
+
+    it('names both controls for a screen reader', () => {
+      const wrapper = mountGrid(paged(2, 5))
+
+      expect(wrapper.get('[data-testid="results-previous"]').text()).toContain(de.results.previous)
+      expect(wrapper.get('[data-testid="results-next"]').text()).toContain(de.results.next)
+    })
+  })
 })

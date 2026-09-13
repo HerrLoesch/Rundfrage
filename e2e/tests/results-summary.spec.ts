@@ -1,6 +1,6 @@
 import { test, expect, type Page } from '@playwright/test'
 import { field, radio } from '../support/fields'
-import { ADMIN_PASSWORD, ADMIN_USER } from '../support/credentials'
+import { signIn as sharedSignIn } from '../support/admin'
 
 /**
  * The half of feature 004 that only a browser can judge.
@@ -10,12 +10,14 @@ import { ADMIN_PASSWORD, ADMIN_USER } from '../support/credentials'
  * component test green; everything positional here is checked where layout actually exists.
  */
 test.describe('Results summary and followable addresses', () => {
+  /**
+   * 007: signing in lands on the dashboard, so reaching a control is now "sign in, then go to the
+   * area it lives in". The shared helper carries that so a future rearrangement is one edit.
+   */
   async function signIn(page: Page) {
-    await page.goto('/admin')
-    await field(page, 'sign-in-user').fill(ADMIN_USER)
-    await field(page, 'sign-in-password').fill(ADMIN_PASSWORD)
-    await page.getByTestId('sign-in-submit').click()
-    await expect(page.getByTestId('poll-form')).toBeVisible()
+    // This suite creates its polls through the API and then reads them on the participant page,
+    // so the dashboard is far enough: it needs the session, not the poll area.
+    await sharedSignIn(page)
   }
 
   /** Creates a poll through the API, using the session the page already holds. */
@@ -157,7 +159,7 @@ test.describe('Results summary and followable addresses', () => {
     await signIn(page)
     await createPoll(page, title, ['2026-11-18'])
 
-    await page.goto('/admin')
+    await page.goto('/admin/terminfindungen')
     const card = page.getByTestId('poll-list-item').filter({ hasText: title })
     const link = card.getByTestId('poll-list-link')
     const address = (await link.textContent())!.trim()
@@ -169,7 +171,7 @@ test.describe('Results summary and followable addresses', () => {
     await expect(opened.getByText(title)).toBeVisible()
 
     // The admin tab is untouched: still signed in, still showing the list.
-    await expect(page.getByTestId('poll-form')).toBeVisible()
+    await expect(page.getByTestId('poll-create-toggle')).toBeVisible()
     await expect(card).toBeVisible()
     await opened.close()
 
@@ -241,15 +243,106 @@ test.describe('Results summary and followable addresses', () => {
     await page.getByTestId('summary-toggle').click()
     const participantMarks = await page.getByTestId('best-day').count()
 
-    await page.goto('/admin')
+    // 007 FR-014a: the creator's view of the answers is its own address now.
+    await page.goto('/admin/terminfindungen')
     await page
       .getByTestId('poll-list-item')
       .filter({ hasText: title })
       .getByTestId('show-results')
       .click()
+    await expect(page.getByTestId('poll-answers')).toBeVisible()
     await page.getByTestId('summary-toggle').click()
 
     await expect(page.getByTestId('best-day')).toHaveCount(participantMarks)
     expect(participantMarks).toBe(1)
+  })
+
+  /**
+   * The paging control, end to end.
+   *
+   * Server-side paging at fifty has been the design since 002 (research R-7) and 004's UI
+   * contract lists "the paging control and its page size" among what it leaves unchanged - but
+   * nothing ever rendered one, so a poll at the 1000-response limit showed fifty answers and
+   * offered no way to the rest. Found while reviewing feature 007, which gave the grid an address
+   * of its own and made the gap obvious.
+   */
+  test('a grid with more answers than fit on one page can be paged through', async ({ page }) => {
+    const title = `Blaettern ${Date.now()}`
+    await signIn(page)
+
+    const created = await page.request.post('/api/v1/admin/polls', {
+      data: { title, days: ['2027-08-01'] },
+    })
+    expect(created.status()).toBe(201)
+    const { id, participantToken } = await created.json()
+
+    // Seeded through the API rather than the browser: 51 real submissions would take minutes and
+    // prove nothing this test is about.
+    const dayId = (await (await page.request.get(`/api/v1/polls/${participantToken}`)).json())
+      .days[0].id
+    for (let i = 0; i < 51; i++) {
+      const submitted = await page.request.post(`/api/v1/polls/${participantToken}/responses`, {
+        data: { displayName: `Person ${i}`, answers: [{ dayId, availability: 'yes' }] },
+      })
+      expect(submitted.status()).toBe(201)
+    }
+
+    await page.goto(`/admin/terminfindungen/${id}`)
+    await expect(page.getByTestId('result-row')).toHaveCount(50)
+
+    const paging = page.getByTestId('results-paging')
+    await expect(paging).toBeVisible()
+    await expect(page.getByTestId('results-previous')).toBeDisabled()
+
+    const firstPageNames = await page.getByTestId('result-row').allInnerTexts()
+
+    await page.getByTestId('results-next').click()
+
+    // The 51st answer, which was unreachable before this control existed.
+    await expect(page.getByTestId('result-row')).toHaveCount(1)
+    await expect(page.getByTestId('results-next')).toBeDisabled()
+
+    const secondPageNames = await page.getByTestId('result-row').allInnerTexts()
+    expect(firstPageNames).not.toContain(secondPageNames[0])
+
+    await page.getByTestId('results-previous').click()
+    await expect(page.getByTestId('result-row')).toHaveCount(50)
+  })
+
+  test('a participant can page through the grid too, without losing a half-filled answer', async ({
+    page,
+  }) => {
+    const title = `Blaettern Teilnehmer ${Date.now()}`
+    await signIn(page)
+
+    const created = await page.request.post('/api/v1/admin/polls', {
+      data: { title, days: ['2027-09-01'] },
+    })
+    const { participantToken } = await created.json()
+    const path = `/u/${participantToken}`
+    const dayId = (await (await page.request.get(`/api/v1/polls/${participantToken}`)).json())
+      .days[0].id
+
+    for (let i = 0; i < 51; i++) {
+      await page.request.post(`/api/v1/polls/${participantToken}/responses`, {
+        data: { displayName: `Gast ${i}`, answers: [{ dayId, availability: 'no' }] },
+      })
+    }
+
+    const context = await page.context().browser()!.newContext()
+    const participant = await context.newPage()
+    await participant.goto(path)
+
+    // Half-written answer, before paging.
+    await field(participant, 'participant-name').fill('Halb geschrieben')
+
+    await participant.getByTestId('results-next').click()
+    await expect(participant.getByTestId('result-row')).toHaveCount(1)
+
+    // Paging reads the grid; it must not disturb the form above it (Principle I).
+    await expect(field(participant, 'participant-name')).toHaveValue('Halb geschrieben')
+    await expect(participant.getByTestId('answer-submit')).toBeVisible()
+
+    await context.close()
   })
 })

@@ -3,7 +3,7 @@ import { execSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import { field } from '../support/fields'
-import { ADMIN_USER, ADMIN_PASSWORD } from '../support/credentials'
+import { revealPollForm, signInToPolls } from '../support/admin'
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 
@@ -25,12 +25,13 @@ function compose(args: string): void {
  *   - and it recovers on a reload, with no restart.
  */
 test.describe('Storage resilience (US1)', () => {
+  /**
+   * 007: signing in lands on the dashboard, so reaching a control is now "sign in, then go to the
+   * area it lives in". The shared helper carries that so a future rearrangement is one edit.
+   */
   async function signIn(page: import('@playwright/test').Page) {
-    await page.goto('/admin')
-    await field(page, 'sign-in-user').fill(ADMIN_USER)
-    await field(page, 'sign-in-password').fill(ADMIN_PASSWORD)
-    await page.getByTestId('sign-in-submit').click()
-    await expect(page.getByTestId('poll-form')).toBeVisible()
+    await signInToPolls(page)
+    await revealPollForm(page)
   }
 
   test('the application is served from a single origin', async ({ page }) => {
@@ -66,7 +67,7 @@ test.describe('Storage resilience (US1)', () => {
     compose('restart app')
 
     await expect(async () => {
-      await page.goto('/admin')
+      await page.goto('/admin/terminfindungen')
       await expect(page.getByTestId('poll-list-item').filter({ hasText: title })).toBeVisible()
     }).toPass({ timeout: 60_000, intervals: [1000, 2000, 3000] })
   })
@@ -84,7 +85,7 @@ test.describe('Storage resilience (US1)', () => {
     await signIn(page)
 
     await page.route('**/api/v1/admin/polls', (route) => route.abort())
-    await page.goto('/admin')
+    await page.goto('/admin/terminfindungen')
 
     await expect(page.getByTestId('storage-unavailable')).toBeVisible()
     await expect(page.getByTestId('poll-list-empty')).toHaveCount(0)
@@ -93,6 +94,28 @@ test.describe('Storage resilience (US1)', () => {
     await page.unrouteAll()
     await page.reload()
     await expect(page.getByTestId('storage-unavailable')).toHaveCount(0)
-    await expect(page.getByTestId('poll-form')).toBeVisible()
+    await expect(page.getByTestId('poll-create-toggle')).toBeVisible()
+  })
+
+  /**
+   * 007 FR-032 and SC-009. The same distinction, and sharper here than anywhere else: an empty
+   * list is ambiguous, but a figure reading 0 is a positive claim about the data. So when the
+   * store cannot be read the dashboard must show no figure at all.
+   */
+  test('the dashboard shows no figure at all when the store cannot be read', async ({ page }) => {
+    await signIn(page)
+
+    await page.route('**/api/v1/admin/dashboard', (route) => route.abort())
+    await page.goto('/admin')
+
+    await expect(page.getByTestId('storage-unavailable')).toBeVisible()
+
+    for (const tile of ['stat-polls', 'stat-responses', 'stat-unanswered', 'stat-distribution']) {
+      await expect(page.getByTestId(tile)).toHaveCount(0)
+    }
+
+    await page.unrouteAll()
+    await page.reload()
+    await expect(page.getByTestId('stat-polls')).toBeVisible()
   })
 })

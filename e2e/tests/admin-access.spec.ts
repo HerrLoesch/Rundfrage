@@ -1,4 +1,7 @@
 import { test, expect } from '@playwright/test'
+import { field } from '../support/fields'
+import { signIn, signInToPolls } from '../support/admin'
+import { ADMIN_PASSWORD, ADMIN_USER } from '../support/credentials'
 
 /**
  * FR-048 and SC-004 from the outside: the admin area is unreachable without signing in, and a
@@ -41,5 +44,87 @@ test.describe('Admin access', () => {
 
     // The client-side guard only redirects; the refusal above is what actually protects the data.
     await expect(page.getByTestId('sign-in-form')).toBeVisible()
+
+    // 007 FR-008: no session, so no areas to list. A navigation bar here would offer what the
+    // server is about to refuse.
+    await expect(page.getByTestId('admin-nav')).toHaveCount(0)
+    await expect(page.getByTestId('admin-shell')).toHaveCount(0)
+  })
+
+  /**
+   * 007 FR-011a. Signing in leads to the dashboard in every case - the area the operator was
+   * refused from is deliberately not remembered, because carrying an intended destination across
+   * an authentication boundary is machinery this feature has no second use for.
+   */
+  test('signing in lands on the dashboard, whatever was being asked for', async ({ page }) => {
+    for (const asked of ['/admin/einstellungen', '/admin/terminfindungen', '/admin/gibt-es-nicht']) {
+      await page.context().clearCookies()
+      await page.goto(asked)
+      await expect(page.getByTestId('sign-in-form')).toBeVisible()
+
+      await field(page, 'sign-in-user').fill(ADMIN_USER)
+      await field(page, 'sign-in-password').fill(ADMIN_PASSWORD)
+      await page.getByTestId('sign-in-submit').click()
+
+      await expect(page.getByTestId('dashboard'), asked).toBeVisible()
+      await expect(page).toHaveURL(/\/admin$/)
+    }
+  })
+
+  /**
+   * 007 FR-012 and SC-007. A permanent drawer would occupy a phone-width screen, and a drawer
+   * that stayed open over the content it navigated to would be worse than none.
+   */
+  test('the navigation is reachable on a 375-pixel screen and does not cover the content', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 375, height: 720 })
+    await signInToPolls(page)
+
+    // Above the breakpoint the drawer is permanent and this control does not exist; here it must.
+    const toggle = page.getByTestId('admin-nav-toggle')
+    await expect(toggle).toBeVisible()
+
+    await toggle.click()
+    await expect(page.getByTestId('nav-settings')).toBeInViewport()
+    await page.getByTestId('nav-settings').click()
+
+    // Choosing a destination reveals it rather than leaving it behind the drawer.
+    await expect(page.getByTestId('settings-maintenance')).toBeVisible()
+    await expect(page.getByTestId('settings-maintenance')).toBeInViewport()
+
+    // And the page itself never scrolls sideways.
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    )
+    expect(overflow).toBeLessThanOrEqual(1)
+  })
+
+  /**
+   * 007 FR-013 and SC-008. Every entry must say what it is and whether it is the one being shown,
+   * and aria-current is the attribute that carries the second part.
+   */
+  test('the navigation is operable by keyboard and announces which area is current', async ({
+    page,
+  }) => {
+    await signIn(page)
+
+    // Exactly one entry is current, and it is the area actually shown.
+    await expect(page.locator('[data-testid^="nav-"][aria-current="page"]')).toHaveCount(1)
+    await expect(page.getByTestId('nav-dashboard')).toHaveAttribute('aria-current', 'page')
+
+    // Reached and activated by keyboard alone.
+    await page.getByTestId('nav-polls').focus()
+    await expect(page.getByTestId('nav-polls')).toBeFocused()
+    await page.keyboard.press('Enter')
+
+    await expect(page.getByTestId('poll-create-toggle')).toBeVisible()
+    await expect(page.getByTestId('nav-polls')).toHaveAttribute('aria-current', 'page')
+    await expect(page.locator('[data-testid^="nav-"][aria-current="page"]')).toHaveCount(1)
+
+    // Every entry carries a name.
+    for (const entry of ['nav-dashboard', 'nav-polls', 'nav-settings']) {
+      await expect(page.getByTestId(entry)).not.toBeEmpty()
+    }
   })
 })

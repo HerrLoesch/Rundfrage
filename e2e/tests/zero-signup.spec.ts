@@ -1,6 +1,6 @@
 import { test, expect, type Page } from '@playwright/test'
 import { field, radio } from '../support/fields'
-import { ADMIN_PASSWORD, ADMIN_USER } from '../support/credentials'
+import { revealPollForm, signInToPolls } from '../support/admin'
 
 /**
  * FR-047 and Principle I, proven from the outside.
@@ -11,11 +11,8 @@ import { ADMIN_PASSWORD, ADMIN_USER } from '../support/credentials'
  */
 test.describe('Answering without an account', () => {
   async function createPoll(page: Page, title: string, days: string[]): Promise<string> {
-    await page.goto('/admin')
-    await field(page, 'sign-in-user').fill(ADMIN_USER)
-    await field(page, 'sign-in-password').fill(ADMIN_PASSWORD)
-    await page.getByTestId('sign-in-submit').click()
-    await expect(page.getByTestId('poll-form')).toBeVisible()
+    await signInToPolls(page)
+    await revealPollForm(page)
 
     await field(page, 'poll-title').fill(title)
     for (const day of days) {
@@ -169,5 +166,35 @@ test.describe('Answering without an account', () => {
     await expect(strangerPage.getByTestId('answer-form')).toHaveCount(0)
 
     await stranger.close()
+  })
+
+  /**
+   * 007 FR-009 and SC-010. The admin area grew a navigation bar, and the one thing it must never
+   * do is offer itself to a participant. Asserted as an absence, because that is the whole
+   * requirement: a link into an area they cannot enter is a step between the link and the form.
+   */
+  test('a participant is offered no navigation and no route into the admin area', async ({
+    page,
+  }) => {
+    const path = await createPoll(page, `Ohne Navigation ${Date.now()}`, ['2026-12-02'])
+
+    const context = await page.context().browser()!.newContext()
+    const participant = await context.newPage()
+    await participant.goto(path)
+    await expect(participant.getByTestId('answer-form')).toBeVisible()
+
+    // None of the shell, and nothing that leads to it.
+    await expect(participant.getByTestId('admin-shell')).toHaveCount(0)
+    await expect(participant.getByTestId('admin-nav')).toHaveCount(0)
+    await expect(participant.getByTestId('sign-out')).toHaveCount(0)
+    await expect(participant.getByTestId('nav-dashboard')).toHaveCount(0)
+
+    const adminLinks = await participant.locator('a[href*="/admin"]').count()
+    expect(adminLinks).toBe(0)
+
+    // And still nothing between the link and the form: the answer form is on the landing page.
+    await expect(participant.getByTestId('answer-submit')).toBeVisible()
+
+    await context.close()
   })
 })

@@ -48,8 +48,12 @@ public static class ResponseEndpoints
         .RequireRateLimiting(RateLimiting.SubmissionPolicy)
         .WithName("submitResponse");
 
+        // `page` reaches the grid the same way it does on the poll link: the personal link shows
+        // the same paged results, and hardcoding the first page here meant the participant who
+        // came back through their own link could not reach the rest of them.
         routes.MapGet("/responses/{editToken}", async (
             string editToken,
+            int? page,
             RundfrageDbContext db,
             RetentionService retention,
             ResultsProjection results,
@@ -67,7 +71,7 @@ public static class ResponseEndpoints
                 response.Id,
                 response.DisplayName,
                 [.. response.Answers.Select(a => new AnswerView(a.CandidateDayId, ResultsProjection.ToToken(a.Availability)))],
-                await results.BuildAsync(poll, 1, ct)));
+                await results.BuildAsync(poll, page ?? 1, ct)));
         })
         .AllowAnonymous()
         .WithName("getOwnResponse");
@@ -101,6 +105,9 @@ public static class ResponseEndpoints
                 response.Id,
                 response.DisplayName,
                 [.. response.Answers.Select(a => new AnswerView(a.CandidateDayId, ResultsProjection.ToToken(a.Availability)))],
+                // The first page on purpose: a revision returns the grid the participant is looking at,
+                // and moving them to some other page because of where they had scrolled would be a
+                // surprise. Paging is a separate read (the GET above).
                 await results.BuildAsync(poll, 1, ct)));
         })
         .AllowAnonymous()

@@ -1,15 +1,16 @@
 import { test, expect, type Page } from '@playwright/test'
 import { field, radio } from '../support/fields'
-import { ADMIN_PASSWORD, ADMIN_USER } from '../support/credentials'
+import { revealPollForm, signInToPolls } from '../support/admin'
 
 /** The whole feature end to end: create, answer, read, delete (US1 to US5). */
 test.describe('Date poll journey', () => {
+  /**
+   * 007: signing in lands on the dashboard, so reaching a control is now "sign in, then go to the
+   * area it lives in". The shared helper carries that so a future rearrangement is one edit.
+   */
   async function signIn(page: Page) {
-    await page.goto('/admin')
-    await field(page, 'sign-in-user').fill(ADMIN_USER)
-    await field(page, 'sign-in-password').fill(ADMIN_PASSWORD)
-    await page.getByTestId('sign-in-submit').click()
-    await expect(page.getByTestId('poll-form')).toBeVisible()
+    await signInToPolls(page)
+    await revealPollForm(page)
   }
 
   async function createPoll(page: Page, title: string, days: string[]): Promise<string> {
@@ -44,25 +45,33 @@ test.describe('Date poll journey', () => {
     await answer(browser, path, 'Bernd', 'yes')
     await answer(browser, path, 'Christa', 'no')
 
+    // 007 FR-014a: the answers are a destination now, not an expansion of the card.
     await page.reload()
-    const row = page.getByTestId('poll-list-item').filter({ hasText: title })
-    await row.getByTestId('show-results').click()
+    await page.getByTestId('poll-list-item').filter({ hasText: title })
+      .getByTestId('show-results').click()
 
-    await expect(row.getByTestId('result-row')).toHaveCount(3)
+    const answers = page.getByTestId('poll-answers')
+    await expect(answers).toBeVisible()
+    await expect(page).toHaveURL(/\/admin\/terminfindungen\/[0-9a-f-]+$/)
+    await expect(answers.getByTestId('result-row')).toHaveCount(3)
 
     // The summary starts folded (004 FR-003), so it has to be unfolded first - because a person
     // does too. Reaching past the control would test a journey nobody takes.
-    await row.getByTestId('summary-toggle').click()
+    await answers.getByTestId('summary-toggle').click()
 
     // Two yes and one no on the first day. The second day nobody answered, so its totals are
     // all zero - and they do not sum to three, which is exactly what FR-033 permits.
-    const yesRow = row.getByTestId('summary-row').filter({ hasText: 'Ja' }).first()
-    const noRow = row.getByTestId('summary-row').filter({ hasText: 'Nein' }).first()
+    const yesRow = answers.getByTestId('summary-row').filter({ hasText: 'Ja' }).first()
+    const noRow = answers.getByTestId('summary-row').filter({ hasText: 'Nein' }).first()
     await expect(yesRow.locator('td').first()).toHaveText('2')
     await expect(noRow.locator('td').first()).toHaveText('1')
     await expect(yesRow.locator('td').nth(1)).toHaveText('0')
 
-    await expect(row.getByTestId('response-count')).toContainText('3')
+    await expect(answers.getByTestId('response-count')).toContainText('3')
+
+    // 007 SC-006: the address of one poll's answers reloads to the same answers.
+    await page.reload()
+    await expect(page.getByTestId('poll-answers').getByTestId('result-row')).toHaveCount(3)
   })
 
   test('the operator removes a single answer and the totals follow', async ({ page, browser }) => {
@@ -75,14 +84,19 @@ test.describe('Date poll journey', () => {
     await answer(browser, path, 'Bernd', 'no')
 
     await page.reload()
-    const row = page.getByTestId('poll-list-item').filter({ hasText: title })
-    await row.getByTestId('show-results').click()
-    await expect(row.getByTestId('result-row')).toHaveCount(2)
+    await page.getByTestId('poll-list-item').filter({ hasText: title })
+      .getByTestId('show-results').click()
 
-    await row.getByTestId('delete-response').first().click()
+    const answers = page.getByTestId('poll-answers')
+    await expect(answers.getByTestId('result-row')).toHaveCount(2)
 
-    await expect(row.getByTestId('result-row')).toHaveCount(1)
-    await expect(row.getByTestId('result-row')).toContainText('Bernd')
+    await answers.getByTestId('delete-response').first().click()
+
+    await expect(answers.getByTestId('result-row')).toHaveCount(1)
+    await expect(answers.getByTestId('result-row')).toContainText('Bernd')
+
+    // 007 FR-014f: deleting an answer leaves the operator with the poll they were reading.
+    await expect(page).toHaveURL(/\/admin\/terminfindungen\/[0-9a-f-]+$/)
   })
 
   test('deleting a poll states how many answers it destroys, then kills both links', async ({

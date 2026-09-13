@@ -8,8 +8,7 @@
     "password": "Passwort",
     "submit": "Anmelden",
     "failed": "Anmeldung fehlgeschlagen.",
-    "locked": "Zu viele Fehlversuche. Bitte in {minutes} Minuten erneut versuchen.",
-    "signOut": "Abmelden"
+    "locked": "Zu viele Fehlversuche. Bitte in {minutes} Minuten erneut versuchen."
   },
   "poll": {
     "createTitle": "Neue Terminfindung",
@@ -26,7 +25,13 @@
     "responseCount": "Antworten",
     "dayCount": "Tage",
     "dayRequired": "Bitte zuerst einen Tag auswählen.",
-    "dayDuplicate": "Dieser Tag ist bereits ausgewählt."
+    "dayDuplicate": "Dieser Tag ist bereits ausgewählt.",
+    "create": "Neue Terminfindung",
+    "createHide": "Abbrechen",
+    "importShow": "Aus Datei einlesen",
+    "importHide": "Abbrechen",
+    "backToList": "Zurück zur Übersicht",
+    "gone": "Diese Terminfindung gibt es nicht mehr."
   },
   "error": {
     "title_required": "Bitte einen Titel angeben.",
@@ -62,7 +67,6 @@
     "maybe": "Vielleicht",
     "no": "Nein",
     "noAnswer": "keine Angabe",
-    "availabilityFor": "Verfügbarkeit am {date}",
     "submitted": "Danke! Deine Antwort ist gespeichert.",
     "editHint": "Mit diesem persönlichen Link kannst du deine Antwort später ändern. Es gibt keinen anderen Weg zurück — bewahre ihn auf.",
     "revised": "Deine Änderung ist gespeichert.",
@@ -157,9 +161,43 @@
     "previewExpired": "Bereits über dem Löschdatum und daher bald entfernt: {titles}",
     "confirm": "Endgültig wiederherstellen und {polls} Umfragen verwerfen",
     "cancel": "Abbrechen",
-    "running": "Wird wiederhergestellt …",
     "doneTitle": "Wiederhergestellt",
     "done": "{polls} Umfragen mit {responses} Antworten sind wiederhergestellt. Alle Links funktionieren wieder.",
     "doneExpired": "Bereits über dem Löschdatum und daher bei der nächsten Aufräumrunde entfernt: {titles}"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "settings": "Einstellungen",
+    "toggle": "Navigation ein- oder ausblenden",
+    "label": "Bereiche"
+  },
+  "shell": {
+    "signOut": "Abmelden"
+  },
+  "settings": {
+    "title": "Einstellungen",
+    "maintenanceTitle": "Wartungsmodus",
+    "maintenanceBody": "Nimmt die Terminfindungen vorübergehend vom Netz. Teilnehmende sehen dann nur einen Wartungshinweis; der Adminbereich bleibt nutzbar.",
+    "backupTitle": "Sicherung",
+    "backupBody": "Lädt den vollständigen Datenbestand als eine Datei herunter. Nichts wird dabei verändert.",
+    "restoreTitle": "Sicherung wiederherstellen",
+    "restoreBody": "Ersetzt ALLE Terminfindungen und Antworten durch den Stand einer Sicherung. Erfordert den Wartungsmodus und lässt sich nicht rückgängig machen."
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "polls": "Terminfindungen",
+    "pollsHint": "gespeichert",
+    "responses": "Antworten",
+    "responsesHint": "über alle Terminfindungen",
+    "unanswered": "Noch ohne Antwort",
+    "unansweredHint": "Terminfindungen, auf die niemand geantwortet hat",
+    "deletions": "Löschung in den nächsten 7 Tagen",
+    "deletionsHint": "Nächste Löschung: {moment}",
+    "deletionsNone": "In den nächsten 7 Tagen wird nichts gelöscht.",
+    "maintenance": "Wartungsmodus",
+    "distribution": "Antworten insgesamt",
+    "distributionEmpty": "Es hat noch niemand geantwortet.",
+    "empty": "Es ist noch keine Terminfindung gespeichert. Sobald eine angelegt ist, stehen hier die Zahlen dazu.",
+    "loading": "Zahlen werden geladen …"
   }
 }

@@ -148,8 +148,8 @@ export async function submitResponse(
   })
 }
 
-export async function fetchOwnResponse(editToken: string): Promise<OwnResponse> {
-  return request<OwnResponse>(`/responses/${encodeURIComponent(editToken)}`)
+export async function fetchOwnResponse(editToken: string, page = 1): Promise<OwnResponse> {
+  return request<OwnResponse>(`/responses/${encodeURIComponent(editToken)}?page=${page}`)
 }
 
 export async function reviseResponse(
@@ -305,4 +305,30 @@ export async function previewRestore(file: File): Promise<RestorePreview> {
 /** Replaces everything. Refused unless maintenance mode is already on (FR-024). */
 export async function restoreBackup(file: File): Promise<RestoreSummary> {
   return postBackup<RestoreSummary>('/admin/restore', file, true)
+}
+
+// Feature 007
+// ---------------------------------------------------------------------------------------
+
+/**
+ * The dashboard's figures. Matches DashboardView in contracts/openapi.yaml.
+ *
+ * Maintenance mode is deliberately not here: it is figure 5 of FR-028, and the shell already
+ * reads it for the banner. Two sources for one state would be two things FR-029 requires to
+ * agree - and they would contradict each other on the same screen.
+ */
+export interface DashboardView {
+  pollCount: number
+  responseCount: number
+  unansweredPolls: number
+  deletionsDueSoon: number
+  /** Null exactly when no poll exists - which is not the same as "nothing is due soon". */
+  nextDeletion: string | null
+  yes: number
+  maybe: number
+  no: number
+}
+
+export async function fetchDashboard(): Promise<DashboardView> {
+  return getJson<DashboardView>('/admin/dashboard')
 }
