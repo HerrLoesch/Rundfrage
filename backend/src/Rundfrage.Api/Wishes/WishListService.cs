@@ -147,9 +147,19 @@ public sealed class WishListService(
 
     private static string Normalise(string name) => name.Trim();
 
+    /// <summary>
+    /// Creates a wish list owned by <paramref name="owner"/>, or by the operator when that is null
+    /// (009 FR-011, FR-012, FR-023).
+    /// </summary>
+    /// <remarks>
+    /// As with a poll, the owner is the whole of what feature 009 adds: the limits, the item
+    /// ordering, the token and the absence of any expiry are unchanged, so an Ersteller's wish list
+    /// is an ordinary wish list in every other respect (009 FR-014). Ownership is written once and
+    /// never transfers (009 FR-012).
+    /// </remarks>
     public async Task<WishList> CreateAsync(
         string title, string? description, DateOnly targetDate,
-        IReadOnlyList<WishItemDraft> items, CancellationToken ct)
+        IReadOnlyList<WishItemDraft> items, CancellationToken ct, Guid? owner = null)
     {
         var list = new WishList
         {
@@ -159,6 +169,7 @@ public sealed class WishListService(
             TargetDate = targetDate,
             ListToken = CapabilityToken.Mint(),
             CreatedAt = clock.Now,
+            CreatorId = owner,
             Items = [.. items.Select((item, position) => new WishItem
             {
                 Id = Guid.CreateVersion7(),

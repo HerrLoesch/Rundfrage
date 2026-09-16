@@ -62,6 +62,14 @@ export interface PollSummary {
   retentionDeadline: string
   responseCount: number
   dayCount: number
+  /**
+   * Who owns it, or null for the operator's own (009 FR-039).
+   *
+   * Null rather than an empty string, so the interface renders `creator.ownerSelf` rather than a
+   * blank cell - a blank cell reads as missing data rather than as "mine".
+   */
+  creatorId?: string | null
+  creatorName?: string | null
 }
 
 export async function signIn(user: string, password: string): Promise<void> {
@@ -369,6 +377,14 @@ export interface WishListSummary {
   untakenItemCount: number
   completeItemCount: number
   listToken: string
+  /**
+   * Who owns it, or null for the operator's own (009 FR-039).
+   *
+   * Null rather than an empty string, so the interface renders `creator.ownerSelf` rather than a
+   * blank cell - a blank cell reads as missing data rather than as "mine".
+   */
+  creatorId?: string | null
+  creatorName?: string | null
 }
 
 export interface WishClaimView {
@@ -539,4 +555,195 @@ export async function withdrawClaim(claimToken: string, claimId: string): Promis
     `/claims/${encodeURIComponent(claimToken)}/${encodeURIComponent(claimId)}`,
     { method: 'DELETE' },
   )
+}
+
+// --- Feature 009: Ersteller ---------------------------------------------------------------
+// Two halves that never mix. The operator manages Ersteller under /admin/creators; a holder works
+// under /e/{token}, with no session and no cookie - the token in the path is the whole of the
+// authorisation.
+
+/** One row of the Ersteller area (009 FR-044, FR-044a). */
+export interface CreatorSummary {
+  id: string
+  name: string
+  createdAt: string
+  /** Derived from the token being present. Never stored as a state (research R-3). */
+  hasLink: boolean
+  /** Present exactly when `hasLink`. Null means the link was revoked. */
+  linkToken: string | null
+  pollCount: number
+  wishListCount: number
+}
+
+/** Everything a holder may see, in the one response the one address returns (FR-028d). */
+export interface CreatorSurface {
+  name: string
+  polls: PollSummary[]
+  wishLists: WishListSummary[]
+}
+
+export async function listCreators(): Promise<CreatorSummary[]> {
+  return getJson<CreatorSummary[]>('/admin/creators')
+}
+
+export async function createCreator(name: string): Promise<CreatorSummary> {
+  return request<CreatorSummary>('/admin/creators', {
+    method: 'POST',
+    body: JSON.stringify({ name }),
+  })
+}
+
+export async function renameCreator(creatorId: string, name: string): Promise<CreatorSummary> {
+  return request<CreatorSummary>(`/admin/creators/${creatorId}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ name }),
+  })
+}
+
+/**
+ * A new link. The old one stops working immediately and the content stays theirs (FR-016).
+ *
+ * Also how a revoked Ersteller is given access again: there is no "unrevoke", because revocation
+ * is the absence of a token and issuing one is its opposite.
+ */
+export async function reissueCreatorLink(creatorId: string): Promise<CreatorSummary> {
+  return request<CreatorSummary>(`/admin/creators/${creatorId}/link`, { method: 'POST' })
+}
+
+/**
+ * Takes the link away and destroys NOTHING (FR-018, FR-020).
+ *
+ * Addressed as the link sub-resource rather than as a verb on the Ersteller, so that it cannot be
+ * mistaken for {@link deleteCreator} - which is the one that destroys (FR-020b).
+ */
+export async function revokeCreatorLink(creatorId: string): Promise<void> {
+  await request<void>(`/admin/creators/${creatorId}/link`, { method: 'DELETE' })
+}
+
+/** Destroys the Ersteller together with every poll and wish list it owns (FR-020a). */
+export async function deleteCreator(creatorId: string): Promise<void> {
+  await request<void>(`/admin/creators/${creatorId}`, { method: 'DELETE' })
+}
+
+// --- The creator surface ------------------------------------------------------------------
+// Anonymous by design, exactly like the participant calls above.
+
+export async function fetchCreatorSurface(token: string): Promise<CreatorSurface> {
+  return getJson<CreatorSurface>(`/e/${token}`)
+}
+
+export async function createPollAsCreator(
+  token: string,
+  title: string,
+  message: string | null,
+  days: string[],
+): Promise<PollSummary> {
+  return request<PollSummary>(`/e/${token}/polls`, {
+    method: 'POST',
+    body: JSON.stringify({ title, message, days }),
+  })
+}
+
+export async function fetchPollResultsAsCreator(
+  token: string,
+  pollId: string,
+  page = 1,
+): Promise<PollView> {
+  return getJson<PollView>(`/e/${token}/polls/${pollId}?page=${page}`)
+}
+
+export async function deletePollAsCreator(token: string, pollId: string): Promise<void> {
+  await request<void>(`/e/${token}/polls/${pollId}`, { method: 'DELETE' })
+}
+
+export async function deleteResponseAsCreator(
+  token: string,
+  pollId: string,
+  responseId: string,
+): Promise<void> {
+  await request<void>(`/e/${token}/polls/${pollId}/responses/${responseId}`, { method: 'DELETE' })
+}
+
+/**
+ * The export download for one's own poll (FR-028).
+ *
+ * There is deliberately no import counterpart, here or anywhere reachable with a creator token
+ * (FR-028a): it would put the upload-and-parse path behind the weakest credential in the system.
+ */
+export function creatorExportUrl(token: string, pollId: string): string {
+  return `${BASE}/e/${token}/polls/${pollId}/export`
+}
+
+export async function createWishListAsCreator(
+  token: string,
+  title: string,
+  description: string | null,
+  targetDate: string,
+  items: WishItemDraft[],
+): Promise<WishListDetail> {
+  return request<WishListDetail>(`/e/${token}/wish-lists`, {
+    method: 'POST',
+    body: JSON.stringify({ title, description, targetDate, items }),
+  })
+}
+
+export async function fetchWishListAsCreator(
+  token: string,
+  wishListId: string,
+): Promise<WishListDetail> {
+  return getJson<WishListDetail>(`/e/${token}/wish-lists/${wishListId}`)
+}
+
+export async function updateWishListAsCreator(
+  token: string,
+  wishListId: string,
+  changes: { title?: string; description?: string | null; targetDate?: string },
+): Promise<WishListDetail> {
+  return request<WishListDetail>(`/e/${token}/wish-lists/${wishListId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(changes),
+  })
+}
+
+export async function addWishItemAsCreator(
+  token: string,
+  wishListId: string,
+  item: WishItemDraft,
+): Promise<WishListDetail> {
+  return request<WishListDetail>(`/e/${token}/wish-lists/${wishListId}/items`, {
+    method: 'POST',
+    body: JSON.stringify(item),
+  })
+}
+
+export async function updateWishItemAsCreator(
+  token: string,
+  wishListId: string,
+  itemId: string,
+  changes: { name?: string; wantedCount?: number },
+): Promise<WishListDetail> {
+  return request<WishListDetail>(`/e/${token}/wish-lists/${wishListId}/items/${itemId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(changes),
+  })
+}
+
+export async function removeWishItemAsCreator(
+  token: string,
+  wishListId: string,
+  itemId: string,
+): Promise<void> {
+  await request<void>(`/e/${token}/wish-lists/${wishListId}/items/${itemId}`, { method: 'DELETE' })
+}
+
+export async function deleteWishClaimAsCreator(
+  token: string,
+  wishListId: string,
+  claimId: string,
+): Promise<void> {
+  await request<void>(`/e/${token}/wish-lists/${wishListId}/claims/${claimId}`, { method: 'DELETE' })
+}
+
+export async function deleteWishListAsCreator(token: string, wishListId: string): Promise<void> {
+  await request<void>(`/e/${token}/wish-lists/${wishListId}`, { method: 'DELETE' })
 }

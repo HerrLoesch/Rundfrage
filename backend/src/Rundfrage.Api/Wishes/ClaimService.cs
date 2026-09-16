@@ -83,7 +83,7 @@ public sealed class ClaimService(
             }
         }
 
-        await using var transaction = await BeginWriteTransactionAsync(ct);
+        await using var transaction = await SqliteWriteTransaction.BeginAsync(db, ct);
 
         var taken = await db.WishClaims
             .Where(c => itemIds.Contains(c.WishItemId))
@@ -128,36 +128,6 @@ public sealed class ClaimService(
             claims.Count, list.Id);
 
         return (new ClaimAccepted(token, [.. claims.Select(c => c.Id)]), null);
-    }
-
-    /// <summary>
-    /// Begins a transaction that holds the write lock from its first statement.
-    /// </summary>
-    /// <remarks>
-    /// The provider's own <c>BeginTransactionAsync</c> starts a deferred transaction, which is the
-    /// right default for reads and the wrong one here - see the remarks on <see cref="ClaimAsync"/>.
-    /// </remarks>
-    private async Task<IDbContextTransaction> BeginWriteTransactionAsync(CancellationToken ct)
-    {
-        var connection = (SqliteConnection)db.Database.GetDbConnection();
-
-        if (connection.State != ConnectionState.Open)
-        {
-            await connection.OpenAsync(ct);
-        }
-
-        var immediate = connection.BeginTransaction(IsolationLevel.Serializable, deferred: false);
-
-        try
-        {
-            return await db.Database.UseTransactionAsync(immediate, ct)
-                   ?? throw new InvalidOperationException("The write transaction could not be adopted.");
-        }
-        catch
-        {
-            await immediate.DisposeAsync();
-            throw;
-        }
     }
 
     /// <summary>Everything one personal link covers, ordered as the list presents its items.</summary>

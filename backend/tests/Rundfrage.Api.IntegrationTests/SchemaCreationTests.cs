@@ -240,6 +240,107 @@ public class SchemaCreationTests(SqliteFixture storage) : IClassFixture<SqliteFi
     }
 
     [Fact]
+    public async Task Creates_the_Ersteller_table()
+    {
+        // 009 data-model.md section 1. One table, and no change to the seven above.
+        await using (var db = NewContext())
+        {
+            await DatabaseStartup.ApplyMigrationsAsync(db, NullLogger.Instance, CancellationToken.None);
+        }
+
+        var tables = await QueryStringsAsync(
+            "SELECT name FROM sqlite_master WHERE type = 'table'");
+
+        Assert.Contains("Creators", tables);
+    }
+
+    [Fact]
+    public async Task Many_Ersteller_can_be_revoked_at_once()
+    {
+        // 009 research R-3. Revocation is the ABSENCE of a token, which only works if a unique
+        // index tolerates many NULLs. SQLite treats them as distinct; other engines do not, and
+        // the whole revocation design rests on it - so it is asserted rather than assumed.
+        await using (var db = NewContext())
+        {
+            await DatabaseStartup.ApplyMigrationsAsync(db, NullLogger.Instance, CancellationToken.None);
+        }
+
+        await using var write = NewContext();
+        write.Creators.AddRange(
+            new Data.Entities.Creator { Id = Guid.CreateVersion7(), Name = "Revoked one", LinkToken = null },
+            new Data.Entities.Creator { Id = Guid.CreateVersion7(), Name = "Revoked two", LinkToken = null },
+            new Data.Entities.Creator { Id = Guid.CreateVersion7(), Name = "Revoked three", LinkToken = null });
+
+        var exception = await Record.ExceptionAsync(() => write.SaveChangesAsync());
+
+        Assert.Null(exception);
+        Assert.Equal(3, await write.Creators.CountAsync(c => c.LinkToken == null));
+    }
+
+    [Fact]
+    public async Task The_Ersteller_name_and_link_are_unique_and_indexed()
+    {
+        // FR-002: the name is enforced by the database, not only by the service, so a second
+        // write path cannot quietly create the duplicate. FR-004: the token is a capability and
+        // must not collide.
+        await using (var db = NewContext())
+        {
+            await DatabaseStartup.ApplyMigrationsAsync(db, NullLogger.Instance, CancellationToken.None);
+        }
+
+        var indexes = await QueryStringsAsync(IndexDefinitions);
+
+        Assert.Contains(indexes, i =>
+            i.Contains("UNIQUE") && i.Contains("Creators") && i.Contains("Name"));
+        Assert.Contains(indexes, i =>
+            i.Contains("UNIQUE") && i.Contains("Creators") && i.Contains("LinkToken"));
+    }
+
+    [Fact]
+    public async Task Ownership_is_indexed_on_both_things_that_can_be_owned()
+    {
+        // 009 research R-14. The owner filter is the hot path on every creator request and this
+        // equality is its only new predicate.
+        await using (var db = NewContext())
+        {
+            await DatabaseStartup.ApplyMigrationsAsync(db, NullLogger.Instance, CancellationToken.None);
+        }
+
+        var indexes = await QueryStringsAsync(IndexDefinitions);
+
+        Assert.Contains(indexes, i => i.Contains("Polls") && i.Contains("CreatorId"));
+        Assert.Contains(indexes, i => i.Contains("WishLists") && i.Contains("CreatorId"));
+    }
+
+    [Fact]
+    public async Task An_Ersteller_stores_no_credential_and_no_contact_detail()
+    {
+        // 009 FR-003 and Principle IV. There is no account here and nothing to make one out of:
+        // no password, no email, no telephone number, no last-seen, no usage counter. This is the
+        // check that would catch somebody adding one to implement a "proper" login.
+        await using (var db = NewContext())
+        {
+            await DatabaseStartup.ApplyMigrationsAsync(db, NullLogger.Instance, CancellationToken.None);
+        }
+
+        await using var read = NewContext();
+        var connection = read.Database.GetDbConnection();
+        await connection.OpenAsync();
+        await using var command = connection.CreateCommand();
+        command.CommandText = "SELECT lower(name) FROM pragma_table_info('Creators')";
+        var columns = new List<string>();
+        await using var reader = await command.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+        {
+            columns.Add(reader.GetString(0));
+        }
+
+        Assert.Equal(
+            new[] { "id", "name", "linktoken", "createdat" }.Order(),
+            columns.Order());
+    }
+
+    [Fact]
     public async Task No_table_stores_a_request_source()
     {
         // FR-042 and SC-021. This is the check that would catch someone adding an IP column to

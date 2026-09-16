@@ -25,16 +25,29 @@ const labels = (wrapper: Awaited<ReturnType<typeof nav>>) =>
 
 describe('Admin navigation', () => {
   it('lists exactly the areas that exist, in order (FR-003, FR-004)', async () => {
-    // Four since feature 008 added wish lists. Still no entry for anything unbuilt: FR-004
-    // forbids a placeholder, and this list is the assertion that none has appeared.
+    // Five since feature 009 added Ersteller. Still no entry for anything unbuilt: FR-004 forbids
+    // a placeholder, and this list is the assertion that none has appeared.
+    //
+    // Ersteller sits in the middle section rather than inside Einstellungen, because it is a
+    // capability of the installation and not a setting of it (009 FR-043).
     const wrapper = await nav('/admin')
 
     expect(labels(wrapper)).toEqual([
       de.nav.dashboard,
       de.poll.listTitle,
       de.nav.wishLists,
+      de.nav.creators,
       de.nav.settings,
     ])
+  })
+
+  it('marks the Ersteller entry current on its own address (009 FR-043)', async () => {
+    const wrapper = await nav('/admin/ersteller')
+    const current = wrapper.findAll('[aria-current="page"]')
+
+    // Exactly one, as everywhere else: two entries carrying it at once is what FR-002 forbids.
+    expect(current).toHaveLength(1)
+    expect(current[0].text()).toContain(de.nav.creators)
   })
 
   it('puts settings last, with nothing after it (FR-003, FR-018)', async () => {

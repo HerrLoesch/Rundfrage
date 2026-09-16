@@ -68,6 +68,26 @@ export const routes: RouteRecordRaw[] = [
         component: () => import('./components/wish/ClaimView.vue'),
         props: true,
       },
+      {
+        // An Ersteller's whole surface - "e" for Ersteller, the fifth one-letter capability path
+        // beside u, a, w and z (009 FR-006, research R-7).
+        //
+        // EXACTLY ONE ROUTE, and deliberately childless. Feature 007 gave every admin destination
+        // an address of its own because an operator holding a session loses nothing by it; here
+        // the address IS the credential, so each additional one is another place the token is
+        // written down - in history, in a copied link, in a screenshot. A poll's answers and a
+        // wish list's detail therefore open as component state inside this page, the address does
+        // not change, and no history entry is added (009 FR-028d, FR-028e, spec Q5, research R-9).
+        //
+        // A reviewer comparing this with /admin/terminfindungen/:pollId will see the asymmetry and
+        // be tempted to fix it. The asymmetry is the decision; the cost is stated in the spec and
+        // paid for by FR-028g, which requires the lists to carry enough summary to find things
+        // without opening each in turn.
+        path: '/e/:creatorToken',
+        name: 'creator',
+        component: () => import('./components/creator/CreatorSurface.vue'),
+        props: true,
+      },
     ],
   },
   {
@@ -111,6 +131,17 @@ export const routes: RouteRecordRaw[] = [
         name: 'wish-list',
         component: () => import('./components/admin/WishListDetailView.vue'),
         props: true,
+      },
+      {
+        // The third feature area, and the last thing before settings. An Ersteller is a
+        // capability of the installation, not a setting of it, which is why it sits here rather
+        // than inside Einstellungen (009 FR-043, FR-047).
+        //
+        // One route, with no detail destination: an Ersteller is a name, a link and two counts,
+        // which is a row rather than a page.
+        path: 'ersteller',
+        name: 'creators',
+        component: () => import('./components/admin/CreatorsView.vue'),
       },
       {
         path: 'einstellungen',

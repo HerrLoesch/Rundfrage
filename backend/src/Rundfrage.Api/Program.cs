@@ -1,7 +1,9 @@
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.EntityFrameworkCore;
+using Rundfrage.Api.Creators;
 using Rundfrage.Api.Data;
 using Rundfrage.Api.Endpoints.Admin;
+using Rundfrage.Api.Endpoints.Creator;
 using Rundfrage.Api.Endpoints.Public;
 using Rundfrage.Api.Http;
 using Rundfrage.Api.Maintenance;
@@ -76,6 +78,18 @@ builder.Services.AddScoped<WishListService>();
 builder.Services.AddScoped<ClaimService>();
 builder.Services.AddScoped<WishListProjection>();
 builder.Services.AddScoped<ResultsProjection>();
+
+// Feature 009. A sibling of the poll and wish services for the same reason feature 008's are: they
+// share mechanisms - the capability token, the write transaction, the neutral refusal - and no
+// behaviour (Principle III). Neither PollService nor WishListService learns what an Ersteller is
+// beyond accepting a nullable owner when something is created.
+builder.Services.AddScoped<CreatorService>();
+builder.Services.AddScoped<CreatorProjection>();
+
+// The access filter. Scoped, and bound once per request by the creator group's endpoint filter
+// after the token resolves; creator handlers receive this and never RundfrageDbContext, which is
+// what makes 009 FR-033 structural rather than a review comment (009 research R-1).
+builder.Services.AddScoped<OwnerScope>();
 builder.Services.AddScoped<RetentionService>();
 builder.Services.AddScoped<RestoreService>();
 
@@ -179,6 +193,19 @@ app.UseTrustedProxyHeaders(startupLog);
 // proxy's.
 app.UseMaintenanceMode();
 
+// --- The address must not travel off-origin (009 FR-028d, research R-10) -------------------
+// Feature 009 puts a credential in a URL: /e/{token} is the whole authorisation for an Ersteller,
+// and the default referrer policy would send the full address on a cross-origin navigation.
+//
+// Nothing cross-origin exists today - Principle IV bans external assets - so this is defence in
+// depth rather than a fix for a live leak. It sits here, before routing, so that every response
+// carries it: a header only some responses carry is the header somebody removes without noticing.
+app.Use(async (context, following) =>
+{
+    context.Response.Headers["Referrer-Policy"] = "same-origin";
+    await following();
+});
+
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
@@ -194,6 +221,13 @@ api.MapPollEndpoints();
 api.MapResponseEndpoints();
 api.MapWishEndpoints();
 
+// --- The creator surface (009 FR-006, FR-050) ----------------------------------------------
+// Beside the participant routes and deliberately NOT inside the admin group below. That group is
+// the one MaintenanceMiddleware exempts, so mounting here would silently let an Ersteller write
+// into a database that a restore is about to replace. CreatorMaintenanceTests is the guard, and it
+// passes on its first run precisely because this line is where it is (009 research R-6).
+api.MapCreatorEndpoints();
+
 // --- Admin (FR-001, FR-048) ----------------------------------------------------------------
 // The requirement is applied to the whole group, not to individual handlers. FR-048 asserts
 // that *every* admin function refuses without a session, and a per-handler attribute is a
@@ -206,6 +240,7 @@ admin.MapDashboardEndpoint();
 admin.MapBackupEndpoint();
 admin.MapImportEndpoints();
 admin.MapMaintenanceEndpoints();
+admin.MapCreatorAdminEndpoints();
 
 // --- Static files: the shell must never be stale ------------------------------------------
 // Vite names every chunk after its content, so a build replaces all of them and index.html

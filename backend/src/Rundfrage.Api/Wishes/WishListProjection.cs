@@ -26,7 +26,9 @@ public sealed record WishListSummary(
     int PlaceCount,
     int UntakenItemCount,
     int CompleteItemCount,
-    string ListToken);
+    string ListToken,
+    Guid? CreatorId = null,
+    string? CreatorName = null);
 
 /// <summary>
 /// The figures of FR-045, for every list, in a fixed number of queries.
@@ -45,10 +47,38 @@ public sealed record WishListSummary(
 /// </remarks>
 public sealed class WishListProjection(RundfrageDbContext db, BerlinClock clock)
 {
-    public async Task<IReadOnlyList<WishListSummary>> ListAsync(CancellationToken ct)
+    /// <summary>
+    /// Every wish list in the installation, or only those in <paramref name="scope"/>.
+    /// </summary>
+    /// <remarks>
+    /// <b>One projection, three readers</b> - the wish-list area, the dashboard, and now an
+    /// Ersteller's own surface. That is deliberate and is the same argument this class already
+    /// records for its first two: 008 FR-049 and 009 FR-047 require them to agree, and one
+    /// projection makes agreement structural rather than something a test has to keep true. A
+    /// second, creator-specific copy would be a second place for the filled share to be computed,
+    /// and the first divergence would be invisible because each side would be self-consistent.
+    /// <para>
+    /// The scope arrives as a queryable rather than as an owner id, so this class never learns what
+    /// an Ersteller is. Building the filter is <c>OwnerScope</c>'s job, and keeping it there is what
+    /// stops a second place from writing <c>CreatorId == x</c> (009 FR-033).
+    /// </para>
+    /// </remarks>
+    public async Task<IReadOnlyList<WishListSummary>> ListAsync(
+        CancellationToken ct, IQueryable<WishList>? scope = null)
     {
-        var lists = await db.WishLists
-            .Select(l => new { l.Id, l.Title, l.TargetDate, l.ListToken })
+        var lists = await (scope ?? db.WishLists)
+            .Select(l => new
+            {
+                l.Id,
+                l.Title,
+                l.TargetDate,
+                l.ListToken,
+                l.CreatorId,
+                // Null for the operator's own (009 FR-039). The dashboard renders this row, and
+                // 009 FR-042 permits an Ersteller's name there on the same grounds 008 FR-048b
+                // permitted wish-list titles: both are text the operator wrote, for themselves.
+                CreatorName = l.Creator == null ? null : l.Creator.Name,
+            })
             .ToListAsync(ct);
 
         if (lists.Count == 0)
@@ -90,7 +120,9 @@ public sealed class WishListProjection(RundfrageDbContext db, BerlinClock clock)
                 own?.PlaceCount ?? 0,
                 own?.UntakenItemCount ?? 0,
                 own?.CompleteItemCount ?? 0,
-                list.ListToken);
+                list.ListToken,
+                list.CreatorId,
+                list.CreatorName);
         }).ToArray();
 
         // FR-048c: open lists first with the nearest target date on top, then closed lists with

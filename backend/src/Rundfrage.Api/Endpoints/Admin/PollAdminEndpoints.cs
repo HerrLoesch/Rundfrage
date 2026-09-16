@@ -139,7 +139,9 @@ public sealed record PollSummary(
     string ParticipantToken,
     DateTime RetentionDeadline,
     int ResponseCount,
-    int DayCount)
+    int DayCount,
+    Guid? CreatorId = null,
+    string? CreatorName = null)
 {
     public static PollSummary From(PollListItem item) => new(
         item.Id,
@@ -147,7 +149,9 @@ public sealed record PollSummary(
         item.ParticipantToken,
         item.RetentionDeadline,
         item.ResponseCount,
-        item.DayCount);
+        item.DayCount,
+        item.CreatorId,
+        item.CreatorName);
 
     /// <summary>
     /// For a freshly created poll, where the entity is in hand and has no responses yet.
@@ -158,5 +162,9 @@ public sealed record PollSummary(
         poll.ParticipantToken,
         poll.RetentionDeadline,
         ResponseCount: 0,
-        poll.Days.Count);
+        poll.Days.Count,
+        poll.CreatorId,
+        // The name is not loaded on a freshly created entity and is not needed: whoever just
+        // created it knows whose it is. It arrives on the next listing (009 FR-039).
+        CreatorName: null);
 }

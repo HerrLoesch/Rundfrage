@@ -13,7 +13,7 @@ namespace Rundfrage.Api.IntegrationTests;
 /// <summary>Drives the real host against a chosen data directory with a known operator account.</summary>
 public sealed class ApiFactory(
     string dataDirectory, int? submissionsPerHour = null, int? trustedProxies = null,
-    string? webRoot = null)
+    string? webRoot = null, int? creatorWritesPerHour = null)
     : WebApplicationFactory<Program>
 {
     /// <summary>
@@ -89,6 +89,13 @@ public sealed class ApiFactory(
         if (trustedProxies is { } proxies)
         {
             builder.UseSetting(ReverseProxy.TrustedProxyCountVariable, proxies.ToString());
+        }
+
+        // Left unset by default so the creator budget stays the sixty 009 FR-036 requires. Set
+        // only where a test needs to reach the boundary without making sixty requests.
+        if (creatorWritesPerHour is { } creatorPermits)
+        {
+            builder.UseSetting(RateLimiting.CreatorWritesVariable, creatorPermits.ToString());
         }
 
         builder.UseSetting(AdminAccount.UserVariable, TestUser);

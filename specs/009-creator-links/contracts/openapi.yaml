@@ -1,0 +1,485 @@
+openapi: 3.1.0
+info:
+  title: Rundfrage — Ersteller-Links (feature 009)
+  version: "009"
+  description: |
+    Only what feature 009 adds or changes. Everything under /admin inherits the operator session
+    requirement from the admin group (002 FR-048); nothing here repeats it per route.
+
+    Two route families:
+
+      * /admin/creators/**  — the operator manages Ersteller (FR-010, FR-043 to FR-047).
+      * /e/{creatorToken}/** — an Ersteller works on their own content (FR-006, FR-022 to FR-028g).
+
+    The second family is under neither /admin nor /health, so `MaintenanceMiddleware` intercepts it
+    with the participant notice while maintenance is on (FR-050). That is a property of the prefix,
+    not of any handler — see research R-6.
+
+servers:
+  - url: /api/v1
+
+paths:
+
+  # ----------------------------------------------------------------------------------------
+  # The operator manages Ersteller
+  # ----------------------------------------------------------------------------------------
+
+  /admin/creators:
+    get:
+      operationId: listCreators
+      summary: Every Ersteller, with counts and current link (FR-044, FR-044a)
+      responses:
+        "200":
+          description: Ersteller, newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/CreatorSummary" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+    post:
+      operationId: createCreator
+      summary: Issue a new Ersteller and its link (FR-001, FR-004, FR-009)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string, maxLength: 100 }
+      responses:
+        "201":
+          description: Created. The only response that carries a freshly minted token.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CreatorSummary" }
+        "400":
+          description: |
+            name_missing, name_too_long, name_duplicate (detail = the colliding name),
+            or creator_limit_reached (limit = 100).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Problem" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /admin/creators/{creatorId}:
+    parameters:
+      - { name: creatorId, in: path, required: true, schema: { type: string, format: uuid } }
+
+    patch:
+      operationId: renameCreator
+      summary: Rename. Link and content unchanged (FR-017)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string, maxLength: 100 }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CreatorSummary" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NeutralNotFound" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+    delete:
+      operationId: deleteCreator
+      summary: |
+        Destroy the Ersteller AND every poll and wish list it owns (FR-020a).
+        Distinct from revocation, which destroys nothing.
+      responses:
+        "204": { description: Gone, with its content }
+        "404": { $ref: "#/components/responses/NeutralNotFound" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /admin/creators/{creatorId}/link:
+    parameters:
+      - { name: creatorId, in: path, required: true, schema: { type: string, format: uuid } }
+
+    post:
+      operationId: reissueCreatorLink
+      summary: |
+        Mint a new link. The old one stops working immediately; the Ersteller keeps everything it
+        owns (FR-016). Also the way a revoked Ersteller is given access again (FR-020).
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CreatorSummary" }
+        "404": { $ref: "#/components/responses/NeutralNotFound" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+    delete:
+      operationId: revokeCreatorLink
+      summary: |
+        Revoke. The link stops working; NOTHING the Ersteller owns is removed, altered or
+        reassigned, and it stays listed under its name (FR-018, FR-020).
+
+        Deliberately addressed as the *link* sub-resource rather than as a verb on the Ersteller,
+        so that "revoke" and "delete" cannot be confused for variants of one another (FR-020b).
+      responses:
+        "204": { description: The link is gone. The Ersteller and its content are not. }
+        "404": { $ref: "#/components/responses/NeutralNotFound" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  # ----------------------------------------------------------------------------------------
+  # The creator surface. No session; the token in the path is the whole authorisation.
+  # ----------------------------------------------------------------------------------------
+
+  /e/{creatorToken}:
+    parameters:
+      - { name: creatorToken, in: path, required: true, schema: { type: string } }
+    get:
+      operationId: getCreatorSurface
+      summary: |
+        Everything the holder may see, in one response for one address (FR-013 analogue, FR-028d):
+        their name, their polls, their wish lists.
+
+        There is deliberately no shape check before the lookup — rejecting a malformed token early
+        would make it measurably faster than an unknown one (002 research R-4).
+      security: []
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CreatorSurface" }
+        "404":
+          $ref: "#/components/responses/NeutralNotFound"
+        "503": { $ref: "#/components/responses/Maintenance" }
+
+  /e/{creatorToken}/polls:
+    parameters:
+      - { name: creatorToken, in: path, required: true, schema: { type: string } }
+    post:
+      operationId: createPollAsCreator
+      summary: |
+        Create a date poll owned by this Ersteller (FR-022). Request body, validation, limits and
+        refusal codes are feature 002's, unchanged.
+      security: []
+      responses:
+        "201":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PollSummary" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NeutralNotFound" }
+        "429": { $ref: "#/components/responses/TooManyWrites" }
+        "503": { $ref: "#/components/responses/Maintenance" }
+
+  /e/{creatorToken}/polls/{pollId}:
+    parameters:
+      - { name: creatorToken, in: path, required: true, schema: { type: string } }
+      - { name: pollId, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      operationId: getPollResultsAsCreator
+      summary: |
+        Answers, results and per-day summary — feature 002/004/006's payload, unchanged (FR-024).
+
+        A poll this Ersteller does not own answers 404 with the same body an unknown id answers.
+        "Not yours" and "no such thing" are indistinguishable (FR-034, SC-003).
+      security: []
+      responses:
+        "200": { description: The ResultsProjection payload of features 002/004/006 }
+        "404": { $ref: "#/components/responses/NeutralNotFound" }
+        "503": { $ref: "#/components/responses/Maintenance" }
+    delete:
+      operationId: deletePollAsCreator
+      summary: Delete one's own poll (FR-027)
+      security: []
+      responses:
+        "204": { description: Deleted }
+        "404": { $ref: "#/components/responses/NeutralNotFound" }
+        "429": { $ref: "#/components/responses/TooManyWrites" }
+        "503": { $ref: "#/components/responses/Maintenance" }
+
+  /e/{creatorToken}/polls/{pollId}/export:
+    parameters:
+      - { name: creatorToken, in: path, required: true, schema: { type: string } }
+      - { name: pollId, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      operationId: exportPollAsCreator
+      summary: |
+        Feature 003's export document for a poll this Ersteller owns (FR-028) — byte-for-byte what
+        the operator receives for the same poll (SC-004a).
+
+        There is NO import counterpart, at this prefix or any other reachable with a creator token
+        (FR-028a, SC-004).
+      security: []
+      responses:
+        "200":
+          description: The export document, as a download
+          content:
+            application/json: {}
+        "404": { $ref: "#/components/responses/NeutralNotFound" }
+        "503": { $ref: "#/components/responses/Maintenance" }
+
+  /e/{creatorToken}/polls/{pollId}/responses/{responseId}:
+    parameters:
+      - { name: creatorToken, in: path, required: true, schema: { type: string } }
+      - { name: pollId, in: path, required: true, schema: { type: string, format: uuid } }
+      - { name: responseId, in: path, required: true, schema: { type: string, format: uuid } }
+    delete:
+      operationId: deleteResponseAsCreator
+      summary: Delete one response from one's own poll (FR-027)
+      security: []
+      responses:
+        "204": { description: Deleted }
+        "404": { $ref: "#/components/responses/NeutralNotFound" }
+        "429": { $ref: "#/components/responses/TooManyWrites" }
+        "503": { $ref: "#/components/responses/Maintenance" }
+
+  /e/{creatorToken}/wish-lists:
+    parameters:
+      - { name: creatorToken, in: path, required: true, schema: { type: string } }
+    post:
+      operationId: createWishListAsCreator
+      summary: |
+        Create a wish list owned by this Ersteller (FR-023). Body, validation, limits and refusal
+        codes are feature 008's, unchanged.
+      security: []
+      responses:
+        "201":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WishListDetail" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NeutralNotFound" }
+        "429": { $ref: "#/components/responses/TooManyWrites" }
+        "503": { $ref: "#/components/responses/Maintenance" }
+
+  /e/{creatorToken}/wish-lists/{wishListId}:
+    parameters:
+      - { name: creatorToken, in: path, required: true, schema: { type: string } }
+      - { name: wishListId, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      operationId: getWishListAsCreator
+      security: []
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WishListDetail" }
+        "404": { $ref: "#/components/responses/NeutralNotFound" }
+        "503": { $ref: "#/components/responses/Maintenance" }
+    patch:
+      operationId: updateWishListAsCreator
+      summary: 008 FR-029 — title, description, target date (FR-026)
+      security: []
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WishListDetail" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NeutralNotFound" }
+        "429": { $ref: "#/components/responses/TooManyWrites" }
+        "503": { $ref: "#/components/responses/Maintenance" }
+    delete:
+      operationId: deleteWishListAsCreator
+      security: []
+      responses:
+        "204": { description: Deleted }
+        "404": { $ref: "#/components/responses/NeutralNotFound" }
+        "429": { $ref: "#/components/responses/TooManyWrites" }
+        "503": { $ref: "#/components/responses/Maintenance" }
+
+  /e/{creatorToken}/wish-lists/{wishListId}/items:
+    parameters:
+      - { name: creatorToken, in: path, required: true, schema: { type: string } }
+      - { name: wishListId, in: path, required: true, schema: { type: string, format: uuid } }
+    post:
+      operationId: addWishItemAsCreator
+      summary: 008 FR-030 (FR-026)
+      security: []
+      responses:
+        "201":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WishListDetail" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NeutralNotFound" }
+        "429": { $ref: "#/components/responses/TooManyWrites" }
+        "503": { $ref: "#/components/responses/Maintenance" }
+
+  /e/{creatorToken}/wish-lists/{wishListId}/items/{itemId}:
+    parameters:
+      - { name: creatorToken, in: path, required: true, schema: { type: string } }
+      - { name: wishListId, in: path, required: true, schema: { type: string, format: uuid } }
+      - { name: itemId, in: path, required: true, schema: { type: string, format: uuid } }
+    patch:
+      operationId: updateWishItemAsCreator
+      summary: 008 FR-031 to FR-033 — rename, raise, lower (FR-026)
+      security: []
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WishListDetail" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NeutralNotFound" }
+        "429": { $ref: "#/components/responses/TooManyWrites" }
+        "503": { $ref: "#/components/responses/Maintenance" }
+    delete:
+      operationId: deleteWishItemAsCreator
+      summary: 008 FR-034 (FR-026)
+      security: []
+      responses:
+        "204": { description: Removed, with its entries }
+        "404": { $ref: "#/components/responses/NeutralNotFound" }
+        "429": { $ref: "#/components/responses/TooManyWrites" }
+        "503": { $ref: "#/components/responses/Maintenance" }
+
+  /e/{creatorToken}/wish-lists/{wishListId}/claims/{claimId}:
+    parameters:
+      - { name: creatorToken, in: path, required: true, schema: { type: string } }
+      - { name: wishListId, in: path, required: true, schema: { type: string, format: uuid } }
+      - { name: claimId, in: path, required: true, schema: { type: string, format: uuid } }
+    delete:
+      operationId: deleteWishClaimAsCreator
+      summary: 008 FR-043a — one entry from one's own list (FR-027)
+      security: []
+      responses:
+        "204": { description: Deleted }
+        "404": { $ref: "#/components/responses/NeutralNotFound" }
+        "429": { $ref: "#/components/responses/TooManyWrites" }
+        "503": { $ref: "#/components/responses/Maintenance" }
+
+components:
+
+  responses:
+    Unauthorized:
+      description: No operator session. Discloses nothing about what exists (002 FR-002).
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    BadRequest:
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Problem" }
+      description: A defective request; nothing was changed.
+    NeutralNotFound:
+      description: |
+        The single not-found payload — `{"code":"not_found"}`. Returned identically for an unknown
+        token, a malformed token, a revoked token, an id belonging to another owner, and an id that
+        never existed (FR-008, FR-034; 002 SC-012).
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    TooManyWrites:
+      description: |
+        The creator write budget of FR-036 — 60 per hour per request source, a separate policy from
+        the participant submission budget (research R-5). The refused request changed nothing.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    Maintenance:
+      description: |
+        `{"code":"maintenance"}`. Inherited from MaintenanceMiddleware because the creator prefix is
+        neither /admin nor /health — no handler participates (FR-050, research R-6).
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Problem" }
+
+  schemas:
+
+    Problem:
+      type: object
+      required: [code]
+      properties:
+        code: { type: string }
+        limit: { type: integer }
+        retryAfterSeconds: { type: integer }
+        detail:
+          type: string
+          description: |
+            Operator-written text that makes a refusal actionable — here, the colliding Ersteller
+            name (FR-002). Never a participant's display name.
+
+    CreatorSummary:
+      type: object
+      required: [id, name, createdAt, hasLink, pollCount, wishListCount]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        createdAt: { type: string, format: date-time }
+        hasLink:
+          type: boolean
+          description: |
+            FR-044a. Derived from the token being present, not stored as a state (research R-3).
+            A revoked Ersteller is listed with its counts and `hasLink: false`.
+        linkToken:
+          type: [string, "null"]
+          description: |
+            Present exactly when `hasLink` is true. The operator re-copies it here rather than
+            keeping their own note of it (FR-044).
+        pollCount: { type: integer }
+        wishListCount: { type: integer }
+
+    CreatorSurface:
+      type: object
+      required: [name, polls, wishLists]
+      description: |
+        One response for the one address the surface has (FR-028d). There is deliberately no
+        dashboard and no aggregate across the two lists (FR-028b) — each list carries the
+        per-poll and per-list figures features 002, 004 and 008 already define (FR-028g).
+      properties:
+        name:
+          type: string
+          description: So the holder can tell which link they are using (FR-007).
+        polls:
+          type: array
+          items: { $ref: "#/components/schemas/PollSummary" }
+        wishLists:
+          type: array
+          items: { $ref: "#/components/schemas/WishListSummary" }
+
+    PollSummary:
+      type: object
+      description: |
+        Feature 002's record, plus the owner (FR-039). On the creator surface the two owner fields
+        are omitted: a holder already knows whose polls these are, and FR-032 keeps every other
+        owner out of the payload entirely.
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string }
+        participantToken: { type: string }
+        retentionDeadline: { type: string, format: date-time }
+        responseCount: { type: integer }
+        dayCount: { type: integer }
+        creatorId:
+          type: [string, "null"]
+          format: uuid
+          description: Admin surfaces only. `null` means the operator owns it (research R-2).
+        creatorName:
+          type: [string, "null"]
+          description: Admin surfaces only. `null` means the operator owns it (FR-039).
+
+    WishListSummary:
+      type: object
+      description: |
+        Feature 008's record, plus the owner. The dashboard renders this payload, so its wish-list
+        overview gains the owner without a second change (FR-041, FR-042). No participant display
+        name appears here, and none may be added — 008 FR-050 is structural in this record.
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string }
+        targetDate: { type: string, format: date }
+        closed: { type: boolean }
+        itemCount: { type: integer }
+        entryCount: { type: integer }
+        placeCount: { type: integer }
+        untakenItemCount: { type: integer }
+        completeItemCount: { type: integer }
+        listToken: { type: string }
+        creatorId: { type: [string, "null"], format: uuid }
+        creatorName: { type: [string, "null"] }
+
+    WishListDetail:
+      type: object
+      description: Feature 008's detail payload, unchanged by this feature.

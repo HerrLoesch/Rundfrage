@@ -29,6 +29,8 @@ public sealed class RundfrageDbContext(DbContextOptions<RundfrageDbContext> opti
 
     public DbSet<WishClaim> WishClaims => Set<WishClaim>();
 
+    public DbSet<Creator> Creators => Set<Creator>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         builder.Entity<Poll>(poll =>
@@ -155,6 +157,54 @@ public sealed class RundfrageDbContext(DbContextOptions<RundfrageDbContext> opti
             // people may legitimately bring the same thing under the same name (008 FR-020) -
             // the same decision PollResponse.DisplayName records.
         });
+
+        // --- Ersteller (feature 009) -----------------------------------------------------
+        builder.Entity<Creator>(creator =>
+        {
+            creator.HasKey(c => c.Id);
+
+            // NOCASE for the same reason WishItem.Name carries it: the index must agree with the
+            // service about what "the same name" is. The service compares with OrdinalIgnoreCase,
+            // so beyond ASCII the service is the stricter of the two - the safe direction.
+            creator.Property(c => c.Name)
+                .HasMaxLength(Creator.NameMaxLength)
+                .UseCollation("NOCASE")
+                .IsRequired();
+
+            // 009 FR-002, enforced here rather than only in the service, so a second write path
+            // cannot quietly create the duplicate.
+            creator.HasIndex(c => c.Name).IsUnique();
+
+            creator.Property(c => c.LinkToken).HasMaxLength(CapabilityToken.TokenLength);
+
+            // The lookup key on every creator request (009 FR-004). Nullable, because its absence
+            // is what "revoked" means (009 FR-020, research R-3) - and unique anyway, because
+            // SQLite treats NULLs in a unique index as distinct, so any number of revoked
+            // Ersteller coexist. SchemaCreationTests asserts that rather than trusting it.
+            creator.HasIndex(c => c.LinkToken).IsUnique();
+
+            // Cascade, stated EXPLICITLY and not left to the default.
+            //
+            // EF Core's default for an *optional* relationship is ClientSetNull. Left at it,
+            // deleting an Ersteller would set CreatorId = NULL on everything it owned - which is
+            // to say it would hand that content to the operator, the exact outcome 009 FR-020c
+            // forbids and the spec's first clarification rejected. It would also fail silently:
+            // nothing would error, and the content would simply change hands (research R-4).
+            creator.HasMany(c => c.Polls)
+                .WithOne(p => p.Creator!)
+                .HasForeignKey(p => p.CreatorId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            creator.HasMany(c => c.WishLists)
+                .WithOne(l => l.Creator!)
+                .HasForeignKey(l => l.CreatorId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // The owner filter of OwnerScope is the hot path on every creator request, and this
+        // equality is its only new predicate (009 research R-14).
+        builder.Entity<Poll>().HasIndex(p => p.CreatorId);
+        builder.Entity<WishList>().HasIndex(l => l.CreatorId);
 
         builder.Entity<DayAnswer>(answer =>
         {

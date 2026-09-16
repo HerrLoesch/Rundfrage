@@ -275,6 +275,10 @@ const sinceText = computed(() =>
                 <th>{{ t('dashboard.wishListsColumnTitle') }}</th>
                 <th class="text-no-wrap">{{ t('dashboard.wishListsColumnDate') }}</th>
                 <th class="text-no-wrap">{{ t('dashboard.wishListsColumnState') }}</th>
+                <!-- 009 FR-042: an Ersteller's name is operator-written text, permitted here on
+                     the same grounds 008 FR-048b permitted wish-list titles. No participant
+                     display name appears on this table, and none may be added (008 FR-050). -->
+                <th class="text-no-wrap">{{ t('dashboard.wishListsColumnOwner') }}</th>
                 <th class="text-end text-no-wrap">{{ t('dashboard.wishListsColumnEntries') }}</th>
                 <th class="text-end text-no-wrap">{{ t('dashboard.wishListsColumnFilled') }}</th>
               </tr>
@@ -300,6 +304,9 @@ const sinceText = computed(() =>
                 </td>
                 <td class="text-no-wrap">{{ list.targetDate }}</td>
                 <td class="text-no-wrap">{{ list.closed ? t('wish.closed') : t('wish.open') }}</td>
+                <td class="text-no-wrap" data-testid="dashboard-wish-list-owner">
+                  {{ list.creatorName ?? t('creator.ownerSelf') }}
+                </td>
                 <td class="text-end rf-figure text-no-wrap">
                   {{ list.entryCount }} / {{ list.placeCount }}
                 </td>
