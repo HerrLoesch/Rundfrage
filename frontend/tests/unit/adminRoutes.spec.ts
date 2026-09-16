@@ -18,6 +18,8 @@ describe('Admin addresses', () => {
     for (const [path, name] of [
       ['/admin', 'dashboard'],
       ['/admin/terminfindungen', 'polls'],
+      ['/admin/wunschlisten', 'wish-lists'],
+      ['/admin/ersteller', 'creators'],
       ['/admin/einstellungen', 'settings'],
       ['/admin/anmelden', 'sign-in'],
     ] as const) {
@@ -46,6 +48,31 @@ describe('Admin addresses', () => {
     await r.push('/admin/gibt-es-nicht')
 
     expect(r.currentRoute.value.name).toBe('dashboard')
+  })
+
+  it('gives the creator surface exactly one address, with no children (009 FR-028d)', async () => {
+    // Deliberately unlike /admin/terminfindungen/:pollId above. The address carries the
+    // credential here, so a poll's answers and a wish list's detail open as component state
+    // rather than as destinations - every extra address is another place the token is written
+    // down (spec Q5, research R-9).
+    //
+    // A reviewer will see the asymmetry with the admin area and be tempted to fix it. This is the
+    // test that says the asymmetry is the decision.
+    const r = router()
+    await r.push('/e/abcdefghijklmnopqrstuv')
+
+    expect(r.currentRoute.value.name).toBe('creator')
+    expect(r.currentRoute.value.params.creatorToken).toBe('abcdefghijklmnopqrstuv')
+
+    // No navigation bar: the surface is a child of the bare shell, not the admin one.
+    expect(r.currentRoute.value.matched.map((m) => m.name)).not.toContain('admin-shell')
+
+    // And nothing beneath it resolves to a creator destination of its own.
+    const record = routes
+      .flatMap((route) => route.children ?? [])
+      .find((child) => child.name === 'creator')
+
+    expect(record?.children ?? []).toHaveLength(0)
   })
 
   it('keeps the sign-in form outside the shell (FR-008)', async () => {

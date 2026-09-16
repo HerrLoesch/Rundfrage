@@ -63,6 +63,19 @@ export async function revealWishListForm(page: Page): Promise<void> {
   await expect(page.getByTestId('wish-list-form')).toBeVisible()
 }
 
+/** The Ersteller area: issuing, renaming, replacing and revoking links (009 FR-043). */
+export async function gotoCreators(page: Page): Promise<void> {
+  await openNavigation(page)
+  await page.getByTestId('nav-creators').click()
+  await expect(page.getByTestId('creator-create-open')).toBeVisible()
+}
+
+/** Signs in and goes straight to the Ersteller area. */
+export async function signInToCreators(page: Page): Promise<void> {
+  await signIn(page)
+  await gotoCreators(page)
+}
+
 /** Settings: maintenance mode, the backup download and the restore (007 FR-019). */
 export async function gotoSettings(page: Page): Promise<void> {
   await openNavigation(page)

@@ -61,6 +61,27 @@ public sealed class StaticFileCachingTests : IClassFixture<SqliteFixture>, IDisp
         Assert.Equal("public, max-age=31536000, immutable", response.Headers.CacheControl?.ToString());
     }
 
+    [Theory]
+    [InlineData("/")]
+    [InlineData("/e/abcdefghijklmnopqrstuv")]
+    [InlineData("/api/v1/health")]
+    public async Task Every_response_asks_the_browser_not_to_leak_the_address(string path)
+    {
+        // Feature 009 puts a credential in a URL: /e/{token} is the whole authorisation for an
+        // Ersteller (009 FR-028d, research R-10). The default referrer policy sends the full URL
+        // on a cross-origin navigation, so the token would travel with it.
+        //
+        // Nothing cross-origin exists today - Principle IV bans external assets - which is why
+        // this is defence in depth rather than a fix for a live leak. It is asserted on the
+        // participant and API paths as well as the shell, because a header that only some
+        // responses carry is the header somebody removes without noticing.
+        using var factory = new ApiFactory(_storage.DataDirectory, webRoot: _webRoot);
+
+        var response = await factory.CreateClient().GetAsync(path);
+
+        Assert.Equal("same-origin", response.Headers.GetValues("Referrer-Policy").Single());
+    }
+
     public void Dispose()
     {
         try

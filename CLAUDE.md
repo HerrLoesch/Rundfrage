@@ -2,20 +2,38 @@
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read the current plan:
 
-- **Active plan**: `specs/008-wishlist/plan.md`
-- Specification: `specs/008-wishlist/spec.md`
-- Design decisions and rejected alternatives (R-1 … R-14): `specs/008-wishlist/research.md`
-- The three new tables and everything derived rather than stored: `specs/008-wishlist/data-model.md`
-- UI contract (areas, participant surfaces, states, test ids): `specs/008-wishlist/contracts/ui-contract.md`
-- The new endpoints: `specs/008-wishlist/contracts/openapi.yaml`
-- Developer guide: `specs/008-wishlist/quickstart.md`
+- **Active plan**: `specs/009-creator-links/plan.md`
+- Specification: `specs/009-creator-links/spec.md`
+- Design decisions and rejected alternatives (R-1 … R-14): `specs/009-creator-links/research.md`
+- The one new table, the two nullable columns and the access filter:
+  `specs/009-creator-links/data-model.md`
+- UI contract (areas, the single-address creator surface, states, test ids):
+  `specs/009-creator-links/contracts/ui-contract.md`
+- The new endpoints: `specs/009-creator-links/contracts/openapi.yaml`
+- Developer guide, including the five rules that are easy to break:
+  `specs/009-creator-links/quickstart.md`
 
-Two cross-feature consequences this plan carries:
+Five things this plan carries that are easy to get wrong:
+
+- **Creator handlers never receive `RundfrageDbContext`.** Every read goes through `OwnerScope`,
+  built the way `RetentionService.LivePolls()` is built, so isolation is structural (`research.md`
+  R-1, FR-033).
+- **Creator routes must not be mounted under `/api/v1/admin`.** That prefix is exempt from
+  `MaintenanceMiddleware`; mounting there would let an Ersteller write into a database about to be
+  replaced by a restore (`research.md` R-6, FR-050).
+- **The `Creator` → content cascade must be configured explicitly.** EF Core's default for an
+  optional relationship is `ClientSetNull`, which would hand a deleted Ersteller's polls and wish
+  lists to the operator instead of destroying them (`research.md` R-4, FR-020c).
+- **The creator surface has exactly one address**, deliberately departing from 007 FR-014a, because
+  here the address carries the credential (`research.md` R-9, FR-028d). Do not give it child routes.
+- The restore preview must also count Ersteller, or it understates what a restore destroys — the
+  same defect 008 recorded for wish lists (FR-052).
+
+Cross-feature consequences still in force from feature 008:
 
 - Feature 007 FR-034 is amended by 008 FR-048b (wish-list titles allowed on the dashboard;
-  participant names and poll titles still not).
-- The restore preview must also count wish lists, or it understates what a restore destroys
-  (`research.md` R-10).
+  participant names and poll titles still not). 009 FR-042 extends that narrowly to Ersteller names,
+  which are operator-written text on the same grounds.
 
 - Application-wide layout and type system (not feature-scoped): `specs/design-system.md`.
   Read it before changing any component's spacing, widths or headings — and note the finding it
@@ -33,4 +51,5 @@ Completed:
 - Feature 005 (import and maintenance mode): `specs/005-import-and-maintenance-mode/plan.md`
 - Feature 006 (highlight best days): `specs/006-highlight-best-days/plan.md`
 - Feature 007 (admin shell and dashboard): `specs/007-admin-shell-dashboard/plan.md`
+- Feature 008 (wish lists): `specs/008-wishlist/plan.md`
 <!-- SPECKIT END -->

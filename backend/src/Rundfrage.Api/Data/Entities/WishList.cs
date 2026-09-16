@@ -46,5 +46,30 @@ public sealed class WishList
 
     public DateTime CreatedAt { get; set; }
 
+    /// <summary>
+    /// Who owns this, or <c>null</c> for the operator (009 FR-011, FR-012, research R-2).
+    /// </summary>
+    /// <remarks>
+    /// <b><c>null</c> is a value with a meaning, and SQL's three-valued logic will bite.</b>
+    /// <c>CreatorId != @id</c> excludes the operator's rows rather than including them, so no
+    /// handler writes that predicate by hand: every ownership-respecting read goes through
+    /// <c>OwnerScope</c> (009 FR-033, data-model section 5).
+    /// <para>
+    /// Nullable is also what makes 009 FR-013 a no-op rather than a data migration: everything
+    /// stored before that feature is already <c>NULL</c>, and <c>NULL</c> already means the
+    /// operator. Nothing had to be rewritten on anybody's production volume.
+    /// </para>
+    /// <para>
+    /// Written once at creation and never updated - not by an edit, not by the operator acting on
+    /// somebody else's content (FR-040a), and not by a delete. That last one needs saying because
+    /// EF Core's default for an optional relationship is <c>ClientSetNull</c>, which would hand a
+    /// deleted Ersteller's content to the operator; <c>RundfrageDbContext</c> states
+    /// <c>Cascade</c> explicitly to stop it (FR-020c, research R-4).
+    /// </para>
+    /// </remarks>
+    public Guid? CreatorId { get; set; }
+
+    public Creator? Creator { get; set; }
+
     public List<WishItem> Items { get; set; } = [];
 }

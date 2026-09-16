@@ -51,7 +51,44 @@ public static class LoggingSetup
             // with the database driver.
             .MinimumLevel.Override("Microsoft.EntityFrameworkCore", LogEventLevel.Warning)
             .MinimumLevel.Override("Microsoft.Data.Sqlite", LogEventLevel.Warning)
+            // "Request starting HTTP/1.1 GET http://host/api/v1/polls/{the token}" - the one
+            // framework message that renders the raw path into its text, where no enricher can
+            // reach it. See RequestPathIsACredential below for why that matters here.
+            .MinimumLevel.Override("Microsoft.AspNetCore.Hosting.Diagnostics", LogEventLevel.Warning)
             .Enrich.FromLogContext()
+            .Enrich.With<RequestPathIsACredential>()
             .WriteTo.TextWriter(new CompactJsonFormatter(), output)
             .CreateLogger();
+}
+
+/// <summary>
+/// Removes the request path from every log entry, because in this system the request path
+/// <i>is</i> a credential.
+/// </summary>
+/// <remarks>
+/// <b>Found by 009's <c>CreatorLoggingTests</c>, and older than 009.</b> ASP.NET Core pushes
+/// <c>RequestPath</c> into the logging scope for the duration of a request, and Serilog writes
+/// scope properties onto every entry emitted inside it - including this application's own. Under
+/// Principle I the token in the URL is the whole authorisation, so every participant answering a
+/// poll was writing a working link into the operator's log, and <c>docker compose logs</c> was a
+/// list of them.
+/// <para>
+/// That was already forbidden: 002 FR-043a says a log entry may carry identifiers and counts and
+/// never a token. Nothing asserted it until 009 FR-037 made the same demand of the Ersteller link
+/// and a test went looking. The fix belongs here rather than in feature 009, because the defect
+/// covers <c>/u/</c>, <c>/a/</c>, <c>/w/</c>, <c>/z/</c> and <c>/e/</c> alike.
+/// </para>
+/// <para>
+/// The route <i>template</i> survives - <c>EndpointName</c> still reads
+/// <c>HTTP: GET /api/v1/e/{creatorToken}</c> - so an operator can still see which endpoint was
+/// reached. Only the value is dropped, which is the part that unlocks something.
+/// </para>
+/// </remarks>
+public sealed class RequestPathIsACredential : ILogEventEnricher
+{
+    public void Enrich(LogEvent logEvent, ILogEventPropertyFactory factory)
+    {
+        logEvent.RemovePropertyIfPresent("RequestPath");
+        logEvent.RemovePropertyIfPresent("Path");
+    }
 }

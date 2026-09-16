@@ -55,6 +55,22 @@ public class AdminAuthorizationTests : IDisposable
     }
 
     [Fact]
+    public void The_Ersteller_routes_are_among_the_discovered_admin_endpoints()
+    {
+        // 009 FR-010. The discovery above already covers them - which is the point of discovering
+        // rather than listing - but "covered because nobody had to remember" is worth pinning: if
+        // the creator management routes were ever mounted outside the admin group, every assertion
+        // in this class would still pass while FR-010 quietly stopped holding.
+        var patterns = AdminEndpoints()
+            .Select(e => e.RoutePattern.RawText ?? string.Empty)
+            .ToArray();
+
+        Assert.Contains(patterns, p => p == "/api/v1/admin/creators");
+        Assert.Contains(patterns, p => p.Contains("/creators/{creatorId", StringComparison.Ordinal));
+        Assert.Contains(patterns, p => p.EndsWith("/creators/{creatorId:guid}/link", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void Every_admin_endpoint_except_the_session_ones_requires_authorization()
     {
         var unprotected = AdminEndpoints()

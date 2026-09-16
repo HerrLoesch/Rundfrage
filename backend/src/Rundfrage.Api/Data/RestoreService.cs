@@ -13,6 +13,12 @@ namespace Rundfrage.Api.Data;
 /// against a statement of the loss, and once wish lists exist a statement that counts only polls
 /// is wrong rather than incomplete - it would say "you lose 0 polls" while twelve wish lists went
 /// with them (008 research R-10).
+/// <para>
+/// The Ersteller counts were added by feature 009 for exactly the same reason, one feature later
+/// (009 FR-052). A restore replaces every link that exists with every link the backup held, so an
+/// operator who restores a file taken before they issued ten Ersteller links has just invalidated
+/// all ten - and would have been told nothing about it.
+/// </para>
 /// </remarks>
 public sealed record RestorePreview(
     int PollsInBackup,
@@ -23,6 +29,8 @@ public sealed record RestorePreview(
     int ClaimsInBackup,
     int WishListsLost,
     int ClaimsLost,
+    int CreatorsInBackup,
+    int CreatorsLost,
     IReadOnlyList<string> Expired);
 
 /// <summary>
@@ -127,6 +135,8 @@ public sealed class RestoreService(
             backup.Claims,
             Math.Max(0, current.WishLists - backup.WishLists),
             Math.Max(0, current.Claims - backup.Claims),
+            backup.Creators,
+            Math.Max(0, current.Creators - backup.Creators),
             backup.Expired));
     }
 
@@ -302,6 +312,7 @@ public sealed class RestoreService(
             // tables at all, and such a file is still a perfectly restorable backup. Counting zero
             // is the truth about it - failing to read it would refuse a valid restore.
             var (wishLists, claims) = await ReadWishCountsAsync(connection, ct);
+            var creators = await ReadCreatorCountAsync(connection, ct);
 
             // FR-016a: restored as they are, and named so the operator is not surprised when the
             // next sweep removes them.
@@ -319,7 +330,7 @@ public sealed class RestoreService(
                 }
             }
 
-            return new Counts(polls, responses, wishLists, claims, expired);
+            return new Counts(polls, responses, wishLists, claims, creators, expired);
         }
         catch (SqliteException)
         {
@@ -359,11 +370,39 @@ public sealed class RestoreService(
             : (0, 0);
     }
 
+    /// <summary>
+    /// The Ersteller count, or zero where the table is absent.
+    /// </summary>
+    /// <remarks>
+    /// Asked separately and tolerantly, exactly as the wish-list counts are: a backup taken before
+    /// feature 009 has no <c>Creators</c> table and is still a perfectly restorable backup.
+    /// Counting zero is the truth about such a file; failing to read it would refuse a valid
+    /// restore (009 data-model section 9).
+    /// </remarks>
+    private static async Task<int> ReadCreatorCountAsync(
+        SqliteConnection connection, CancellationToken ct)
+    {
+        await using var present = connection.CreateCommand();
+        present.CommandText =
+            "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'Creators'";
+
+        if (Convert.ToInt64(await present.ExecuteScalarAsync(ct)) != 1)
+        {
+            return 0;
+        }
+
+        await using var command = connection.CreateCommand();
+        command.CommandText = "SELECT COUNT(*) FROM Creators";
+
+        return Convert.ToInt32(await command.ExecuteScalarAsync(ct));
+    }
+
     /// <summary>What one database file holds, as the preview and the summary report it.</summary>
     private sealed record Counts(
-        int Polls, int Responses, int WishLists, int Claims, IReadOnlyList<string> Expired)
+        int Polls, int Responses, int WishLists, int Claims, int Creators,
+        IReadOnlyList<string> Expired)
     {
-        public static readonly Counts None = new(0, 0, 0, 0, []);
+        public static readonly Counts None = new(0, 0, 0, 0, 0, []);
     }
 
     private static void TryDelete(string? path)

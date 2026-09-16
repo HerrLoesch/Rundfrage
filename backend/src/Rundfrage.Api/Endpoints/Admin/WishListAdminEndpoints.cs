@@ -17,8 +17,14 @@ public static class WishListAdminEndpoints
 {
     public sealed record WishItemRequest(string? Name, int? WantedCount);
 
+    // TargetDate is a raw string, not a DateOnly?: minimal API's automatic JSON binding throws an
+    // unhandled BadHttpRequestException for anything it cannot parse as a date - including the
+    // empty string the wish-list form sends when the field is left blank - which reaches the
+    // client as a bodyless or stack-trace-bearing 400 rather than the structured
+    // { code: "target_date_required" } this endpoint already knows how to say. Parsing it by hand
+    // below folds "blank" and "unparsable" into the one refusal FR-002 already names.
     public sealed record WishListRequest(
-        string? Title, string? Description, DateOnly? TargetDate, WishItemRequest[]? Items);
+        string? Title, string? Description, string? TargetDate, WishItemRequest[]? Items);
 
     /// <summary>
     /// A partial change (FR-029). Every property is optional, and an omitted one means "leave it
@@ -39,8 +45,12 @@ public static class WishListAdminEndpoints
                 .Select(i => new WishItemDraft(i.Name, i.WantedCount))
                 .ToArray();
 
+            var targetDate = DateOnly.TryParse(request.TargetDate, out var parsedTargetDate)
+                ? parsedTargetDate
+                : (DateOnly?)null;
+
             var error = WishListService.ValidateList(
-                request.Title, request.Description, request.TargetDate, drafts);
+                request.Title, request.Description, targetDate, drafts);
 
             if (error is not null)
             {
@@ -48,7 +58,7 @@ public static class WishListAdminEndpoints
             }
 
             var list = await lists.CreateAsync(
-                request.Title!, request.Description, request.TargetDate!.Value, drafts, ct);
+                request.Title!, request.Description, targetDate!.Value, drafts, ct);
 
             return Results.Created(
                 $"/api/v1/admin/wish-lists/{list.Id}", projection.Detail(list));

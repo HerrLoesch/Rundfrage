@@ -139,7 +139,15 @@ test.describe('Wish list journey', () => {
     await signInToWishLists(page)
     const path = await createList(page, title, [{ name: 'Kuchen', wanted: '2' }])
 
-    const entry = await claim(browser, path, 'Anna', 'Kuchen')
+    // A name no operator would give an Ersteller, and that is the point rather than a flourish.
+    //
+    // This assertion used to name the participant "Anna" and check the whole dashboard section for
+    // that string. Feature 009 added an owner column, and 009 FR-042 permits an ERSTELLER's name
+    // there on the same grounds 008 FR-048b permits wish-list titles - so the moment somebody
+    // issued a link to an Anna, this test failed while 008 FR-050 was perfectly intact. The
+    // requirement is unchanged; the test could simply no longer tell the two kinds of name apart.
+    const participantName = `Teilnehmerin-${Date.now()}`
+    const entry = await claim(browser, path, participantName, 'Kuchen')
     await entry.close()
 
     // Both screens are read after *returning* to them, which is what FR-053 asks of the dashboard
@@ -149,8 +157,11 @@ test.describe('Wish list journey', () => {
     const dashboardRow = page.getByTestId('dashboard-wish-list-row').filter({ hasText: title })
     await expect(dashboardRow).toContainText('50')
 
-    // FR-050: the names stay off the dashboard.
-    await expect(page.getByTestId('dashboard-wish-lists')).not.toContainText('Anna')
+    // FR-050: PARTICIPANT names stay off the dashboard. An Ersteller's name is operator-written
+    // text and is allowed to be there (009 FR-042), which is why this names the participant
+    // exactly rather than looking for any name-shaped string.
+    await expect(page.getByTestId('dashboard-wish-lists')).not.toContainText(participantName)
+    await expect(dashboardRow).not.toContainText(participantName)
 
     // FR-049: the area says the same thing, because it reads the same projection.
     await gotoWishLists(page)

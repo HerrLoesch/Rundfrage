@@ -3,28 +3,12 @@ import { ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { usePollsStore } from '../../stores/polls'
 import { useProblemText } from '../../composables/useProblemText'
+import { today } from '../../dates'
 import ShareLink from '../poll/ShareLink.vue'
 
 const { t, d } = useI18n()
 const polls = usePollsStore()
 const problemText = useProblemText()
-
-/**
- * Today, as the browser's date input wants it.
- *
- * The field starts filled rather than empty. An empty `<input type="date">` renders only a
- * placeholder, which reads as though a date were already there - pressing "add" then did
- * nothing, silently, because the model held an empty string. What is visible is now what gets
- * added.
- */
-function today(): string {
-  const now = new Date()
-  return [
-    now.getFullYear(),
-    String(now.getMonth() + 1).padStart(2, '0'),
-    String(now.getDate()).padStart(2, '0'),
-  ].join('-')
-}
 
 const title = ref('')
 const message = ref('')

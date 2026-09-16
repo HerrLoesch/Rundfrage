@@ -37,6 +37,36 @@ namespace Rundfrage.Api.Data.Migrations
                     b.ToTable("CandidateDays");
                 });
 
+            modelBuilder.Entity("Rundfrage.Api.Data.Entities.Creator", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("LinkToken")
+                        .HasMaxLength(22)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT")
+                        .UseCollation("NOCASE");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("LinkToken")
+                        .IsUnique();
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.ToTable("Creators");
+                });
+
             modelBuilder.Entity("Rundfrage.Api.Data.Entities.DayAnswer", b =>
                 {
                     b.Property<Guid>("ResponseId")
@@ -64,6 +94,9 @@ namespace Rundfrage.Api.Data.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("TEXT");
 
+                    b.Property<Guid?>("CreatorId")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("Message")
                         .HasMaxLength(2000)
                         .HasColumnType("TEXT");
@@ -82,6 +115,8 @@ namespace Rundfrage.Api.Data.Migrations
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("CreatorId");
 
                     b.HasIndex("ParticipantToken")
                         .IsUnique();
@@ -192,6 +227,9 @@ namespace Rundfrage.Api.Data.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("TEXT");
 
+                    b.Property<Guid?>("CreatorId")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("Description")
                         .HasMaxLength(2000)
                         .HasColumnType("TEXT");
@@ -210,6 +248,8 @@ namespace Rundfrage.Api.Data.Migrations
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("CreatorId");
 
                     b.HasIndex("ListToken")
                         .IsUnique();
@@ -249,6 +289,16 @@ namespace Rundfrage.Api.Data.Migrations
                     b.Navigation("Response");
                 });
 
+            modelBuilder.Entity("Rundfrage.Api.Data.Entities.Poll", b =>
+                {
+                    b.HasOne("Rundfrage.Api.Data.Entities.Creator", "Creator")
+                        .WithMany("Polls")
+                        .HasForeignKey("CreatorId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.Navigation("Creator");
+                });
+
             modelBuilder.Entity("Rundfrage.Api.Data.Entities.PollResponse", b =>
                 {
                     b.HasOne("Rundfrage.Api.Data.Entities.Poll", "Poll")
@@ -282,9 +332,26 @@ namespace Rundfrage.Api.Data.Migrations
                     b.Navigation("WishList");
                 });
 
+            modelBuilder.Entity("Rundfrage.Api.Data.Entities.WishList", b =>
+                {
+                    b.HasOne("Rundfrage.Api.Data.Entities.Creator", "Creator")
+                        .WithMany("WishLists")
+                        .HasForeignKey("CreatorId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.Navigation("Creator");
+                });
+
             modelBuilder.Entity("Rundfrage.Api.Data.Entities.CandidateDay", b =>
                 {
                     b.Navigation("Answers");
+                });
+
+            modelBuilder.Entity("Rundfrage.Api.Data.Entities.Creator", b =>
+                {
+                    b.Navigation("Polls");
+
+                    b.Navigation("WishLists");
                 });
 
             modelBuilder.Entity("Rundfrage.Api.Data.Entities.Poll", b =>

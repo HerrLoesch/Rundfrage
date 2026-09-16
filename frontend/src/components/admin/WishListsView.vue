@@ -75,19 +75,22 @@ async function confirmDelete() {
     <PageHeader :title="t('wish.listTitle')">
       <template #actions>
         <v-btn
+          v-if="!revealed"
           color="primary"
           prepend-icon="mdi-plus"
           data-testid="wish-create-toggle"
           @click="reveal"
         >
-          {{ revealed ? t('wish.createHide') : t('wish.create') }}
+          {{ t('wish.create') }}
         </v-btn>
       </template>
     </PageHeader>
 
     <!-- Unmounted when closed, not hidden. Leaving the entry in a hidden form would mean a wish
-         list half-written yesterday is one click from being created today (FR-042). -->
-    <WishListForm v-if="revealed" class="rf-section-gap" />
+         list half-written yesterday is one click from being created today (FR-042). Cancelling is
+         the form's own button, beside "Anlegen" (FR-042), rather than this toggle turning into an
+         "Abbrechen" with a plus icon that stopped meaning anything. -->
+    <WishListForm v-if="revealed" class="rf-section-gap" @cancel="revealed = false" />
 
     <v-alert
       v-if="listIsGone"
@@ -192,6 +195,11 @@ async function confirmDelete() {
             <span class="rf-meta__item" :data-testid="`wish-untaken-${list.id}`">
               <v-icon icon="mdi-tray-full" size="16" />
               {{ t('wish.untaken', { count: list.untakenItemCount }) }}
+            </span>
+            <!-- Who owns it (009 FR-039); null is the operator's own, said in a word. -->
+            <span class="rf-meta__item" data-testid="wish-list-owner">
+              <v-icon icon="mdi-account-key-outline" size="16" />
+              {{ t('creator.ownerLabel') }}: {{ list.creatorName ?? t('creator.ownerSelf') }}
             </span>
           </div>
 
