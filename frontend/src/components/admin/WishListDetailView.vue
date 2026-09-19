@@ -335,6 +335,14 @@ async function confirmRemoveClaim() {
                 maxlength="200"
                 data-testid="wish-add-item-name"
               />
+              <!--
+                Left empty on purpose, same as the create form: the placeholder shows the 1 an
+                unstated quantity means and the server is what applies it (FR-006).
+                `persistent-placeholder`, because a number field is not in Vuetify's list of
+                always-active types - without it the floating label sits centred over the
+                placeholder at rest, and the "1" is there in the DOM but covered by "Anzahl"
+                until the field is focused.
+              -->
               <v-text-field
                 v-model="newItemCount"
                 class="rf-field-row__narrow"
@@ -343,6 +351,7 @@ async function confirmRemoveClaim() {
                 min="1"
                 max="50"
                 placeholder="1"
+                persistent-placeholder
                 data-testid="wish-add-item-count"
               />
               <v-btn

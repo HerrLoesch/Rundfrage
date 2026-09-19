@@ -205,6 +205,14 @@ public sealed class PollImport(RundfrageDbContext db, BerlinClock clock, ILogger
     {
         var now = clock.Now;
 
+        // CreatorId is deliberately not set, which leaves it null - and null is the operator
+        // (009 FR-053, research R-2). Importing is an operator capability that no Ersteller can
+        // reach (009 FR-028a), so there is no owner to carry and none to read out of the file:
+        // an export document records no ownership, and inventing one from it would let a file
+        // decide who owns what.
+        //
+        // Stated rather than left implicit, because "the default happens to be right" is exactly
+        // the kind of fact that survives until somebody adds an owner parameter here.
         var poll = new Poll
         {
             Id = Guid.CreateVersion7(),

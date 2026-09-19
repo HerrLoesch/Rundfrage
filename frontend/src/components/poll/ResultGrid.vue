@@ -3,6 +3,7 @@ import { computed, ref, useId } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { Availability, PollView } from '../../api/client'
 import { useBestDays } from '../../composables/useBestDays'
+import { parseDateOnly } from '../../dates'
 
 const props = defineProps<{ poll: PollView; deletable?: boolean }>()
 const emit = defineEmits<{
@@ -65,7 +66,7 @@ function labelFor(state: Availability | 'none'): string {
 }
 
 function formatDay(date: string): string {
-  return d(new Date(`${date}T12:00:00`), 'short')
+  return d(parseDateOnly(date), 'short')
 }
 </script>
 

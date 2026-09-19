@@ -20,6 +20,7 @@ export const i18n = createI18n({
   datetimeFormats: {
     de: {
       short: { day: '2-digit', month: '2-digit' },
+      numeric: { day: '2-digit', month: '2-digit', year: 'numeric' },
       long: { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' },
     },
   },

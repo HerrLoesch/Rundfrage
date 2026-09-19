@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
   fetchClaims,
@@ -9,11 +9,12 @@ import {
   type ClaimGroup,
 } from '../../api/client'
 import { useProblemText } from '../../composables/useProblemText'
+import { parseDateOnly } from '../../dates'
 import MaintenanceNotice from '../poll/MaintenanceNotice.vue'
 
 const props = defineProps<{ claimToken: string }>()
 
-const { t } = useI18n()
+const { t, d } = useI18n()
 const problemText = useProblemText()
 
 const group = ref<ClaimGroup | null>(null)
@@ -66,6 +67,11 @@ async function confirmWithdrawal() {
     withdrawing.value = null
   }
 }
+
+/** `group.targetDate` is a bare `DateOnly` string; formatted here rather than at each call site. */
+const targetDateText = computed(() =>
+  group.value ? d(parseDateOnly(group.value.targetDate), 'long') : '',
+)
 </script>
 
 <template>
@@ -90,7 +96,7 @@ async function confirmWithdrawal() {
         <p class="rf-meta text-medium-emphasis mt-2">
           <span class="rf-meta__item">
             <v-icon icon="mdi-calendar" size="16" />
-            {{ t('wish.targetDate') }}: {{ group.targetDate }}
+            {{ t('wish.targetDate') }}: {{ targetDateText }}
           </span>
         </p>
       </header>
@@ -98,7 +104,7 @@ async function confirmWithdrawal() {
       <!-- Closed: the entries stay readable, and withdrawal is gone rather than present and
            refusing, because a place freed now can no longer be claimed (FR-028d). -->
       <v-alert v-if="group.closed" type="info" class="rf-section-gap" data-testid="claim-closed">
-        {{ t('wish.closedSince', { date: group.targetDate }) }}
+        {{ t('wish.closedSince', { date: targetDateText }) }}
       </v-alert>
 
       <v-alert v-if="withdrawn" type="success" class="mb-4" data-testid="claim-withdrawn">

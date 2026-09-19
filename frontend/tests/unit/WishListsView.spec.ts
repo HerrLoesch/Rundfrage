@@ -121,7 +121,10 @@ describe('WishListsView', () => {
     await wrapper.get('[data-testid="wish-create-toggle"]').trigger('click')
     expect(wrapper.find('[data-testid="wish-list-form"]').exists()).toBe(true)
 
-    await wrapper.get('[data-testid="wish-create-toggle"]').trigger('click')
+    // Cancelling is the form's own button, beside "Anlegen" - not the toggle that opened it,
+    // which is gone from the header while the form is open.
+    expect(wrapper.find('[data-testid="wish-create-toggle"]').exists()).toBe(false)
+    await wrapper.get('[data-testid="wish-form-cancel"]').trigger('click')
     expect(wrapper.find('[data-testid="wish-list-form"]').exists()).toBe(false)
   })
 

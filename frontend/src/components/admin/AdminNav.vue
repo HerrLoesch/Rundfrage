@@ -28,7 +28,7 @@ const visible = computed({
 /**
  * The whole navigation, as a list rather than as data (Principle III).
  *
- * Four entries, so there is still no registry, no configuration and no plugin point. FR-003 fixes
+ * Five entries, so there is still no registry, no configuration and no plugin point. FR-003 fixes
  * the order - dashboard first, feature areas in the middle, settings last - and FR-004 forbids an
  * entry for anything unbuilt. Feature 008 added the second middle entry by adding a line here,
  * which is what the shape was for.
@@ -79,6 +79,15 @@ const entries = computed(() => [
     label: t('nav.wishLists'),
     icon: 'mdi-gift-outline',
     testid: 'nav-wish-lists',
+  },
+  {
+    // The third middle entry (009 FR-043). One route name, unlike the two above: there is no
+    // detail destination, because an Ersteller is a row rather than a page.
+    to: '/admin/ersteller',
+    owns: ['creators'],
+    label: t('nav.creators'),
+    icon: 'mdi-account-key-outline',
+    testid: 'nav-creators',
   },
   {
     to: '/admin/einstellungen',

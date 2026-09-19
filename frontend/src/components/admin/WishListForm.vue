@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useWishListsStore } from '../../stores/wishLists'
 import { useProblemText } from '../../composables/useProblemText'
+import { today } from '../../dates'
 import ShareLink from '../poll/ShareLink.vue'
 
 const { t } = useI18n()
@@ -15,9 +16,18 @@ interface ItemRow {
   wantedCount: string
 }
 
+const emit = defineEmits<{ cancel: [] }>()
+
 const title = ref('')
 const description = ref('')
-const targetDate = ref('')
+/**
+ * Starts on today rather than empty (same reasoning as `poll.days` in PollForm.vue): WebKit
+ * renders an empty date field with today's actual digits, not a distinguishable placeholder, so
+ * an untouched field already looked filled and a submission of it arrived as an empty string
+ * instead - reaching the operator as "please give a target date" for a field that visibly had
+ * one.
+ */
+const targetDate = ref(today())
 const items = ref<ItemRow[]>([{ name: '', wantedCount: '' }])
 const busy = ref(false)
 const createdToken = ref<string | null>(null)
@@ -54,7 +64,7 @@ async function submit() {
       createdToken.value = created.listToken
       title.value = ''
       description.value = ''
-      targetDate.value = ''
+      targetDate.value = today()
       items.value = [{ name: '', wantedCount: '' }]
     }
   } finally {
@@ -125,7 +135,10 @@ async function submit() {
               />
               <!--
                 Left empty on purpose. The placeholder shows the 1 that an unstated quantity means,
-                and the server is what applies it (FR-006).
+                and the server is what applies it (FR-006). `persistent-placeholder`, because a
+                number field is not in Vuetify's list of always-active types - without it the
+                floating label sits centred over the placeholder at rest, and the "1" is there in
+                the DOM but covered by "Anzahl" until the field is focused.
               -->
               <v-text-field
                 v-model="item.wantedCount"
@@ -135,6 +148,7 @@ async function submit() {
                 min="1"
                 max="50"
                 placeholder="1"
+                persistent-placeholder
                 :data-testid="`wish-form-item-count-${index}`"
               />
               <v-btn
@@ -163,7 +177,9 @@ async function submit() {
           {{ problemText(store.problem) }}
         </v-alert>
 
-        <div>
+        <!-- Cancel sits beside the submit it belongs to, not up in the page header where it read
+             as an unrelated toggle carrying the "add" icon of the button it replaced. -->
+        <div class="d-flex ga-2">
           <v-btn
             type="submit"
             color="primary"
@@ -172,6 +188,14 @@ async function submit() {
             data-testid="wish-form-submit"
           >
             {{ t('wish.submit') }}
+          </v-btn>
+          <v-btn
+            variant="text"
+            size="large"
+            data-testid="wish-form-cancel"
+            @click="emit('cancel')"
+          >
+            {{ t('wish.createHide') }}
           </v-btn>
         </div>
 

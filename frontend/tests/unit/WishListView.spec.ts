@@ -85,15 +85,15 @@ describe('WishListView', () => {
       .toBeLessThan(html.indexOf('data-testid="wish-submit"'))
   })
 
-  it('numbers the two things it asks for, and the numbers are decorative', async () => {
+  it('numbers the three things it asks for, and the numbers are decorative', async () => {
     // The digits repeat what the headings already say, so a screen reader is spared "one Wie
     // heißt du" - the order it needs is carried by the document (FR-056).
     const wrapper = mountView()
     await flush()
 
     const steps = wrapper.findAll('.rf-step__number')
-    expect(steps).toHaveLength(2)
-    expect(steps.map((step) => step.text())).toEqual(['1', '2'])
+    expect(steps).toHaveLength(3)
+    expect(steps.map((step) => step.text())).toEqual(['1', '2', '3'])
     expect(steps.every((step) => step.attributes('aria-hidden') === 'true')).toBe(true)
   })
 

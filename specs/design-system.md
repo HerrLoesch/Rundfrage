@@ -11,7 +11,7 @@ itself, so a 24px gap is correct only if the 24px gap above it was one too.
 The decisions now live in two files and the components spend them.
 
 - **`frontend/src/styles/app.css`** — the spacing scale, the two content widths, the type scale and
-  the handful of shared arrangements (`rf-meta`, `rf-field-row`, `rf-tile`, `rf-address`).
+  the handful of shared arrangements (`rf-meta`, `rf-field-row`, `rf-tile`, `rf-address`, `rf-step`).
 - **`frontend/src/vuetify.ts`** — the component defaults: field variant and density, card border,
   dialog width.
 - **`frontend/src/components/layout/PageHeader.vue`** — the top of every routed view.

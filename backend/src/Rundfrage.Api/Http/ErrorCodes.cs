@@ -108,4 +108,32 @@ public static class ErrorCodes
 
     /// <summary>The target day has ended, so nothing may be claimed or withdrawn (008 FR-028a).</summary>
     public const string WishListClosed = "wish_list_closed";
+
+    // --- Ersteller (feature 009) -----------------------------------------------------------
+    // Operator-side only. An Ersteller is created, renamed and deleted by the operator, so every
+    // refusal here is raised where the operator works and carries what makes it actionable
+    // (009 FR-001, FR-002, FR-009).
+
+    /// <summary>An Ersteller was created or renamed without a name (009 FR-001).</summary>
+    public const string CreatorNameRequired = "creator_name_required";
+
+    /// <summary>The name exceeds its limit of 100 characters (009 FR-002).</summary>
+    public const string CreatorNameTooLong = "creator_name_too_long";
+
+    /// <summary>
+    /// The name is already taken. Carries the colliding name in <c>detail</c>, because the
+    /// operator cannot act on a collision they cannot see (009 FR-002).
+    /// </summary>
+    /// <remarks>
+    /// Revoked Ersteller count: a revoked one still exists and still owns content, so its name is
+    /// still taken. Only deleting an Ersteller releases its name (009 FR-002, FR-020).
+    /// </remarks>
+    public const string CreatorNameDuplicate = "creator_name_duplicate";
+
+    /// <summary>
+    /// A hundred Ersteller already exist. Carries the limit, and the interface adds the sentence
+    /// that matters more than the number: a place is freed by <i>deleting</i> an Ersteller, not by
+    /// revoking one (009 FR-009, FR-009a).
+    /// </summary>
+    public const string CreatorLimitReached = "creator_limit_reached";
 }

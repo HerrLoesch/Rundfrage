@@ -69,10 +69,16 @@
     "count_below_entries": "Es sind bereits {limit} Zusagen eingetragen. Die Anzahl kann nicht darunter liegen — entferne zuerst Zusagen.",
     "unknown_item": "Dieser Eintrag gehört nicht zu dieser Wunschliste.",
     "item_full": "Dafür haben sich schon genug Leute eingetragen.",
-    "wish_list_closed": "Diese Wunschliste ist geschlossen."
+    "wish_list_closed": "Diese Wunschliste ist geschlossen.",
+    "creator_name_required": "Bitte einen Namen für den Ersteller angeben.",
+    "creator_name_too_long": "Der Name darf höchstens {limit} Zeichen lang sein.",
+    "creator_name_duplicate": "Es gibt bereits einen Ersteller namens „{detail}“.",
+    "creator_limit_reached": "Es sind höchstens {limit} Ersteller möglich. Ein Platz wird frei, wenn ein Ersteller gelöscht wird – das Sperren eines Links gibt keinen frei."
   },
   "participate": {
-    "answerTitle": "Deine Rückmeldung",
+    "stepName": "Wie heißt du?",
+    "stepAvailability": "Wann kannst du?",
+    "stepSubmit": "Abschicken",
     "name": "Dein Name",
     "visibilityNotice": "Dein Name und deine Antworten sind für alle sichtbar, die diesen Link haben.",
     "submit": "Antwort abschicken",
@@ -186,7 +192,8 @@
     "settings": "Einstellungen",
     "toggle": "Navigation ein- oder ausblenden",
     "label": "Bereiche",
-    "wishLists": "Wunschlisten"
+    "wishLists": "Wunschlisten",
+    "creators": "Ersteller"
   },
   "shell": {
     "signOut": "Abmelden"
@@ -223,7 +230,8 @@
     "wishListsColumnDate": "Zieldatum",
     "wishListsColumnState": "Status",
     "wishListsColumnEntries": "Zusagen",
-    "wishListsColumnFilled": "Belegt"
+    "wishListsColumnFilled": "Belegt",
+    "wishListsColumnOwner": "Erstellt von"
   },
   "wish": {
     "listTitle": "Wunschlisten",
@@ -274,6 +282,7 @@
     "title": "Was bringst du mit?",
     "name": "Dein Name",
     "stepName": "Wie heißt du?",
+    "stepSubmit": "Abschicken",
     "visibilityNotice": "Dein Name ist für alle sichtbar, die diesen Link haben.",
     "choose": "Auswählen",
     "chosen": "Ausgewählt",
@@ -291,5 +300,54 @@
     "allWithdrawn": "Du hast alle deine Einträge zurückgezogen. Über den Wunschlisten-Link kannst du dich jederzeit neu eintragen.",
     "lostLink": "Ohne diesen Link kannst du deinen Eintrag nicht selbst zurückziehen — wende dich an die Person, die die Liste angelegt hat.",
     "notFound": "Diesen Link gibt es nicht (mehr)."
+  },
+  "creator": {
+    "listTitle": "Ersteller",
+    "intro": "Personen, die über einen eigenen Link selbst Terminfindungen und Wunschlisten anlegen können.",
+    "empty": "Es gibt noch keine Ersteller.",
+    "emptyAction": "Ersten Ersteller anlegen",
+    "unavailable": "Die gespeicherten Daten können gerade nicht gelesen werden.",
+    "create": "Ersteller anlegen",
+    "name": "Name",
+    "nameHint": "Nur für dich – der Ersteller tippt diesen Namen nirgendwo ein.",
+    "created": "Angelegt am",
+    "pollCount": "Terminfindungen",
+    "wishListCount": "Wunschlisten",
+    "link": "Link",
+    "linkCopy": "Link kopieren",
+    "linkCopied": "Link kopiert",
+    "noLink": "Kein gültiger Link – gesperrt",
+    "ownerSelf": "Eigene",
+    "ownerLabel": "Erstellt von",
+    "save": "Speichern",
+    "cancel": "Abbrechen",
+    "rename": "Umbenennen",
+    "renameTitle": "Ersteller umbenennen",
+    "reissue": "Neuen Link erzeugen",
+    "reissueTitle": "Neuen Link erzeugen?",
+    "reissueBody": "Der bisherige Link von „{name}“ hört sofort auf zu funktionieren. Alles, was damit angelegt wurde, bleibt unverändert erhalten.",
+    "reissueConfirm": "Neuen Link erzeugen",
+    "revoke": "Link sperren",
+    "revokeTitle": "Link sperren?",
+    "revokeBody": "Der Link von „{name}“ hört sofort auf zu funktionieren. Es wird nichts gelöscht: die {pollCount} Terminfindungen und {wishListCount} Wunschlisten bleiben erhalten und gehören weiterhin „{name}“. Du kannst jederzeit einen neuen Link erzeugen.",
+    "revokeConfirm": "Link sperren",
+    "delete": "Ersteller löschen",
+    "deleteTitle": "Ersteller endgültig löschen?",
+    "deleteBody": "„{name}“ wird gelöscht – zusammen mit {pollCount} Terminfindungen und {wishListCount} Wunschlisten samt allen Antworten und Einträgen darin. Das lässt sich nicht rückgängig machen.",
+    "deleteKeepHint": "Die Inhalte können nicht übernommen werden. Wenn du etwas behalten willst, exportiere es vorher.",
+    "deleteConfirm": "Endgültig löschen",
+    "surfaceGreeting": "Angemeldet als {name}",
+    "surfaceWarning": "Jede Person mit diesem Link kann alles, was du hier kannst: anlegen, ändern und löschen. Gib ihn nur weiter, wenn das so gewollt ist.",
+    "surfacePolls": "Meine Terminfindungen",
+    "surfaceWishLists": "Meine Wunschlisten",
+    "surfacePollsEmpty": "Du hast noch keine Terminfindung angelegt.",
+    "surfaceWishListsEmpty": "Du hast noch keine Wunschliste angelegt.",
+    "surfaceNewPoll": "Terminfindung anlegen",
+    "surfaceNewWishList": "Wunschliste anlegen",
+    "surfaceExport": "Antworten herunterladen",
+    "surfaceClosed": "Zurück zur Übersicht",
+    "surfaceDaysPlaceholder": "2026-12-01, 2026-12-02",
+    "surfaceDatePlaceholder": "2026-12-24",
+    "surfaceItemsPlaceholder": "Kuchen, Getränke"
   }
 }

@@ -34,6 +34,9 @@ services:
       # FR-027a's ten per hour is the default. Raised only for end-to-end runs, which submit
       # far more than that from one machine; leave it unset for anything resembling production.
       SUBMISSION_LIMIT_PER_HOUR: ${SUBMISSION_LIMIT_PER_HOUR:-10}
+      # 009 FR-036's sixty per hour is the default, and is separate from the budget above so a
+      # creator and a participant on one address cannot spend each other's (research R-5).
+      CREATOR_WRITE_LIMIT_PER_HOUR: ${CREATOR_WRITE_LIMIT_PER_HOUR:-60}
       # Number of reverse proxies in front of the application. Zero here, because this file
       # publishes the port itself and there is nothing in between - a forwarded header would be
       # the caller's own claim about themselves. Set it only where a proxy really does stand in

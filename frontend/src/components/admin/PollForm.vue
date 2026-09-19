@@ -3,28 +3,12 @@ import { ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { usePollsStore } from '../../stores/polls'
 import { useProblemText } from '../../composables/useProblemText'
+import { today, parseDateOnly } from '../../dates'
 import ShareLink from '../poll/ShareLink.vue'
 
 const { t, d } = useI18n()
 const polls = usePollsStore()
 const problemText = useProblemText()
-
-/**
- * Today, as the browser's date input wants it.
- *
- * The field starts filled rather than empty. An empty `<input type="date">` renders only a
- * placeholder, which reads as though a date were already there - pressing "add" then did
- * nothing, silently, because the model held an empty string. What is visible is now what gets
- * added.
- */
-function today(): string {
-  const now = new Date()
-  return [
-    now.getFullYear(),
-    String(now.getMonth() + 1).padStart(2, '0'),
-    String(now.getDate()).padStart(2, '0'),
-  ].join('-')
-}
 
 const title = ref('')
 const message = ref('')
@@ -54,7 +38,7 @@ function addDay() {
 
   // Advance to the following day: picking a run of dates is the common case, and leaving the
   // field empty would bring back the very confusion this fixes.
-  const next = new Date(`${day}T12:00:00`)
+  const next = parseDateOnly(day)
   next.setDate(next.getDate() + 1)
   dayInput.value = [
     next.getFullYear(),
@@ -75,7 +59,7 @@ const retentionText = computed(() =>
 )
 
 function formatDay(day: string): string {
-  return d(new Date(`${day}T12:00:00`), 'long')
+  return d(parseDateOnly(day), 'long')
 }
 
 async function submit() {

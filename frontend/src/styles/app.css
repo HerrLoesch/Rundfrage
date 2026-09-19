@@ -128,6 +128,43 @@
 
 .rf-address:hover { text-decoration: underline; }
 
+/* --- A numbered step -------------------------------------------------------------------- */
+
+/*
+ * Shared by the two participant surfaces (the wish-list claim form and the poll answer form),
+ * which is why it lives here rather than in either component's scoped style - one now, not two
+ * copies that drift.
+ *
+ * The number is decorative - `aria-hidden`, because the heading text already says what the step
+ * asks for, and a screen reader announcing "one Wie heißt du" reads worse than the heading alone.
+ * The order is carried by the document, which is the thing that actually has to be right.
+ */
+.rf-step + .rf-step { margin-block-start: var(--rf-section); }
+
+.rf-step__head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-block-end: var(--rf-heading);
+}
+
+.rf-step__number {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  inline-size: 28px;
+  block-size: 28px;
+  border-radius: 50%;
+  background: rgb(var(--v-theme-primary));
+  color: rgb(var(--v-theme-on-primary));
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1;
+}
+
+/* A name is short; a field spanning the whole column invites an essay. */
+.rf-step__name { max-width: 24rem; }
+
 /* --- Field groups --------------------------------------------------------------------- */
 
 /*

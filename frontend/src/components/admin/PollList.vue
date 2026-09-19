@@ -188,6 +188,15 @@ async function confirmDelete() {
               <v-icon icon="mdi-timer-sand" size="16" />
               {{ t('poll.retention') }}: {{ d(new Date(poll.retentionDeadline), 'long') }}
             </span>
+            <!--
+              Who owns it (009 FR-039). Null means the operator's own, and is rendered as a word
+              rather than as a blank cell - a blank cell reads as missing data rather than as
+              "mine".
+            -->
+            <span class="rf-meta__item" data-testid="poll-owner">
+              <v-icon icon="mdi-account-key-outline" size="16" />
+              {{ t('creator.ownerLabel') }}: {{ poll.creatorName ?? t('creator.ownerSelf') }}
+            </span>
           </div>
 
           <!--
@@ -262,6 +271,7 @@ async function confirmDelete() {
 
 .rf-row__body {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-start;
   gap: 24px;
   padding: var(--rf-card-pad);

@@ -104,6 +104,17 @@ describe('AnswerForm', () => {
     }
   })
 
+  it('numbers the three things it asks for, and the numbers are decorative', () => {
+    // Same pattern as the wish-list claim form (FR-056): who you are, what you're asked, then
+    // the action that sends it.
+    const { wrapper } = mountForm()
+
+    const steps = wrapper.findAll('.rf-step__number')
+    expect(steps).toHaveLength(3)
+    expect(steps.map((step) => step.text())).toEqual(['1', '2', '3'])
+    expect(steps.every((step) => step.attributes('aria-hidden') === 'true')).toBe(true)
+  })
+
   it('names the button differently when revising', () => {
     expect(mountForm('submit').wrapper.get('[data-testid="answer-submit"]').text())
       .toContain(de.participate.submit)
