@@ -101,7 +101,8 @@ describe('the creator surface', () => {
 
     const listRow = wrapper.find('[data-testid="creator-wish-list-row"]')
     expect(listRow.text()).toContain('Sommerfest')
-    expect(listRow.text()).toContain('2099-07-18')
+    // Formatted for German, not the bare `DateOnly` string the API returns.
+    expect(listRow.text()).toContain('18.07.2099')
   })
 
   it('opens a poll in place, without a second address (FR-028d, FR-028e)', async () => {

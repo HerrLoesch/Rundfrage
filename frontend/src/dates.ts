@@ -14,3 +14,14 @@ export function today(): string {
     String(now.getDate()).padStart(2, '0'),
   ].join('-')
 }
+
+/**
+ * Turns a `DateOnly` string like "2026-10-22" into a `Date` fit for display.
+ *
+ * Handing that string straight to `new Date()` parses it as UTC midnight, which at a
+ * UTC-negative offset falls on the *previous* local day - so a date could render one day early.
+ * Noon has no timezone offset large enough to cross a day boundary either way.
+ */
+export function parseDateOnly(value: string): Date {
+  return new Date(`${value}T12:00:00`)
+}

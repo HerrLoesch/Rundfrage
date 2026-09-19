@@ -4,11 +4,12 @@ import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { useWishListsStore, filledPercent, isComplete } from '../../stores/wishLists'
 import { useSessionStore } from '../../stores/session'
+import { parseDateOnly } from '../../dates'
 import WishListForm from './WishListForm.vue'
 import PageHeader from '../layout/PageHeader.vue'
 import type { WishListSummary } from '../../api/client'
 
-const { t } = useI18n()
+const { t, d } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const store = useWishListsStore()
@@ -52,6 +53,11 @@ const listIsGone = computed(() => route.query.gone === '1')
  */
 function share(listToken: string): string {
   return `${window.location.origin}/w/${listToken}`
+}
+
+/** `targetDate` is a bare `DateOnly` string; formatted here rather than at each call site. */
+function formatTargetDate(targetDate: string): string {
+  return d(parseDateOnly(targetDate), 'numeric')
 }
 
 /**
@@ -180,7 +186,7 @@ async function confirmDelete() {
           <div class="rf-meta text-medium-emphasis mt-1">
             <span class="rf-meta__item">
               <v-icon icon="mdi-calendar" size="16" />
-              {{ list.targetDate }}
+              {{ formatTargetDate(list.targetDate) }}
             </span>
             <span class="rf-meta__item" :data-testid="`wish-entries-${list.id}`">
               <v-icon icon="mdi-account-multiple-outline" size="16" />
@@ -285,6 +291,7 @@ async function confirmDelete() {
 
 .rf-row__body {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-start;
   gap: 24px;
   padding: var(--rf-card-pad);

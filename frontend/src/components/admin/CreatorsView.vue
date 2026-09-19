@@ -8,7 +8,7 @@ import DeleteConfirm from './DeleteConfirm.vue'
 import PageHeader from '../layout/PageHeader.vue'
 import type { CreatorSummary } from '../../api/client'
 
-const { t } = useI18n()
+const { t, d } = useI18n()
 const router = useRouter()
 const store = useCreatorsStore()
 const session = useSessionStore()
@@ -232,7 +232,7 @@ const problemText = computed(() => {
             <div class="rf-meta text-medium-emphasis mt-1">
               <span class="rf-meta__item" data-testid="creator-created">
                 <v-icon icon="mdi-calendar" size="16" />
-                {{ new Date(creator.createdAt).toLocaleDateString('de-DE') }}
+                {{ d(new Date(creator.createdAt), 'numeric') }}
               </span>
               <span class="rf-meta__item" data-testid="creator-poll-count">
                 <v-icon icon="mdi-calendar-multiselect" size="16" />
@@ -376,6 +376,7 @@ const problemText = computed(() => {
 
 .rf-row__body {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-start;
   gap: 24px;
   padding: var(--rf-card-pad);

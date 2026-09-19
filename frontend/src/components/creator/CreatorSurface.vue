@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n'
 import { useCreatorStore } from '../../stores/creator'
 import { filledPercent, isComplete } from '../../stores/wishLists'
 import { creatorExportUrl } from '../../api/client'
+import { parseDateOnly } from '../../dates'
 
 /**
  * Everything an Ersteller reaches, on the one page their link leads to (009 FR-024 to FR-028g).
@@ -24,7 +25,7 @@ import { creatorExportUrl } from '../../api/client'
  */
 const props = defineProps<{ creatorToken: string }>()
 
-const { t } = useI18n()
+const { t, d } = useI18n()
 const store = useCreatorStore()
 
 const newPollTitle = ref('')
@@ -54,6 +55,11 @@ const problemText = computed(() => {
 
 function share(path: string, token: string): string {
   return `${window.location.origin}/${path}/${token}`
+}
+
+/** `targetDate` is a bare `DateOnly` string; formatted here rather than at each call site. */
+function formatTargetDate(targetDate: string): string {
+  return d(parseDateOnly(targetDate), 'numeric')
 }
 
 async function createPoll() {
@@ -344,7 +350,7 @@ async function createWishList() {
               <div class="rf-meta text-medium-emphasis mt-1">
                 <span class="rf-meta__item">
                   <v-icon icon="mdi-calendar" size="16" />
-                  {{ list.targetDate }}
+                  {{ formatTargetDate(list.targetDate) }}
                 </span>
                 <span class="rf-meta__item">
                   <v-icon icon="mdi-account-multiple-outline" size="16" />
@@ -418,6 +424,7 @@ async function createWishList() {
 
 .rf-row__body {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-start;
   gap: 24px;
   padding: var(--rf-card-pad);

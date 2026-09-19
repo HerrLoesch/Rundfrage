@@ -17,6 +17,9 @@ export const i18n = createI18n({
   datetimeFormats: {
     de: {
       short: { day: '2-digit', month: '2-digit' },
+      // Day, month and year, compact - for a table cell or a meta chip beside other short figures,
+      // where `long`'s weekday and month name would be the widest thing in the row.
+      numeric: { day: '2-digit', month: '2-digit', year: 'numeric' },
       long: { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' },
     },
   },

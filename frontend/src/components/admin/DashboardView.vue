@@ -6,6 +6,7 @@ import { useDashboardStore } from '../../stores/dashboard'
 import { useWishListsStore, filledPercent } from '../../stores/wishLists'
 import { useMaintenanceStore } from '../../stores/maintenance'
 import { useSessionStore } from '../../stores/session'
+import { parseDateOnly } from '../../dates'
 import PageHeader from '../layout/PageHeader.vue'
 
 const { t, d } = useI18n()
@@ -72,6 +73,11 @@ const sinceText = computed(() =>
     ? t('maintenance.since', { moment: d(new Date(maintenance.since), 'long') })
     : null,
 )
+
+/** `targetDate` is a bare `DateOnly` string; formatted here rather than at each call site. */
+function formatTargetDate(targetDate: string): string {
+  return d(parseDateOnly(targetDate), 'numeric')
+}
 </script>
 
 <template>
@@ -302,7 +308,7 @@ const sinceText = computed(() =>
                     {{ list.title }}
                   </RouterLink>
                 </td>
-                <td class="text-no-wrap">{{ list.targetDate }}</td>
+                <td class="text-no-wrap">{{ formatTargetDate(list.targetDate) }}</td>
                 <td class="text-no-wrap">{{ list.closed ? t('wish.closed') : t('wish.open') }}</td>
                 <td class="text-no-wrap" data-testid="dashboard-wish-list-owner">
                   {{ list.creatorName ?? t('creator.ownerSelf') }}

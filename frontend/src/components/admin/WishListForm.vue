@@ -135,7 +135,10 @@ async function submit() {
               />
               <!--
                 Left empty on purpose. The placeholder shows the 1 that an unstated quantity means,
-                and the server is what applies it (FR-006).
+                and the server is what applies it (FR-006). `persistent-placeholder`, because a
+                number field is not in Vuetify's list of always-active types - without it the
+                floating label sits centred over the placeholder at rest, and the "1" is there in
+                the DOM but covered by "Anzahl" until the field is focused.
               -->
               <v-text-field
                 v-model="item.wantedCount"
@@ -145,6 +148,7 @@ async function submit() {
                 min="1"
                 max="50"
                 placeholder="1"
+                persistent-placeholder
                 :data-testid="`wish-form-item-count-${index}`"
               />
               <v-btn

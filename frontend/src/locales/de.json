@@ -76,7 +76,9 @@
     "creator_limit_reached": "Es sind höchstens {limit} Ersteller möglich. Ein Platz wird frei, wenn ein Ersteller gelöscht wird – das Sperren eines Links gibt keinen frei."
   },
   "participate": {
-    "answerTitle": "Deine Rückmeldung",
+    "stepName": "Wie heißt du?",
+    "stepAvailability": "Wann kannst du?",
+    "stepSubmit": "Abschicken",
     "name": "Dein Name",
     "visibilityNotice": "Dein Name und deine Antworten sind für alle sichtbar, die diesen Link haben.",
     "submit": "Antwort abschicken",
@@ -280,6 +282,7 @@
     "title": "Was bringst du mit?",
     "name": "Dein Name",
     "stepName": "Wie heißt du?",
+    "stepSubmit": "Abschicken",
     "visibilityNotice": "Dein Name ist für alle sichtbar, die diesen Link haben.",
     "choose": "Auswählen",
     "chosen": "Ausgewählt",

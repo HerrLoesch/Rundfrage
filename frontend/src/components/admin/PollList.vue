@@ -271,6 +271,7 @@ async function confirmDelete() {
 
 .rf-row__body {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-start;
   gap: 24px;
   padding: var(--rf-card-pad);

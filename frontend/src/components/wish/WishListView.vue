@@ -8,12 +8,13 @@ import {
   type ParticipantWishList,
 } from '../../api/client'
 import { useProblemText } from '../../composables/useProblemText'
+import { parseDateOnly } from '../../dates'
 import ShareLink from '../poll/ShareLink.vue'
 import MaintenanceNotice from '../poll/MaintenanceNotice.vue'
 
 const props = defineProps<{ listToken: string }>()
 
-const { t } = useI18n()
+const { t, d } = useI18n()
 const problemText = useProblemText()
 
 const list = ref<ParticipantWishList | null>(null)
@@ -85,6 +86,11 @@ async function submit() {
 const refusal = computed(() =>
   problem.value?.code === 'nothing_chosen' ? t('claim.nothingChosen') : problemText(problem.value),
 )
+
+/** `list.targetDate` is a bare `DateOnly` string; formatted here rather than at each call site. */
+const targetDateText = computed(() =>
+  list.value ? d(parseDateOnly(list.value.targetDate), 'long') : '',
+)
 </script>
 
 <template>
@@ -111,7 +117,7 @@ const refusal = computed(() =>
         <p class="rf-meta text-medium-emphasis mt-2" data-testid="wish-view-target">
           <span class="rf-meta__item">
             <v-icon icon="mdi-calendar" size="16" />
-            {{ t('wish.targetDate') }}: {{ list.targetDate }}
+            {{ t('wish.targetDate') }}: {{ targetDateText }}
           </span>
         </p>
       </header>
@@ -119,7 +125,7 @@ const refusal = computed(() =>
       <!-- The list is closed: everything it showed is still shown, and the form is honestly
            absent rather than present and refusing (FR-028b). -->
       <v-alert v-if="list.closed" type="info" class="rf-section-gap" data-testid="wish-closed">
-        {{ t('wish.closedSince', { date: list.targetDate }) }}
+        {{ t('wish.closedSince', { date: targetDateText }) }}
       </v-alert>
 
       <v-alert v-if="claimToken" type="success" class="rf-section-gap" data-testid="wish-submitted">
@@ -235,7 +241,12 @@ const refusal = computed(() =>
           </v-card>
         </section>
 
-        <div v-if="!list.closed" class="rf-step__submit">
+        <section v-if="!list.closed" class="rf-step">
+          <h2 class="rf-step__head">
+            <span class="rf-step__number" aria-hidden="true">3</span>
+            <span class="rf-title text-h5">{{ t('claim.stepSubmit') }}</span>
+          </h2>
+
           <v-alert v-if="problem" type="error" class="rf-heading-gap" data-testid="wish-problem">
             {{ refusal }}
           </v-alert>
@@ -249,7 +260,7 @@ const refusal = computed(() =>
           >
             {{ t('claim.submit') }}
           </v-btn>
-        </div>
+        </section>
       </component>
 
     </template>
@@ -257,40 +268,7 @@ const refusal = computed(() =>
 </template>
 
 <style scoped>
-/*
- * A numbered step. The number is decorative - `aria-hidden`, because the heading text already
- * says what the step asks for and a screen reader announcing "one Wie heißt du" reads worse than
- * the heading alone. The order is carried by the document, which is the thing that actually has
- * to be right.
- */
-.rf-step + .rf-step { margin-block-start: var(--rf-section); }
-
-.rf-step__head {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-block-end: var(--rf-heading);
-}
-
-.rf-step__number {
-  flex: 0 0 auto;
-  display: grid;
-  place-items: center;
-  inline-size: 28px;
-  block-size: 28px;
-  border-radius: 50%;
-  background: rgb(var(--v-theme-primary));
-  color: rgb(var(--v-theme-on-primary));
-  font-size: 0.875rem;
-  font-weight: 600;
-  line-height: 1;
-}
-
-/* A name is short; a field spanning the whole column invites an essay. */
-.rf-step__name { max-width: 24rem; }
-
-/* The action that ends the form, set off from the last step above it. */
-.rf-step__submit { margin-block-start: var(--rf-section); }
+/* .rf-step and its parts are shared with the poll answer form and live in app.css. */
 
 .rf-wish-item {
   display: flex;
