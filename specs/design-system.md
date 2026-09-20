@@ -104,3 +104,19 @@ set -a && . ./.env && set +a
 ```
 
 Both widths, every time. The 375px pass is what catches a row that stops wrapping.
+
+## Colour system
+
+The application uses an Audi-inspired colour direction: Audi red is the primary accent, black and
+white form the foundation, and muted neutral surfaces keep the content readable. The source of
+truth is the `rundfrage` theme in `frontend/src/vuetify.ts`; components use semantic Vuetify names
+such as `primary`, `error`, `warning`, `success`, `info` and `state-yes` rather than hex values.
+
+The existing Rundfrage wordmark remains unchanged. This is an Audi-inspired interface treatment,
+not a claim to reproduce official Audi brand assets or typography.
+
+Answer states must never rely on colour alone. `AnswerForm.vue` and `ResultGrid.vue` retain their
+check, help, close and minus icons together with accessible text, so the result remains legible in
+greyscale and for users with colour-vision differences. Any future colour change must check normal
+text, button text, links, focus indicators and state marks against WCAG AA at both 1440px and
+375px.

@@ -1,10 +1,8 @@
 import { mount, type ComponentMountingOptions } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { createI18n } from 'vue-i18n'
-import { createVuetify } from 'vuetify'
-import * as components from 'vuetify/components'
-import * as directives from 'vuetify/directives'
 import de from '../../src/locales/de.json'
+import { vuetify } from '../../src/vuetify'
 
 /**
  * One place that mounts a component the way the application does.
@@ -25,8 +23,6 @@ export const i18n = createI18n({
     },
   },
 })
-
-export const vuetify = createVuetify({ components, directives })
 
 /**
  * @param prepare runs after the store is activated but *before* the component renders. State
