@@ -81,15 +81,6 @@ const entries = computed(() => [
     testid: 'nav-wish-lists',
   },
   {
-    // The third middle entry (009 FR-043). One route name, unlike the two above: there is no
-    // detail destination, because an Ersteller is a row rather than a page.
-    to: '/admin/ersteller',
-    owns: ['creators'],
-    label: t('nav.creators'),
-    icon: 'mdi-account-key-outline',
-    testid: 'nav-creators',
-  },
-  {
     // The fourth middle entry (010 FR-043-equivalent, ui-contract.md §1). Two route names, like
     // the poll and wish-list entries: a form's builder is a detail destination of its own
     // (/admin/formulare/:formId), unlike the single-route Ersteller area beside it.
@@ -98,6 +89,15 @@ const entries = computed(() => [
     label: t('nav.forms'),
     icon: 'mdi-form-select',
     testid: 'nav-forms',
+  },
+  {
+    // The third middle entry (009 FR-043). One route name, unlike the two above: there is no
+    // detail destination, because an Ersteller is a row rather than a page.
+    to: '/admin/ersteller',
+    owns: ['creators'],
+    label: t('nav.creators'),
+    icon: 'mdi-account-key-outline',
+    testid: 'nav-creators',
   },
   {
     to: '/admin/einstellungen',
