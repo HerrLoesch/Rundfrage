@@ -1,3 +1,5 @@
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.EntityFrameworkCore;
 using Rundfrage.Api.Creators;
@@ -5,6 +7,7 @@ using Rundfrage.Api.Data;
 using Rundfrage.Api.Endpoints.Admin;
 using Rundfrage.Api.Endpoints.Creator;
 using Rundfrage.Api.Endpoints.Public;
+using Rundfrage.Api.Forms;
 using Rundfrage.Api.Http;
 using Rundfrage.Api.Maintenance;
 using Rundfrage.Api.Retention;
@@ -90,6 +93,12 @@ builder.Services.AddScoped<CreatorProjection>();
 // after the token resolves; creator handlers receive this and never RundfrageDbContext, which is
 // what makes 009 FR-033 structural rather than a review comment (009 research R-1).
 builder.Services.AddScoped<OwnerScope>();
+
+// Feature 010. A sibling of the poll, wish and creator services for the same reason theirs are
+// (Principle III). Deliberately operator-only: no owner column, no OwnerScope method
+// (010 FR-032, research R-3).
+builder.Services.AddScoped<FormService>();
+builder.Services.AddScoped<FormExport>();
 builder.Services.AddScoped<RetentionService>();
 builder.Services.AddScoped<RestoreService>();
 
@@ -138,6 +147,13 @@ builder.Services
         };
     });
 builder.Services.AddAuthorization();
+
+// 010: FieldType is the first enum this system exposes over the wire. Serialised as the camelCase
+// text the contract specifies (e.g. "postalCode"), never as its ordinal, so the database and a
+// request body agree on the same seven spellings a person can read.
+builder.Services.ConfigureHttpJsonOptions(options =>
+    options.SerializerOptions.Converters.Add(
+        new JsonStringEnumConverter(JsonNamingPolicy.CamelCase)));
 
 var app = builder.Build();
 
@@ -220,6 +236,7 @@ api.MapHealthEndpoint();
 api.MapPollEndpoints();
 api.MapResponseEndpoints();
 api.MapWishEndpoints();
+api.MapFormEndpoints();
 
 // --- The creator surface (009 FR-006, FR-050) ----------------------------------------------
 // Beside the participant routes and deliberately NOT inside the admin group below. That group is
@@ -241,6 +258,7 @@ admin.MapBackupEndpoint();
 admin.MapImportEndpoints();
 admin.MapMaintenanceEndpoints();
 admin.MapCreatorAdminEndpoints();
+admin.MapFormAdminEndpoints();
 
 // --- Static files: the shell must never be stale ------------------------------------------
 // Vite names every chunk after its content, so a build replaces all of them and index.html

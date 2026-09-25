@@ -71,6 +71,24 @@ public class AdminAuthorizationTests : IDisposable
     }
 
     [Fact]
+    public void The_form_routes_are_among_the_discovered_admin_endpoints()
+    {
+        // 010 FR-031: unlike feature 009's creator surface, this feature is deliberately
+        // operator-only and mounted entirely under /admin - pinned here so an accidental move of
+        // a form route outside the admin group (which would also silently exempt it from
+        // MaintenanceMiddleware in the wrong direction, research R-8) is caught immediately.
+        var patterns = AdminEndpoints()
+            .Select(e => e.RoutePattern.RawText ?? string.Empty)
+            .ToArray();
+
+        Assert.Contains(patterns, p => p == "/api/v1/admin/forms");
+        Assert.Contains(patterns, p => p.Contains("/forms/{formId", StringComparison.Ordinal));
+        Assert.Contains(patterns, p => p.EndsWith("/fields/order", StringComparison.Ordinal));
+        Assert.Contains(patterns, p => p.EndsWith("/export/csv", StringComparison.Ordinal));
+        Assert.Contains(patterns, p => p.EndsWith("/export/json", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void Every_admin_endpoint_except_the_session_ones_requires_authorization()
     {
         var unprotected = AdminEndpoints()

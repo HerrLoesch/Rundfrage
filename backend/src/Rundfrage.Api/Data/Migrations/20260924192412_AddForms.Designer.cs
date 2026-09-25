@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Rundfrage.Api.Data;
 
@@ -10,9 +11,11 @@ using Rundfrage.Api.Data;
 namespace Rundfrage.Api.Data.Migrations
 {
     [DbContext(typeof(RundfrageDbContext))]
-    partial class RundfrageDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260924192412_AddForms")]
+    partial class AddForms
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.11");

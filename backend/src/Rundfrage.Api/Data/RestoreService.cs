@@ -19,6 +19,11 @@ namespace Rundfrage.Api.Data;
 /// operator who restores a file taken before they issued ten Ersteller links has just invalidated
 /// all ten - and would have been told nothing about it.
 /// </para>
+/// <para>
+/// The form and response counts were added by feature 010 for the same reason again (010 FR-047):
+/// without them the preview understates what a restore destroys once forms exist, the exact defect
+/// 008's research R-10 recorded for wish lists.
+/// </para>
 /// </remarks>
 public sealed record RestorePreview(
     int PollsInBackup,
@@ -31,6 +36,10 @@ public sealed record RestorePreview(
     int ClaimsLost,
     int CreatorsInBackup,
     int CreatorsLost,
+    int FormsInBackup,
+    int FormResponsesInBackup,
+    int FormsLost,
+    int FormResponsesLost,
     IReadOnlyList<string> Expired);
 
 /// <summary>
@@ -137,6 +146,10 @@ public sealed class RestoreService(
             Math.Max(0, current.Claims - backup.Claims),
             backup.Creators,
             Math.Max(0, current.Creators - backup.Creators),
+            backup.Forms,
+            backup.FormResponses,
+            Math.Max(0, current.Forms - backup.Forms),
+            Math.Max(0, current.FormResponses - backup.FormResponses),
             backup.Expired));
     }
 
@@ -313,6 +326,7 @@ public sealed class RestoreService(
             // is the truth about it - failing to read it would refuse a valid restore.
             var (wishLists, claims) = await ReadWishCountsAsync(connection, ct);
             var creators = await ReadCreatorCountAsync(connection, ct);
+            var (forms, formResponses) = await ReadFormCountsAsync(connection, ct);
 
             // FR-016a: restored as they are, and named so the operator is not surprised when the
             // next sweep removes them.
@@ -330,7 +344,7 @@ public sealed class RestoreService(
                 }
             }
 
-            return new Counts(polls, responses, wishLists, claims, creators, expired);
+            return new Counts(polls, responses, wishLists, claims, creators, forms, formResponses, expired);
         }
         catch (SqliteException)
         {
@@ -397,12 +411,40 @@ public sealed class RestoreService(
         return Convert.ToInt32(await command.ExecuteScalarAsync(ct));
     }
 
+    /// <summary>
+    /// The form count, or zero where the table is absent (010 data-model.md §... mirrors 009's
+    /// tolerant read for Creators, one feature later).
+    /// </summary>
+    private static async Task<(int Forms, int FormResponses)> ReadFormCountsAsync(
+        SqliteConnection connection, CancellationToken ct)
+    {
+        await using var present = connection.CreateCommand();
+        present.CommandText =
+            "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' "
+            + "AND name IN ('Forms', 'FormResponses')";
+
+        if (Convert.ToInt64(await present.ExecuteScalarAsync(ct)) != 2)
+        {
+            return (0, 0);
+        }
+
+        await using var command = connection.CreateCommand();
+        command.CommandText = "SELECT (SELECT COUNT(*) FROM Forms), (SELECT COUNT(*) FROM FormResponses)";
+
+        await using var reader = await command.ExecuteReaderAsync(ct);
+
+        return await reader.ReadAsync(ct)
+            ? (reader.GetInt32(0), reader.GetInt32(1))
+            : (0, 0);
+    }
+
     /// <summary>What one database file holds, as the preview and the summary report it.</summary>
     private sealed record Counts(
         int Polls, int Responses, int WishLists, int Claims, int Creators,
+        int Forms, int FormResponses,
         IReadOnlyList<string> Expired)
     {
-        public static readonly Counts None = new(0, 0, 0, 0, 0, []);
+        public static readonly Counts None = new(0, 0, 0, 0, 0, 0, 0, []);
     }
 
     private static void TryDelete(string? path)

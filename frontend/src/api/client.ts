@@ -747,3 +747,185 @@ export async function deleteWishClaimAsCreator(
 export async function deleteWishListAsCreator(token: string, wishListId: string): Promise<void> {
   await request<void>(`/e/${token}/wish-lists/${wishListId}`, { method: 'DELETE' })
 }
+
+// ---------------------------------------------------------------------------------------
+// Feature 010 — Individuelle Formulare
+// ---------------------------------------------------------------------------------------
+
+/** The seven kinds of question a field may be (010 FR-003). Fixed for a field's whole lifetime. */
+export type FieldType =
+  | 'text'
+  | 'integer'
+  | 'decimal'
+  | 'boolean'
+  | 'email'
+  | 'phone'
+  | 'postalCode'
+
+export interface FormFieldDetail {
+  id: string
+  type: FieldType
+  label: string
+  required: boolean
+  maxLength: number | null
+  minLength: number | null
+  displayOrder: number
+}
+
+export interface FormSummary {
+  id: string
+  title: string
+  createdAt: string
+  fieldCount: number
+  responseCount: number
+  /** Always present, but only reachable once fieldCount > 0 (010 FR-011). */
+  formToken: string
+}
+
+export interface FormDetail extends FormSummary {
+  fields: FormFieldDetail[]
+}
+
+/** A field as the operator adds it. Type is chosen once and never sent again (010 FR-008). */
+export interface FormFieldDraft {
+  type: FieldType
+  label: string
+  required: boolean
+  maxLength?: number | null
+  minLength?: number | null
+}
+
+/** An edit to an existing field. There is deliberately no `type` here (010 FR-008). */
+export interface FormFieldPatch {
+  label?: string
+  required?: boolean
+  maxLength?: number | null
+  minLength?: number | null
+}
+
+export interface FormFieldValueView {
+  fieldId: string
+  value: string
+}
+
+export interface FormResponseSummary {
+  id: string
+  submittedAt: string
+  values: FormFieldValueView[]
+}
+
+export async function listForms(): Promise<FormSummary[]> {
+  return getJson<FormSummary[]>('/admin/forms')
+}
+
+export async function fetchForm(formId: string): Promise<FormDetail> {
+  return getJson<FormDetail>(`/admin/forms/${encodeURIComponent(formId)}`)
+}
+
+export async function createForm(title: string): Promise<FormDetail> {
+  return request<FormDetail>('/admin/forms', {
+    method: 'POST',
+    body: JSON.stringify({ title }),
+  })
+}
+
+export async function renameForm(formId: string, title: string): Promise<FormDetail> {
+  return request<FormDetail>(`/admin/forms/${encodeURIComponent(formId)}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ title }),
+  })
+}
+
+export async function deleteForm(formId: string): Promise<void> {
+  await request<void>(`/admin/forms/${encodeURIComponent(formId)}`, { method: 'DELETE' })
+}
+
+export async function addFormField(
+  formId: string,
+  draft: FormFieldDraft,
+): Promise<FormFieldDetail> {
+  return request<FormFieldDetail>(`/admin/forms/${encodeURIComponent(formId)}/fields`, {
+    method: 'POST',
+    body: JSON.stringify(draft),
+  })
+}
+
+export async function updateFormField(
+  formId: string,
+  fieldId: string,
+  patch: FormFieldPatch,
+): Promise<FormFieldDetail> {
+  return request<FormFieldDetail>(
+    `/admin/forms/${encodeURIComponent(formId)}/fields/${encodeURIComponent(fieldId)}`,
+    { method: 'PATCH', body: JSON.stringify(patch) },
+  )
+}
+
+export async function removeFormField(formId: string, fieldId: string): Promise<void> {
+  await request<void>(
+    `/admin/forms/${encodeURIComponent(formId)}/fields/${encodeURIComponent(fieldId)}`,
+    { method: 'DELETE' },
+  )
+}
+
+/** FR-007: replaces the whole order in one call, from a dragged or button-reordered sequence. */
+export async function reorderFormFields(formId: string, fieldIds: string[]): Promise<FormDetail> {
+  return request<FormDetail>(`/admin/forms/${encodeURIComponent(formId)}/fields/order`, {
+    method: 'PUT',
+    body: JSON.stringify({ fieldIds }),
+  })
+}
+
+export async function listFormResponses(formId: string): Promise<FormResponseSummary[]> {
+  return getJson<FormResponseSummary[]>(`/admin/forms/${encodeURIComponent(formId)}/responses`)
+}
+
+export async function deleteFormResponse(formId: string, responseId: string): Promise<void> {
+  await request<void>(
+    `/admin/forms/${encodeURIComponent(formId)}/responses/${encodeURIComponent(responseId)}`,
+    { method: 'DELETE' },
+  )
+}
+
+/** Downloads, not fetches: the browser navigates so Content-Disposition drives the save (FR-034). */
+export function formExportCsvUrl(formId: string): string {
+  return `${BASE}/admin/forms/${encodeURIComponent(formId)}/export/csv`
+}
+
+/** FR-035. */
+export function formExportJsonUrl(formId: string): string {
+  return `${BASE}/admin/forms/${encodeURIComponent(formId)}/export/json`
+}
+
+// --- Participant surface (Principle I) ----------------------------------------------------
+
+export interface PublicFormDefinition {
+  title: string
+  fields: FormFieldDetail[]
+}
+
+export type FormFieldSubmissionValue = string | number | boolean
+
+export interface FormSubmissionFieldError {
+  fieldId: string
+  error: 'required' | 'invalid_format'
+}
+
+/** Thrown by {@link submitFormResponse} on a 400 (010 FR-017, FR-018). */
+export interface FormSubmissionProblem extends ApiProblem {
+  fields?: FormSubmissionFieldError[]
+}
+
+export async function fetchFormByToken(formToken: string): Promise<PublicFormDefinition> {
+  return getJson<PublicFormDefinition>(`/f/${formToken}`)
+}
+
+export async function submitFormResponse(
+  formToken: string,
+  values: { fieldId: string; value: FormFieldSubmissionValue }[],
+): Promise<void> {
+  await request<void>(`/f/${formToken}/responses`, {
+    method: 'POST',
+    body: JSON.stringify({ values }),
+  })
+}

@@ -136,4 +136,47 @@ public static class ErrorCodes
     /// revoking one (009 FR-009, FR-009a).
     /// </summary>
     public const string CreatorLimitReached = "creator_limit_reached";
+
+    // --- Individuelle Formulare (feature 010) ------------------------------------------------
+    // Operator-side refusals for building a form and its fields. Title refusals reuse
+    // TitleRequired/TitleTooLong above rather than a second code for the same concept
+    // (010 FR-001).
+
+    /// <summary>A field was added or edited with something other than one of the seven types (010 FR-003).</summary>
+    public const string FieldTypeInvalid = "field_type_invalid";
+
+    /// <summary>A field was given no label (010 FR-004).</summary>
+    public const string LabelRequired = "label_required";
+
+    /// <summary>The label exceeds its limit (010 FR-004).</summary>
+    public const string LabelTooLong = "label_too_long";
+
+    /// <summary>A Text field was added with no maximum length (010 FR-006).</summary>
+    public const string TextMaxLengthMissing = "text_max_length_missing";
+
+    /// <summary>
+    /// A Text field's maximum length is outside the system's bound, or its minimum exceeds its
+    /// maximum (010 FR-006, data-model.md §2).
+    /// </summary>
+    public const string TextLengthRangeInvalid = "text_length_range_invalid";
+
+    /// <summary>A form already holds 50 fields (010 FR-011a). Carries the limit.</summary>
+    public const string FieldLimitReached = "field_limit_reached";
+
+    /// <summary>A reorder request's field ids do not match the form's actual fields (010 FR-007).</summary>
+    public const string FieldSetMismatch = "field_set_mismatch";
+
+    // Participant-side refusals (010 FR-016, FR-017, FR-023 to FR-029).
+
+    /// <summary>A required field was left unanswered (010 FR-017).</summary>
+    public const string FieldRequired = "field_required";
+
+    /// <summary>A submitted value does not match its field's type format (010 FR-017).</summary>
+    public const string FieldInvalidFormat = "field_invalid_format";
+
+    /// <summary>
+    /// The top-level code of a refused submission, naming which fields failed (010 FR-017,
+    /// FR-018). Carried alongside a <c>fields</c> array; nothing is stored when this is returned.
+    /// </summary>
+    public const string SubmissionInvalid = "submission_invalid";
 }

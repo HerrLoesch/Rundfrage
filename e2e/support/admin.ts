@@ -76,6 +76,19 @@ export async function signInToCreators(page: Page): Promise<void> {
   await gotoCreators(page)
 }
 
+/** The forms area: creating, building and exporting forms (010). */
+export async function gotoForms(page: Page): Promise<void> {
+  await openNavigation(page)
+  await page.getByTestId('nav-forms').click()
+  await expect(page.getByTestId('form-create-open')).toBeVisible()
+}
+
+/** Signs in and goes straight to the forms area. */
+export async function signInToForms(page: Page): Promise<void> {
+  await signIn(page)
+  await gotoForms(page)
+}
+
 /** Settings: maintenance mode, the backup download and the restore (007 FR-019). */
 export async function gotoSettings(page: Page): Promise<void> {
   await openNavigation(page)

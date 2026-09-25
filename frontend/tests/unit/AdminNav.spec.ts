@@ -25,11 +25,11 @@ const labels = (wrapper: Awaited<ReturnType<typeof nav>>) =>
 
 describe('Admin navigation', () => {
   it('lists exactly the areas that exist, in order (FR-003, FR-004)', async () => {
-    // Five since feature 009 added Ersteller. Still no entry for anything unbuilt: FR-004 forbids
+    // Six since feature 010 added Formulare. Still no entry for anything unbuilt: FR-004 forbids
     // a placeholder, and this list is the assertion that none has appeared.
     //
-    // Ersteller sits in the middle section rather than inside Einstellungen, because it is a
-    // capability of the installation and not a setting of it (009 FR-043).
+    // Ersteller and Formulare sit in the middle section rather than inside Einstellungen, because
+    // each is a capability of the installation and not a setting of it (009 FR-043, 010).
     const wrapper = await nav('/admin')
 
     expect(labels(wrapper)).toEqual([
@@ -37,6 +37,7 @@ describe('Admin navigation', () => {
       de.poll.listTitle,
       de.nav.wishLists,
       de.nav.creators,
+      de.nav.forms,
       de.nav.settings,
     ])
   })
@@ -71,6 +72,7 @@ describe('Admin navigation', () => {
     expect(wrapper.get('[data-testid="nav-dashboard"]').attributes('href')).toBe('/admin')
     expect(wrapper.get('[data-testid="nav-polls"]').attributes('href')).toBe('/admin/terminfindungen')
     expect(wrapper.get('[data-testid="nav-wish-lists"]').attributes('href')).toBe('/admin/wunschlisten')
+    expect(wrapper.get('[data-testid="nav-forms"]').attributes('href')).toBe('/admin/formulare')
     expect(wrapper.get('[data-testid="nav-settings"]').attributes('href')).toBe('/admin/einstellungen')
   })
 
@@ -90,6 +92,22 @@ describe('Admin navigation', () => {
     // marked, so the navigation never claims the operator has left it.
     expect(current).toHaveLength(1)
     expect(current[0].attributes('data-testid')).toBe('nav-polls')
+  })
+
+  it('marks the Formulare entry current on its own address (010)', async () => {
+    const wrapper = await nav('/admin/formulare')
+    const current = wrapper.findAll('[aria-current="page"]')
+
+    expect(current).toHaveLength(1)
+    expect(current[0].text()).toContain(de.nav.forms)
+  })
+
+  it('keeps the Formulare area current while one form\'s builder is shown', async () => {
+    const wrapper = await nav('/admin/formulare/some-form-id')
+    const current = wrapper.findAll('[aria-current="page"]')
+
+    expect(current).toHaveLength(1)
+    expect(current[0].attributes('data-testid')).toBe('nav-forms')
   })
 
   it('exposes the navigation as a landmark with a name (FR-013)', async () => {

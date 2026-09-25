@@ -90,6 +90,16 @@ const entries = computed(() => [
     testid: 'nav-creators',
   },
   {
+    // The fourth middle entry (010 FR-043-equivalent, ui-contract.md §1). Two route names, like
+    // the poll and wish-list entries: a form's builder is a detail destination of its own
+    // (/admin/formulare/:formId), unlike the single-route Ersteller area beside it.
+    to: '/admin/formulare',
+    owns: ['forms', 'form-builder'],
+    label: t('nav.forms'),
+    icon: 'mdi-form-select',
+    testid: 'nav-forms',
+  },
+  {
     to: '/admin/einstellungen',
     owns: ['settings'],
     label: t('nav.settings'),

@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Rundfrage.Api.Data;
 using Rundfrage.Api.Data.Entities;
+using Rundfrage.Api.Http;
 using Rundfrage.Api.Time;
 
 namespace Rundfrage.Api.Polls;
@@ -115,23 +116,7 @@ public sealed class PollExport(RundfrageDbContext db, BerlinClock clock)
     /// Names the poll and the moment, so several exports can share a folder without overwriting
     /// each other (FR-021a).
     /// </summary>
-    public static string FileNameFor(string title, DateTime takenAtUtc)
-    {
-        var slug = new string(title.ToLowerInvariant()
-            .Select(c => char.IsLetterOrDigit(c) ? c : '-')
-            .ToArray())
-            .Trim('-');
-
-        while (slug.Contains("--"))
-        {
-            slug = slug.Replace("--", "-");
-        }
-
-        // A title can be 300 characters and can be made entirely of punctuation; neither should
-        // produce an unusable file name.
-        slug = slug.Length > 60 ? slug[..60].Trim('-') : slug;
-        slug = slug.Length == 0 ? "umfrage" : slug;
-
-        return $"{slug}-{takenAtUtc:yyyy-MM-dd'T'HHmmss'Z'}.json";
-    }
+    public static string FileNameFor(string title, DateTime takenAtUtc) =>
+        DownloadFileName.WithTimestamp(
+            DownloadFileName.Slugify(title, fallback: "umfrage"), takenAtUtc, "json");
 }

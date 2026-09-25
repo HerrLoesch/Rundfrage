@@ -412,4 +412,125 @@ public class RestoreTests : IDisposable
         Assert.Equal(3, preview.GetProperty("claimsLost").GetInt32());
     }
 
+    private static async Task<(Guid FormId, string Token)> CreateFormAsync(ApiFactory factory, string title)
+    {
+        var admin = await factory.CreateSignedInClientAsync();
+        var created = await admin.PostAsJsonAsync("/api/v1/admin/forms", new { title });
+        created.EnsureSuccessStatusCode();
+        var form = await created.Content.ReadFromJsonAsync<JsonElement>();
+        var formId = form.GetProperty("id").GetGuid();
+
+        var field = await admin.PostAsJsonAsync($"/api/v1/admin/forms/{formId}/fields", new
+        {
+            type = "text", label = "Name", required = false, maxLength = 50,
+        });
+        field.EnsureSuccessStatusCode();
+
+        return (formId, form.GetProperty("formToken").GetString()!);
+    }
+
+    [Fact]
+    public async Task The_preview_says_how_many_forms_and_responses_a_restore_would_destroy()
+    {
+        // 010 FR-047: the same defect 008's research R-10 recorded for wish lists, one feature
+        // later.
+        using var factory = NewFactory();
+        var admin = await factory.CreateSignedInClientAsync();
+
+        // A backup of the current state, taken while no form exists.
+        var backup = await BackupAsync();
+
+        for (var i = 0; i < 2; i++)
+        {
+            var (_, token) = await CreateFormAsync(factory, $"Formular {i}");
+            var view = await factory.CreateClient().GetFromJsonAsync<JsonElement>($"/api/v1/f/{token}");
+            var fieldId = view.GetProperty("fields").EnumerateArray().First().GetProperty("id").GetGuid();
+
+            await factory.CreateClient().PostAsJsonAsync($"/api/v1/f/{token}/responses",
+                new { values = new object[] { new { fieldId, value = "Anna" } } });
+        }
+
+        await SetMaintenanceAsync(factory, true);
+
+        var response = await admin.PostAsync(
+            "/api/v1/admin/restore/preview", BackupFileFixture.ToFormContent(backup, confirm: false));
+        response.EnsureSuccessStatusCode();
+        var preview = await response.Content.ReadFromJsonAsync<JsonElement>();
+
+        Assert.Equal(0, preview.GetProperty("formsInBackup").GetInt32());
+        Assert.Equal(2, preview.GetProperty("formsLost").GetInt32());
+        Assert.Equal(0, preview.GetProperty("formResponsesInBackup").GetInt32());
+        Assert.Equal(2, preview.GetProperty("formResponsesLost").GetInt32());
+    }
+
+    [Fact]
+    public async Task The_preview_tolerates_a_backup_taken_before_feature_010_existed()
+    {
+        // 010 research R-11: a backup with no Forms table at all is still a perfectly restorable
+        // backup, and its form counts read as zero rather than failing the whole preview.
+        using var factory = NewFactory();
+        await CreatePollAsync(factory, "Vor 010");
+        var backup = await BackupAsync();
+
+        // Drop the Forms/FormResponses tables from the backup file to simulate one taken before
+        // this feature's migration ever ran.
+        await using (var connection = new Microsoft.Data.Sqlite.SqliteConnection(
+            $"Data Source={backup}"))
+        {
+            await connection.OpenAsync();
+            foreach (var table in new[] { "FormFieldValues", "FormFields", "FormResponses", "Forms" })
+            {
+                await using var drop = connection.CreateCommand();
+                drop.CommandText = $"DROP TABLE IF EXISTS {table}";
+                await drop.ExecuteNonQueryAsync();
+            }
+        }
+
+        await SetMaintenanceAsync(factory, true);
+
+        var admin = await factory.CreateSignedInClientAsync();
+        var response = await admin.PostAsync(
+            "/api/v1/admin/restore/preview", BackupFileFixture.ToFormContent(backup, confirm: false));
+        response.EnsureSuccessStatusCode();
+
+        var preview = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(0, preview.GetProperty("formsInBackup").GetInt32());
+        Assert.Equal(0, preview.GetProperty("formResponsesInBackup").GetInt32());
+    }
+
+    [Fact]
+    public async Task A_form_with_fields_and_responses_survives_a_backup_and_restore_round_trip()
+    {
+        // 010 FR-046: the same links work afterward.
+        using var factory = NewFactory();
+        var (formId, token) = await CreateFormAsync(factory, "Rundreise");
+
+        var view = await factory.CreateClient().GetFromJsonAsync<JsonElement>($"/api/v1/f/{token}");
+        var fieldId = view.GetProperty("fields").EnumerateArray().First().GetProperty("id").GetGuid();
+        await factory.CreateClient().PostAsJsonAsync($"/api/v1/f/{token}/responses",
+            new { values = new object[] { new { fieldId, value = "Anna" } } });
+
+        var backup = await BackupAsync();
+
+        // Something created after the backup, which must be gone afterward.
+        await CreateFormAsync(factory, "Danach");
+
+        await SetMaintenanceAsync(factory, true);
+        (await RestoreAsync(factory, backup)).EnsureSuccessStatusCode();
+        await SetMaintenanceAsync(factory, false);
+
+        var admin = await factory.CreateSignedInClientAsync();
+        var forms = await admin.GetFromJsonAsync<JsonElement>("/api/v1/admin/forms");
+        var titles = forms.EnumerateArray().Select(f => f.GetProperty("title").GetString()).ToArray();
+
+        Assert.Contains("Rundreise", titles);
+        Assert.DoesNotContain("Danach", titles);
+
+        var stillWorks = await factory.CreateClient().GetAsync($"/api/v1/f/{token}");
+        Assert.Equal(HttpStatusCode.OK, stillWorks.StatusCode);
+
+        var responses = await admin.GetFromJsonAsync<JsonElement>(
+            $"/api/v1/admin/forms/{formId}/responses");
+        Assert.Single(responses.EnumerateArray());
+    }
 }
