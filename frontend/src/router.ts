@@ -88,6 +88,14 @@ export const routes: RouteRecordRaw[] = [
         component: () => import('./components/creator/CreatorSurface.vue'),
         props: true,
       },
+      {
+        // A form's participant capability - "f" for Formular, the sixth one-letter capability
+        // path beside u, a, w, z and e (010 FR-012). No session, no guard, no navigation.
+        path: '/f/:formToken',
+        name: 'form',
+        component: () => import('./components/form/FormFillView.vue'),
+        props: true,
+      },
     ],
   },
   {
@@ -142,6 +150,22 @@ export const routes: RouteRecordRaw[] = [
         path: 'ersteller',
         name: 'creators',
         component: () => import('./components/admin/CreatorsView.vue'),
+      },
+      {
+        // The fourth feature area (010 FR-043-equivalent). Unlike the Ersteller area, a form has
+        // a detail destination of its own, following 007's ordinary addressing rule rather than
+        // the creator surface's single-address exception - a form is reached only with an
+        // operator session already established, so there is no credential in the address to
+        // protect (contrast 009 FR-028d).
+        path: 'formulare',
+        name: 'forms',
+        component: () => import('./components/admin/FormsView.vue'),
+      },
+      {
+        path: 'formulare/:formId',
+        name: 'form-builder',
+        component: () => import('./components/admin/FormBuilderView.vue'),
+        props: true,
       },
       {
         path: 'einstellungen',

@@ -5,6 +5,7 @@ import { useCreatorStore } from '../../stores/creator'
 import { filledPercent, isComplete } from '../../stores/wishLists'
 import { creatorExportUrl } from '../../api/client'
 import { parseDateOnly } from '../../dates'
+import { shareUrl } from '../../shareUrl'
 
 /**
  * Everything an Ersteller reaches, on the one page their link leads to (009 FR-024 to FR-028g).
@@ -52,10 +53,6 @@ const problemText = computed(() => {
     minutes: Math.ceil((problem.retryAfterSeconds ?? 0) / 60),
   })
 })
-
-function share(path: string, token: string): string {
-  return `${window.location.origin}/${path}/${token}`
-}
 
 /** `targetDate` is a bare `DateOnly` string; formatted here rather than at each call site. */
 function formatTargetDate(targetDate: string): string {
@@ -202,11 +199,11 @@ async function createWishList() {
               </div>
               <a
                 class="rf-address mt-2"
-                :href="share('u', poll.participantToken)"
+                :href="shareUrl('u', poll.participantToken)"
                 target="_blank"
                 rel="noopener noreferrer"
                 :aria-describedby="`newtab-poll-${poll.id}`"
-                >{{ share('u', poll.participantToken) }}</a
+                >{{ shareUrl('u', poll.participantToken) }}</a
               >
               <span :id="`newtab-poll-${poll.id}`" class="d-sr-only">{{ t('share.newTab') }}</span>
             </div>
@@ -363,11 +360,11 @@ async function createWishList() {
               </div>
               <a
                 class="rf-address mt-2"
-                :href="share('w', list.listToken)"
+                :href="shareUrl('w', list.listToken)"
                 target="_blank"
                 rel="noopener noreferrer"
                 :aria-describedby="`newtab-wish-list-${list.id}`"
-                >{{ share('w', list.listToken) }}</a
+                >{{ shareUrl('w', list.listToken) }}</a
               >
               <span :id="`newtab-wish-list-${list.id}`" class="d-sr-only">{{ t('share.newTab') }}</span>
             </div>
@@ -417,39 +414,3 @@ async function createWishList() {
     </template>
   </v-container>
 </template>
-
-<style scoped>
-/* Identical to the admin poll and wish-list rows, because they are the same kind of thing. */
-.rf-row + .rf-row { margin-block-start: var(--rf-stack); }
-
-.rf-row__body {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  gap: 24px;
-  padding: var(--rf-card-pad);
-}
-
-.rf-row__main { flex: 1 1 auto; min-width: 0; }
-
-.rf-row__title {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-}
-
-.rf-row__actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
-  flex-shrink: 0;
-}
-
-@media (max-width: 600px) {
-  .rf-row__body { flex-direction: column; gap: 16px; }
-  .rf-row__actions { width: 100%; justify-content: space-between; }
-}
-</style>

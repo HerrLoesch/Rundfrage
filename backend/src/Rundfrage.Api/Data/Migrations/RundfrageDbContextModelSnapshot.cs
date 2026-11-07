@@ -85,6 +85,115 @@ namespace Rundfrage.Api.Data.Migrations
                     b.ToTable("DayAnswers");
                 });
 
+            modelBuilder.Entity("Rundfrage.Api.Data.Entities.Form", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("FormToken")
+                        .IsRequired()
+                        .HasMaxLength(22)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FormToken")
+                        .IsUnique();
+
+                    b.ToTable("Forms");
+                });
+
+            modelBuilder.Entity("Rundfrage.Api.Data.Entities.FormField", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("DisplayOrder")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid>("FormId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Label")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("MaxLength")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("MinLength")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("Required")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FormId", "DisplayOrder");
+
+                    b.ToTable("FormFields");
+                });
+
+            modelBuilder.Entity("Rundfrage.Api.Data.Entities.FormFieldValue", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("FieldId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("ResponseId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Value")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FieldId");
+
+                    b.HasIndex("ResponseId", "FieldId")
+                        .IsUnique();
+
+                    b.ToTable("FormFieldValues");
+                });
+
+            modelBuilder.Entity("Rundfrage.Api.Data.Entities.FormResponse", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("FormId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("SubmittedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FormId");
+
+                    b.ToTable("FormResponses");
+                });
+
             modelBuilder.Entity("Rundfrage.Api.Data.Entities.Poll", b =>
                 {
                     b.Property<Guid>("Id")
@@ -289,6 +398,47 @@ namespace Rundfrage.Api.Data.Migrations
                     b.Navigation("Response");
                 });
 
+            modelBuilder.Entity("Rundfrage.Api.Data.Entities.FormField", b =>
+                {
+                    b.HasOne("Rundfrage.Api.Data.Entities.Form", "Form")
+                        .WithMany("Fields")
+                        .HasForeignKey("FormId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Form");
+                });
+
+            modelBuilder.Entity("Rundfrage.Api.Data.Entities.FormFieldValue", b =>
+                {
+                    b.HasOne("Rundfrage.Api.Data.Entities.FormField", "Field")
+                        .WithMany("Values")
+                        .HasForeignKey("FieldId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Rundfrage.Api.Data.Entities.FormResponse", "Response")
+                        .WithMany("Values")
+                        .HasForeignKey("ResponseId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Field");
+
+                    b.Navigation("Response");
+                });
+
+            modelBuilder.Entity("Rundfrage.Api.Data.Entities.FormResponse", b =>
+                {
+                    b.HasOne("Rundfrage.Api.Data.Entities.Form", "Form")
+                        .WithMany("Responses")
+                        .HasForeignKey("FormId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Form");
+                });
+
             modelBuilder.Entity("Rundfrage.Api.Data.Entities.Poll", b =>
                 {
                     b.HasOne("Rundfrage.Api.Data.Entities.Creator", "Creator")
@@ -352,6 +502,23 @@ namespace Rundfrage.Api.Data.Migrations
                     b.Navigation("Polls");
 
                     b.Navigation("WishLists");
+                });
+
+            modelBuilder.Entity("Rundfrage.Api.Data.Entities.Form", b =>
+                {
+                    b.Navigation("Fields");
+
+                    b.Navigation("Responses");
+                });
+
+            modelBuilder.Entity("Rundfrage.Api.Data.Entities.FormField", b =>
+                {
+                    b.Navigation("Values");
+                });
+
+            modelBuilder.Entity("Rundfrage.Api.Data.Entities.FormResponse", b =>
+                {
+                    b.Navigation("Values");
                 });
 
             modelBuilder.Entity("Rundfrage.Api.Data.Entities.Poll", b =>

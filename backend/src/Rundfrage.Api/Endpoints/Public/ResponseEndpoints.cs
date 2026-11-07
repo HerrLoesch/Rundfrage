@@ -36,7 +36,7 @@ public static class ResponseEndpoints
                 return error.Code == "poll_full"
                     ? Results.Json(new { code = error.Code, limit = error.Limit },
                         statusCode: StatusCodes.Status409Conflict)
-                    : Results.BadRequest(new { code = error.Code, limit = error.Limit });
+                    : Refusal.BadRequest(error);
             }
 
             // The only way back to this answer, because no account exists to look it up with.
@@ -98,7 +98,7 @@ public static class ResponseEndpoints
 
             if (result.Error is { } error)
             {
-                return Results.BadRequest(new { code = error.Code, limit = error.Limit });
+                return Refusal.BadRequest(error);
             }
 
             return Results.Ok(new OwnResponse(

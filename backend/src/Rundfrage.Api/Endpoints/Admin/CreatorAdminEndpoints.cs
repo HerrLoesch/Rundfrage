@@ -35,7 +35,7 @@ public static class CreatorAdminEndpoints
             var (created, error) = await creators.CreateAsync(request.Name, ct);
 
             return error is not null
-                ? Results.BadRequest(new { code = error.Code, limit = error.Limit, detail = error.Detail })
+                ? Refusal.BadRequest(error)
                 : Results.Created(
                     $"/api/v1/admin/creators/{created!.Id}", await projection.FindAsync(created.Id, ct));
         })
@@ -57,7 +57,7 @@ public static class CreatorAdminEndpoints
             var (_, error) = await creators.RenameAsync(creator, request.Name, ct);
 
             return error is not null
-                ? Results.BadRequest(new { code = error.Code, limit = error.Limit, detail = error.Detail })
+                ? Refusal.BadRequest(error)
                 : Results.Ok(await projection.FindAsync(creatorId, ct));
         })
         .WithName("renameCreator");

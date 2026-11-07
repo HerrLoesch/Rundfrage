@@ -1,7 +1,25 @@
 import { createVuetify } from 'vuetify'
-import * as components from 'vuetify/components'
-import * as directives from 'vuetify/directives'
+import {
+  VAlert, VApp, VAppBar, VAppBarNavIcon, VBtn, VCard, VCardActions, VCardItem, VCardSubtitle,
+  VCardText, VCardTitle, VCheckboxBtn, VChip, VCol, VContainer, VDialog, VDivider, VFileInput,
+  VForm, VIcon, VLabel, VList, VListItem, VMain, VNavigationDrawer, VProgressCircular,
+  VProgressLinear, VRadio, VRadioGroup, VRow, VSelect, VSheet, VSpacer, VSwitch, VTable,
+  VTextField, VTextarea,
+} from 'vuetify/components'
 import { de } from 'vuetify/locale'
+
+/**
+ * Exactly the components the templates use. Registering `* as components` put every Vuetify
+ * component into the main chunk whether a page used it or not (over 700 kB); a component added
+ * to a template must be added here too, or it renders as an unknown element.
+ */
+const components = {
+  VAlert, VApp, VAppBar, VAppBarNavIcon, VBtn, VCard, VCardActions, VCardItem, VCardSubtitle,
+  VCardText, VCardTitle, VCheckboxBtn, VChip, VCol, VContainer, VDialog, VDivider, VFileInput,
+  VForm, VIcon, VLabel, VList, VListItem, VMain, VNavigationDrawer, VProgressCircular,
+  VProgressLinear, VRadio, VRadioGroup, VRow, VSelect, VSheet, VSpacer, VSwitch, VTable,
+  VTextField, VTextarea,
+}
 
 /**
  * One theme, defined once.
@@ -12,7 +30,6 @@ import { de } from 'vuetify/locale'
  */
 export const vuetify = createVuetify({
   components,
-  directives,
   locale: {
     locale: 'de',
     messages: { de },
@@ -23,19 +40,30 @@ export const vuetify = createVuetify({
       rundfrage: {
         dark: false,
         colors: {
-          primary: '#1565c0',
-          secondary: '#37474f',
+          // Audi-inspired palette: red as the accent, black and white as the foundation.
+          primary: '#bb0a30',
+          'on-primary': '#ffffff',
+          secondary: '#1a1a1a',
+          'on-secondary': '#ffffff',
           surface: '#ffffff',
-          background: '#f4f6f8',
-          error: '#c62828',
-          warning: '#ef6c00',
-          success: '#2e7d32',
-          info: '#0277bd',
+          background: '#f2f2f2',
+          error: '#b42318',
+          'on-error': '#ffffff',
+          warning: '#b54708',
+          'on-warning': '#ffffff',
+          success: '#166534',
+          'on-success': '#ffffff',
+          info: '#075985',
+          'on-info': '#ffffff',
           // The three answered states, plus the absence of an answer.
-          'state-yes': '#2e7d32',
-          'state-maybe': '#ef6c00',
-          'state-no': '#c62828',
-          'state-none': '#90a4ae',
+          'state-yes': '#166534',
+          'on-state-yes': '#ffffff',
+          'state-maybe': '#a15c00',
+          'on-state-maybe': '#ffffff',
+          'state-no': '#b42318',
+          'on-state-no': '#ffffff',
+          'state-none': '#667085',
+          'on-state-none': '#ffffff',
         },
       },
     },

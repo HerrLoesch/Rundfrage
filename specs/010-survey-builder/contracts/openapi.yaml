@@ -1,0 +1,535 @@
+openapi: 3.1.0
+info:
+  title: Rundfrage — Individuelle Formulare (feature 010)
+  version: "010"
+  description: |
+    Only what feature 010 adds. Everything under /admin inherits the operator session requirement
+    from the admin group (002 FR-048); nothing here repeats it per route.
+
+    Two route families:
+
+      * /admin/forms/**    — the operator builds, edits, reads and exports forms (FR-001 to
+        FR-011a, FR-023 to FR-047a). No token, no Ersteller access (spec FR-032; research R-3).
+      * /f/{formToken}/**  — a participant reads and answers one form, with no account (FR-012 to
+        FR-022). This prefix is neither /admin nor /health, so `MaintenanceMiddleware` intercepts
+        it with the participant notice while maintenance is on (FR-045; research R-8) — the same
+        property that gates /u and /w today.
+
+servers:
+  - url: /api/v1
+
+paths:
+
+  # ----------------------------------------------------------------------------------------
+  # The operator builds and manages forms
+  # ----------------------------------------------------------------------------------------
+
+  /admin/forms:
+    get:
+      operationId: listForms
+      summary: Every form, with field and response counts (FR-040)
+      responses:
+        "200":
+          description: Forms, newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/FormSummary" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+    post:
+      operationId: createForm
+      summary: Start a new, empty form (FR-001)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title]
+              properties:
+                title: { type: string, maxLength: 200 }
+      responses:
+        "201":
+          description: Created, with its (not-yet-reachable) token — no field exists yet (FR-011)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FormDetail" }
+        "400":
+          description: title_missing, title_too_long
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Problem" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /admin/forms/{formId}:
+    parameters:
+      - { name: formId, in: path, required: true, schema: { type: string, format: uuid } }
+
+    get:
+      operationId: getForm
+      summary: One form with its ordered fields (FR-002, FR-007)
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FormDetail" }
+        "404": { $ref: "#/components/responses/NeutralNotFound" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+    patch:
+      operationId: renameForm
+      summary: Rename. Link, fields and responses unchanged (FR-041)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title]
+              properties:
+                title: { type: string, maxLength: 200 }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FormDetail" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NeutralNotFound" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+    delete:
+      operationId: deleteForm
+      summary: |
+        Destroy the form, every field and every response (FR-042). The client confirms the
+        response count with the operator before calling this; the server does not require a
+        second acknowledging parameter, matching every other admin delete in this codebase.
+      responses:
+        "204": { description: Gone, with its fields and responses }
+        "404": { $ref: "#/components/responses/NeutralNotFound" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /admin/forms/{formId}/fields:
+    parameters:
+      - { name: formId, in: path, required: true, schema: { type: string, format: uuid } }
+
+    post:
+      operationId: addFormField
+      summary: Append a field of one of the seven types (FR-003, FR-004, FR-005, FR-006, FR-011a)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/FormFieldCreate" }
+      responses:
+        "201":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FormFieldDetail" }
+        "400":
+          description: |
+            field_type_invalid, label_missing, label_too_long, text_max_length_missing (Text
+            fields only), text_length_range_invalid (maxLength outside 1..5000, or minLength >
+            maxLength), or field_limit_reached (limit = 50, FR-011a).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Problem" }
+        "404": { $ref: "#/components/responses/NeutralNotFound" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /admin/forms/{formId}/fields/{fieldId}:
+    parameters:
+      - { name: formId, in: path, required: true, schema: { type: string, format: uuid } }
+      - { name: fieldId, in: path, required: true, schema: { type: string, format: uuid } }
+
+    patch:
+      operationId: editFormField
+      summary: |
+        Change label, required flag or (Text only) length limits. Type is immutable — not a
+        property this request may touch (FR-008; spec clarification session, 2026-09-22).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/FormFieldUpdate" }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FormFieldDetail" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NeutralNotFound" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+    delete:
+      operationId: removeFormField
+      summary: |
+        Remove the field and cascade-delete every value collected for it (FR-009). Remaining
+        fields are renumbered so DisplayOrder stays dense (research R-4).
+      responses:
+        "204": { description: Removed, with its collected values }
+        "404": { $ref: "#/components/responses/NeutralNotFound" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /admin/forms/{formId}/fields/order:
+    parameters:
+      - { name: formId, in: path, required: true, schema: { type: string, format: uuid } }
+
+    put:
+      operationId: reorderFormFields
+      summary: |
+        Replace the field order in one call from a dragged (or button-reordered) sequence
+        (FR-007). The request must name exactly the form's current field ids, once each.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [fieldIds]
+              properties:
+                fieldIds:
+                  type: array
+                  items: { type: string, format: uuid }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FormDetail" }
+        "400":
+          description: field_set_mismatch — the id list does not match the form's actual fields
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Problem" }
+        "404": { $ref: "#/components/responses/NeutralNotFound" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /admin/forms/{formId}/responses:
+    parameters:
+      - { name: formId, in: path, required: true, schema: { type: string, format: uuid } }
+
+    get:
+      operationId: listFormResponses
+      summary: Every response to this form, oldest first (FR-040)
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/FormResponseSummary" }
+        "404": { $ref: "#/components/responses/NeutralNotFound" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /admin/forms/{formId}/responses/{responseId}:
+    parameters:
+      - { name: formId, in: path, required: true, schema: { type: string, format: uuid } }
+      - { name: responseId, in: path, required: true, schema: { type: string, format: uuid } }
+
+    delete:
+      operationId: deleteFormResponse
+      summary: |
+        One response only. The form, its fields and every other response are unaffected
+        (FR-042a; spec clarification session, 2026-09-22).
+      responses:
+        "204": { description: Deleted }
+        "404": { $ref: "#/components/responses/NeutralNotFound" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /admin/forms/{formId}/export/csv:
+    parameters:
+      - { name: formId, in: path, required: true, schema: { type: string, format: uuid } }
+
+    get:
+      operationId: exportFormCsv
+      summary: |
+        One header per field in builder order, one row per response, RFC 4180 quoting
+        (FR-034, FR-036, FR-037; research R-5). Valid and empty when there are zero responses
+        (FR-039).
+      responses:
+        "200":
+          description: CSV file
+          content:
+            text/csv: {}
+        "404": { $ref: "#/components/responses/NeutralNotFound" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /admin/forms/{formId}/export/json:
+    parameters:
+      - { name: formId, in: path, required: true, schema: { type: string, format: uuid } }
+
+    get:
+      operationId: exportFormJson
+      summary: |
+        One object per response, values keyed by field label, typed (numbers as numbers, yes/no
+        as boolean) (FR-035, FR-036, FR-037). Valid and empty when there are zero responses
+        (FR-039).
+      responses:
+        "200":
+          description: JSON file
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FormExportDocument" }
+        "404": { $ref: "#/components/responses/NeutralNotFound" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  # ----------------------------------------------------------------------------------------
+  # A participant reads and answers one form
+  # ----------------------------------------------------------------------------------------
+
+  /f/{formToken}:
+    parameters:
+      - { name: formToken, in: path, required: true, schema: { type: string } }
+
+    get:
+      operationId: getPublicForm
+      summary: |
+        The form's title and ordered fields, for rendering (FR-012, FR-013). Refused —
+        identically to an unknown token — for an unknown, malformed or deleted token, AND for a
+        form that currently has zero fields (FR-011, FR-021): a form nobody can yet answer is
+        bucketed with "does not exist" rather than given a fourth, distinguishable state.
+      security: []
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PublicFormDefinition" }
+        "404": { $ref: "#/components/responses/NeutralNotFound" }
+        "503": { $ref: "#/components/responses/Maintenance" }
+
+  /f/{formToken}/responses:
+    parameters:
+      - { name: formToken, in: path, required: true, schema: { type: string } }
+
+    post:
+      operationId: submitFormResponse
+      summary: |
+        One complete, valid response (FR-017 to FR-020). Refused, with nothing stored, when any
+        required field is missing or any submitted value fails its type's format (FR-018,
+        FR-023 to FR-030).
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/FormSubmissionRequest" }
+      responses:
+        "201": { description: Recorded }
+        "400":
+          description: One or more fields missing or malformed; nothing was stored (FR-018)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FormSubmissionProblem" }
+        "404": { $ref: "#/components/responses/NeutralNotFound" }
+        "429": { $ref: "#/components/responses/TooManyWrites" }
+        "503": { $ref: "#/components/responses/Maintenance" }
+
+components:
+
+  responses:
+    Unauthorized:
+      description: No operator session. Discloses nothing about what exists (002 FR-002).
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    BadRequest:
+      description: A defective request; nothing was changed.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    NeutralNotFound:
+      description: |
+        The single not-found payload — `{"code":"not_found"}`. Returned identically for an
+        unknown formId/fieldId/responseId, an unknown or malformed form token, and (on the public
+        route) a form with zero fields (FR-021, FR-033).
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    TooManyWrites:
+      description: |
+        The existing participant submission budget (002 FR-027c), reused unchanged (FR-022;
+        research R-9) — not a new policy. The refused request changed nothing.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    Maintenance:
+      description: |
+        `{"code":"maintenance"}`. Inherited from MaintenanceMiddleware because /f is neither
+        /admin nor /health (FR-045; research R-8).
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Problem" }
+
+  schemas:
+
+    Problem:
+      type: object
+      required: [code]
+      properties:
+        code: { type: string }
+        limit: { type: integer }
+        retryAfterSeconds: { type: integer }
+        detail:
+          type: string
+          description: Operator-written text that makes a refusal actionable.
+
+    FormSummary:
+      type: object
+      required: [id, title, createdAt, fieldCount, responseCount]
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string }
+        createdAt: { type: string, format: date-time }
+        fieldCount: { type: integer }
+        responseCount: { type: integer }
+        formToken:
+          type: string
+          description: |
+            Always present (a token is minted at creation) but only reachable once fieldCount >
+            0 (FR-011) — the list view derives "link usable" from fieldCount, not from a second
+            stored flag (data-model.md §8).
+
+    FormDetail:
+      allOf:
+        - { $ref: "#/components/schemas/FormSummary" }
+        - type: object
+          required: [fields]
+          properties:
+            fields:
+              type: array
+              items: { $ref: "#/components/schemas/FormFieldDetail" }
+
+    FieldType:
+      type: string
+      enum: [text, integer, decimal, boolean, email, phone, postalCode]
+
+    FormFieldCreate:
+      type: object
+      required: [type, label, required]
+      properties:
+        type: { $ref: "#/components/schemas/FieldType" }
+        label: { type: string, maxLength: 200 }
+        required: { type: boolean }
+        maxLength:
+          type: integer
+          description: Required when type is "text"; rejected for every other type.
+        minLength:
+          type: integer
+          description: Optional, "text" only.
+
+    FormFieldUpdate:
+      type: object
+      properties:
+        label: { type: string, maxLength: 200 }
+        required: { type: boolean }
+        maxLength: { type: integer }
+        minLength: { type: integer }
+
+    FormFieldDetail:
+      type: object
+      required: [id, type, label, required, displayOrder]
+      properties:
+        id: { type: string, format: uuid }
+        type: { $ref: "#/components/schemas/FieldType" }
+        label: { type: string }
+        required: { type: boolean }
+        maxLength: { type: [integer, "null"] }
+        minLength: { type: [integer, "null"] }
+        displayOrder: { type: integer }
+
+    PublicFormDefinition:
+      type: object
+      required: [title, fields]
+      description: What a participant needs to render and answer the form — nothing else.
+      properties:
+        title: { type: string }
+        fields:
+          type: array
+          items: { $ref: "#/components/schemas/FormFieldDetail" }
+
+    FormSubmissionRequest:
+      type: object
+      required: [values]
+      properties:
+        values:
+          type: array
+          items:
+            type: object
+            required: [fieldId, value]
+            properties:
+              fieldId: { type: string, format: uuid }
+              value:
+                description: A string for text/email/phone/postalCode, a number, or a boolean.
+                oneOf:
+                  - { type: string }
+                  - { type: number }
+                  - { type: boolean }
+          description: Optional fields left unanswered are simply omitted from this array.
+
+    FormSubmissionProblem:
+      allOf:
+        - { $ref: "#/components/schemas/Problem" }
+        - type: object
+          properties:
+            fields:
+              type: array
+              description: Every field at fault, so the participant surface can point at each one.
+              items:
+                type: object
+                required: [fieldId, error]
+                properties:
+                  fieldId: { type: string, format: uuid }
+                  error: { type: string, enum: [required, invalid_format] }
+
+    FormResponseSummary:
+      type: object
+      required: [id, submittedAt, values]
+      properties:
+        id: { type: string, format: uuid }
+        submittedAt: { type: string, format: date-time }
+        values:
+          type: array
+          items:
+            type: object
+            required: [fieldId, value]
+            properties:
+              fieldId: { type: string, format: uuid }
+              value: { type: string }
+
+    FormExportDocument:
+      type: object
+      required: [formatVersion, exportedAt, form, responses]
+      description: |
+        Mirrors PollExport's shape (feature 003): a versioned envelope, so a future format change
+        does not silently reinterpret an older export.
+      properties:
+        formatVersion: { type: integer }
+        exportedAt: { type: string, format: date-time }
+        form:
+          type: object
+          properties:
+            title: { type: string }
+            fields:
+              type: array
+              items:
+                type: object
+                properties:
+                  label: { type: string }
+                  type: { $ref: "#/components/schemas/FieldType" }
+        responses:
+          type: array
+          items:
+            type: object
+            properties:
+              submittedAt: { type: string, format: date-time }
+              values:
+                type: object
+                description: |
+                  Keyed by field label (disambiguated with " (2)", " (3)", … on a repeated label);
+                  a field the response has no value for is omitted (FR-038).
+                additionalProperties:
+                  oneOf:
+                    - { type: string }
+                    - { type: number }
+                    - { type: boolean }

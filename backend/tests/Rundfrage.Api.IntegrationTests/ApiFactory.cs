@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Rundfrage.Api.Data;
 using Rundfrage.Api.Http;
@@ -13,7 +14,7 @@ namespace Rundfrage.Api.IntegrationTests;
 /// <summary>Drives the real host against a chosen data directory with a known operator account.</summary>
 public sealed class ApiFactory(
     string dataDirectory, int? submissionsPerHour = null, int? trustedProxies = null,
-    string? webRoot = null, int? creatorWritesPerHour = null)
+    string? webRoot = null, int? creatorWritesPerHour = null, TimeProvider? timeProvider = null)
     : WebApplicationFactory<Program>
 {
     /// <summary>
@@ -111,6 +112,13 @@ public sealed class ApiFactory(
 
         builder.ConfigureServices(services =>
             services.AddSingleton<IStartupFilter, ConnectedFromAnAddress>());
+
+        // Left unset by default so the host runs on the system clock. Set only where a test needs
+        // "now" to be a known value, such as a timestamp it then reads back.
+        if (timeProvider is not null)
+        {
+            builder.ConfigureTestServices(services => services.AddSingleton(timeProvider));
+        }
     }
 
     /// <summary>A client that has already signed in, for tests about what happens afterwards.</summary>

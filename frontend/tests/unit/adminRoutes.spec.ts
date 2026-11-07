@@ -20,12 +20,33 @@ describe('Admin addresses', () => {
       ['/admin/terminfindungen', 'polls'],
       ['/admin/wunschlisten', 'wish-lists'],
       ['/admin/ersteller', 'creators'],
+      ['/admin/formulare', 'forms'],
       ['/admin/einstellungen', 'settings'],
       ['/admin/anmelden', 'sign-in'],
     ] as const) {
       await r.push(path)
       expect(r.currentRoute.value.name, path).toBe(name)
     }
+  })
+
+  it('gives one form its own builder address, carrying the form it names (010)', async () => {
+    // Unlike the creator surface, a form's builder follows 007's ordinary addressing rule: it is
+    // reached only with an operator session already established, so there is no credential in the
+    // address to protect.
+    const r = router()
+    await r.push('/admin/formulare/abc-123')
+
+    expect(r.currentRoute.value.name).toBe('form-builder')
+    expect(r.currentRoute.value.params.formId).toBe('abc-123')
+  })
+
+  it('gives a form its own participant address, outside the admin shell (010 FR-012)', async () => {
+    const r = router()
+    await r.push('/f/token-789')
+
+    expect(r.currentRoute.value.name).toBe('form')
+    expect(r.currentRoute.value.params.formToken).toBe('token-789')
+    expect(r.currentRoute.value.matched.map((m) => m.name)).not.toContain('admin-shell')
   })
 
   it('gives one poll its own address, carrying the poll it names', async () => {

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, useId } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { absoluteUrl } from '../../shareUrl'
 
 const props = withDefaults(
   defineProps<{
@@ -14,7 +15,7 @@ const props = withDefaults(
 )
 
 const { t } = useI18n()
-const url = computed(() => `${window.location.origin}${props.path}`)
+const url = computed(() => absoluteUrl(props.path))
 
 /** Unique per instance, so two of these on one page describe their own link and not each other. */
 const noteId = useId()

@@ -31,6 +31,14 @@ public sealed class RundfrageDbContext(DbContextOptions<RundfrageDbContext> opti
 
     public DbSet<Creator> Creators => Set<Creator>();
 
+    public DbSet<Form> Forms => Set<Form>();
+
+    public DbSet<FormField> FormFields => Set<FormField>();
+
+    public DbSet<FormResponse> FormResponses => Set<FormResponse>();
+
+    public DbSet<FormFieldValue> FormFieldValues => Set<FormFieldValue>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         builder.Entity<Poll>(poll =>
@@ -205,6 +213,74 @@ public sealed class RundfrageDbContext(DbContextOptions<RundfrageDbContext> opti
         // equality is its only new predicate (009 research R-14).
         builder.Entity<Poll>().HasIndex(p => p.CreatorId);
         builder.Entity<WishList>().HasIndex(l => l.CreatorId);
+
+        // --- Individuelle Formulare (feature 010) -----------------------------------------
+        // No owner column and no OwnerScope entry here, unlike Poll and WishList: this feature
+        // is deliberately operator-only (010 FR-032, research R-3).
+        builder.Entity<Form>(form =>
+        {
+            form.HasKey(f => f.Id);
+            form.Property(f => f.Title).HasMaxLength(Form.TitleMaxLength).IsRequired();
+            form.Property(f => f.FormToken)
+                .HasMaxLength(CapabilityToken.TokenLength)
+                .IsRequired();
+
+            // The lookup key on every participant request (010 FR-012).
+            form.HasIndex(f => f.FormToken).IsUnique();
+
+            // Every relationship in this feature is required, so EF Core's own default is
+            // already Cascade - unlike feature 009's optional Creator relationships. Still
+            // stated explicitly here, for clarity rather than correctness (010 data-model §7).
+            form.HasMany(f => f.Fields)
+                .WithOne(field => field.Form!)
+                .HasForeignKey(field => field.FormId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            form.HasMany(f => f.Responses)
+                .WithOne(r => r.Form!)
+                .HasForeignKey(r => r.FormId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<FormField>(field =>
+        {
+            field.HasKey(f => f.Id);
+            field.Property(f => f.Label).HasMaxLength(FormField.LabelMaxLength).IsRequired();
+            field.Property(f => f.Type).HasConversion<string>();
+
+            // The ordered read on every builder and participant fetch, and the sequence every
+            // reorder renumbers (010 research R-4).
+            field.HasIndex(f => new { f.FormId, f.DisplayOrder });
+
+            // Deleting a field must remove only the values collected for it, across every
+            // response (010 FR-009) - the direction opposite FormResponse's own cascade below.
+            field.HasMany(f => f.Values)
+                .WithOne(v => v.Field!)
+                .HasForeignKey(v => v.FieldId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<FormResponse>(response =>
+        {
+            response.HasKey(r => r.Id);
+
+            // Deleting a response must remove only the values collected in it, across every
+            // field (010 FR-042a) - the direction opposite FormField's own cascade above. The
+            // two cascades share only FormFieldValue and both must be exactly right
+            // (010 quickstart.md "easy to break" #3).
+            response.HasMany(r => r.Values)
+                .WithOne(v => v.Response!)
+                .HasForeignKey(v => v.ResponseId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<FormFieldValue>(value =>
+        {
+            value.HasKey(v => v.Id);
+
+            // One value per field per response (010 data-model §4).
+            value.HasIndex(v => new { v.ResponseId, v.FieldId }).IsUnique();
+        });
 
         builder.Entity<DayAnswer>(answer =>
         {

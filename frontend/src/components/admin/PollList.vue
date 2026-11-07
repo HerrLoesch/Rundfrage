@@ -9,6 +9,7 @@ import ImportPanel from './ImportPanel.vue'
 import DeleteConfirm from './DeleteConfirm.vue'
 import PageHeader from '../layout/PageHeader.vue'
 import { deletePoll, exportUrl } from '../../api/client'
+import { shareUrl } from '../../shareUrl'
 
 const { t, d } = useI18n()
 const route = useRoute()
@@ -58,10 +59,6 @@ onMounted(async () => {
     await router.push({ name: 'sign-in' })
   }
 })
-
-function linkFor(token: string) {
-  return `${window.location.origin}/u/${token}`
-}
 
 async function confirmDelete() {
   if (!pendingDelete.value) return
@@ -206,12 +203,12 @@ async function confirmDelete() {
           -->
           <a
             class="rf-address mt-2"
-            :href="linkFor(poll.participantToken)"
+            :href="shareUrl('u', poll.participantToken)"
             target="_blank"
             rel="noopener noreferrer"
             :aria-describedby="`newtab-${poll.id}`"
             data-testid="poll-list-link"
-            >{{ linkFor(poll.participantToken) }}</a
+            >{{ shareUrl('u', poll.participantToken) }}</a
           >
           <span :id="`newtab-${poll.id}`" class="d-sr-only">{{ t('share.newTab') }}</span>
         </div>
@@ -264,32 +261,3 @@ async function confirmDelete() {
     />
   </v-container>
 </template>
-
-<style scoped>
-/* Identical to the wish-list rows, because they are the same kind of thing (007 FR-002). */
-.rf-row + .rf-row { margin-block-start: var(--rf-stack); }
-
-.rf-row__body {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  gap: 24px;
-  padding: var(--rf-card-pad);
-}
-
-.rf-row__main { flex: 1 1 auto; min-width: 0; }
-
-.rf-row__actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
-  flex-shrink: 0;
-}
-
-@media (max-width: 600px) {
-  .rf-row__body { flex-direction: column; gap: 16px; }
-  .rf-row__actions { width: 100%; justify-content: space-between; }
-}
-</style>

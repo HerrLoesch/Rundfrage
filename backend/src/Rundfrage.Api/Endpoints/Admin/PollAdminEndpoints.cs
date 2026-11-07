@@ -20,7 +20,7 @@ public static class PollAdminEndpoints
             var error = PollService.Validate(request.Title, request.Message, days);
             if (error is not null)
             {
-                return Results.BadRequest(new { code = error.Code, limit = error.Limit });
+                return Refusal.BadRequest(error);
             }
 
             var poll = await polls.CreateAsync(request.Title!, request.Message, days, ct);
@@ -74,7 +74,7 @@ public static class PollAdminEndpoints
             // else the system emits - an export that disagreed with the API about how a field is
             // spelled would be a second contract to keep in step.
             var json = JsonSerializer.SerializeToUtf8Bytes(
-                document, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+                document, JsonDefaults.Web);
 
             return Results.File(
                 json,
