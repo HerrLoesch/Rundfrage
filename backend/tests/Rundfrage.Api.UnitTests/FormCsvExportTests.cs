@@ -1,3 +1,5 @@
+using System.Text;
+using Rundfrage.Api.Data.Entities;
 using Rundfrage.Api.Forms;
 
 namespace Rundfrage.Api.UnitTests;
@@ -52,5 +54,54 @@ public class FormCsvExportTests
     {
         var row = FormCsvExport.WriteRow(["Anna, Beatrix", "30"]);
         Assert.Equal("\"Anna, Beatrix\",30\r\n", row);
+    }
+
+    [Theory]
+    [InlineData("=HYPERLINK(\"http://evil\")")]
+    [InlineData("+1+1")]
+    [InlineData("-2+3")]
+    [InlineData("@SUM(A1)")]
+    [InlineData("\tTab")]
+    public void A_value_a_spreadsheet_would_run_as_a_formula_is_prefixed_with_an_apostrophe(string value)
+    {
+        Assert.Equal("'" + value, FormCsvExport.NeutraliseFormula(value));
+    }
+
+    [Theory]
+    [InlineData("Anna")]
+    [InlineData("anna@example.com")]
+    [InlineData("")]
+    public void An_ordinary_value_is_left_as_it_is(string value)
+    {
+        Assert.Equal(value, FormCsvExport.NeutraliseFormula(value));
+    }
+
+    [Fact]
+    public void Free_text_and_email_answers_are_neutralised_but_a_negative_number_stays_a_number()
+    {
+        var text = new FormField { Id = Guid.NewGuid(), Type = FieldType.Text, Label = "Kommentar", MaxLength = 100 };
+        var email = new FormField { Id = Guid.NewGuid(), Type = FieldType.Email, Label = "E-Mail" };
+        var number = new FormField { Id = Guid.NewGuid(), Type = FieldType.Integer, Label = "Saldo" };
+        var response = new FormResponseSummary(Guid.NewGuid(), DateTime.UtcNow,
+        [
+            new FormFieldValueView(text.Id, "=1+1"),
+            new FormFieldValueView(email.Id, "=x@example.com"),
+            new FormFieldValueView(number.Id, "-5"),
+        ]);
+
+        var bytes = FormCsvExport.Build([text, email, number], [response]);
+        var rows = Encoding.UTF8.GetString(bytes[3..]).Split("\r\n");
+
+        Assert.Equal("'=1+1,'=x@example.com,-5", rows[1]);
+    }
+
+    [Fact]
+    public void A_label_starting_like_a_formula_is_neutralised_in_the_header_too()
+    {
+        var field = new FormField { Id = Guid.NewGuid(), Type = FieldType.Text, Label = "=Summe", MaxLength = 10 };
+
+        var bytes = FormCsvExport.Build([field], []);
+
+        Assert.Equal("'=Summe\r\n", Encoding.UTF8.GetString(bytes[3..]));
     }
 }

@@ -98,7 +98,6 @@ builder.Services.AddScoped<OwnerScope>();
 // (Principle III). Deliberately operator-only: no owner column, no OwnerScope method
 // (010 FR-032, research R-3).
 builder.Services.AddScoped<FormService>();
-builder.Services.AddScoped<FormExport>();
 builder.Services.AddScoped<RetentionService>();
 builder.Services.AddScoped<RestoreService>();
 

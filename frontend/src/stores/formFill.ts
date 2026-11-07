@@ -42,6 +42,18 @@ export const useFormFillStore = defineStore('formFill', () => {
     }
   }
 
+  /**
+   * Re-reads the definition without clearing it first, so the form stays on screen and what the
+   * participant has typed survives - used when the server names a field this copy never had.
+   */
+  async function refresh(): Promise<void> {
+    try {
+      definition.value = await fetchFormByToken(token.value)
+    } catch (failure) {
+      loadProblem.value = failure as ApiProblem
+    }
+  }
+
   async function submit(
     values: { fieldId: string; value: FormFieldSubmissionValue }[],
   ): Promise<boolean> {
@@ -61,6 +73,6 @@ export const useFormFillStore = defineStore('formFill', () => {
 
   return {
     token, definition, loading, loadProblem, submitting, submitted, submitProblem,
-    load, submit,
+    load, refresh, submit,
   }
 })

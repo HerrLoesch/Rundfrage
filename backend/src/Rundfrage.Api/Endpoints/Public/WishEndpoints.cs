@@ -125,7 +125,7 @@ public static class WishEndpoints
 
             if (refusal is not null)
             {
-                return Results.BadRequest(new { code = refusal.Code });
+                return Refusal.BadRequest(refusal.Code);
             }
 
             return removed ? Results.NoContent() : NeutralNotFound.Result();

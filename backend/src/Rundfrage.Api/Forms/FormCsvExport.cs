@@ -35,16 +35,30 @@ public static class FormCsvExport
         string.Join(',', fields.Select(QuoteField)) + "\r\n";
 
     /// <summary>
-    /// The CSV file's raw bytes, UTF-8, valid and header-only when there are zero responses
-    /// (FR-039).
+    /// A spreadsheet runs a cell starting with "=", "+", "-" or "@" (and, in some, a tab or a
+    /// carriage return) as a formula. Free text comes from anonymous participants, so such a value
+    /// is prefixed with an apostrophe and shown as the text it is (OWASP "CSV injection").
     /// </summary>
+    public static string NeutraliseFormula(string value) =>
+        value.Length > 0 && value[0] is '=' or '+' or '-' or '@' or '\t' or '\r'
+            ? "'" + value
+            : value;
+
+    /// <summary>
+    /// The CSV file's raw bytes, UTF-8 with a byte-order mark, valid and header-only when there
+    /// are zero responses (FR-039).
+    /// </summary>
+    /// <remarks>
+    /// The byte-order mark is what makes Excel read the file as UTF-8 at all; without it, every
+    /// umlaut in a German label or answer arrives garbled. Other readers skip it.
+    /// </remarks>
     public static byte[] Build(
         IReadOnlyList<FormField> fieldsInOrder, IReadOnlyList<FormResponseSummary> responses)
     {
         var labeled = FormLabels.Disambiguate(fieldsInOrder);
         var builder = new StringBuilder();
 
-        builder.Append(WriteRow(labeled.Select(l => l.Label)));
+        builder.Append(WriteRow(labeled.Select(l => NeutraliseFormula(l.Label))));
 
         foreach (var response in responses)
         {
@@ -54,7 +68,7 @@ public static class FormCsvExport
                 FormatForCsv(l.Field, values.GetValueOrDefault(l.Field.Id)))));
         }
 
-        return Encoding.UTF8.GetBytes(builder.ToString());
+        return [.. Encoding.UTF8.GetPreamble(), .. Encoding.UTF8.GetBytes(builder.ToString())];
     }
 
     /// <summary>
@@ -62,6 +76,10 @@ public static class FormCsvExport
     /// (010 FR-037) - "TRUE"/"FALSE" for Boolean, the stored invariant number text unchanged for
     /// Integer/Decimal, the string itself otherwise. A missing value (010 FR-038) is an empty cell.
     /// </summary>
+    /// <remarks>
+    /// Only Text and Email can carry a formula: every other type is validated down to digits,
+    /// signs and separators, and a leading "-" on a number must stay a minus sign.
+    /// </remarks>
     private static string? FormatForCsv(FormField field, string? rawValue)
     {
         if (rawValue is null)
@@ -69,9 +87,12 @@ public static class FormCsvExport
             return null;
         }
 
-        // 010 FR-026: the canonical stored string is "yes"/"no" (see FormFieldValidation.cs).
-        return field.Type == FieldType.Boolean
-            ? (rawValue == "yes" ? "TRUE" : "FALSE")
-            : rawValue;
+        return field.Type switch
+        {
+            // 010 FR-026: the canonical stored string is "yes"/"no" (see FormFieldValidation.cs).
+            FieldType.Boolean => rawValue == "yes" ? "TRUE" : "FALSE",
+            FieldType.Text or FieldType.Email => NeutraliseFormula(rawValue),
+            _ => rawValue,
+        };
     }
 }

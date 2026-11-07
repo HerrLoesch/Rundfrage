@@ -3,6 +3,8 @@ import {
   backupUrl,
   createPoll,
   exportUrl,
+  fetchCreatorSurface,
+  fetchFormByToken,
   listPolls,
   signIn,
   signOut,
@@ -99,6 +101,24 @@ describe('api client', () => {
     } as unknown as Response)
 
     await expect(listPolls()).rejects.toMatchObject({ code: 'unexpected' })
+  })
+
+  it('rejects with a problem code, not a bare TypeError, when the server cannot be reached', async () => {
+    vi.mocked(globalThis.fetch).mockRejectedValue(new TypeError('Failed to fetch'))
+
+    await expect(listPolls()).rejects.toEqual({ code: 'network' })
+  })
+
+  it.each([
+    ['a form token', () => fetchFormByToken('a/../admin/forms'), '/api/v1/f/a%2F..%2Fadmin%2Fforms'],
+    ['an Ersteller token', () => fetchCreatorSurface('a/../admin'), '/api/v1/e/a%2F..%2Fadmin'],
+  ])('escapes %s taken from the address bar, so it cannot climb into another route', async (_n, call, url) => {
+    // The token comes from a URL anyone can type. Unescaped, "a/../admin/forms" is normalised by
+    // the browser into a same-origin request for an admin route, carrying the operator's cookie.
+    respond(200, {})
+    await call()
+
+    expect(requestedUrl()).toBe(url)
   })
 
   it('handles a 204 without trying to parse a body', async () => {

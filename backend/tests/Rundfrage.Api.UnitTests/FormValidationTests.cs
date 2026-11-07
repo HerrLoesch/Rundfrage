@@ -79,6 +79,23 @@ public class FormValidationTests
     }
 
     [Fact]
+    public void A_text_minimum_may_not_be_negative()
+    {
+        Assert.Equal(
+            ErrorCodes.TextLengthRangeInvalid,
+            FormService.ValidateNewField(TextField(maxLength: 10, minLength: -1))?.Code);
+        Assert.Equal(
+            ErrorCodes.TextLengthRangeInvalid,
+            FormService.ValidateFieldEdit(FieldType.Text, null, 10, -1)?.Code);
+    }
+
+    [Fact]
+    public void A_text_minimum_of_zero_is_accepted_as_no_minimum_at_all()
+    {
+        Assert.Null(FormService.ValidateNewField(TextField(maxLength: 10, minLength: 0)));
+    }
+
+    [Fact]
     public void A_text_field_with_sane_limits_is_accepted()
     {
         Assert.Null(FormService.ValidateNewField(TextField(maxLength: 100, minLength: 1)));

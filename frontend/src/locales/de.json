@@ -47,6 +47,7 @@
     "unauthorized": "Nicht angemeldet.",
     "too_many_requests": "Zu viele Anfragen. Bitte in {minutes} Minuten erneut versuchen.",
     "unexpected": "Es ist ein Fehler aufgetreten.",
+    "network": "Keine Verbindung zum Server. Bitte später erneut versuchen.",
     "not_a_valid_export": "Die Datei ist kein Export dieses Systems.",
     "format_version_too_new": "Die Datei stammt aus einer neueren Version und kann nicht gelesen werden.",
     "poll_too_large": "Die Datei überschreitet eine Grenze dieses Systems.",
@@ -389,6 +390,7 @@
     "rename": "Titel bearbeiten",
     "fieldCanvasEmpty": "Feld hinzufügen, um zu beginnen.",
     "addField": "Feld hinzufügen",
+    "fieldsTitle": "Felder",
     "fieldType": "Feldtyp",
     "fieldTypeText": "Text",
     "fieldTypeInteger": "Ganzzahl",
@@ -406,7 +408,7 @@
     "removeFieldConfirm": "„{label}“ wird entfernt. {count} bereits erfasste Werte für dieses Feld gehen dabei verloren.",
     "moveFieldUp": "Feld nach oben verschieben",
     "moveFieldDown": "Feld nach unten verschieben",
-    "dragHandle": "Ziehen, um die Reihenfolge zu ändern",
+    "dragHandle": "Ziehen oder mit den Pfeiltasten verschieben, um die Reihenfolge zu ändern",
     "responsesTitle": "Antworten",
     "responsesEmpty": "Noch niemand hat geantwortet.",
     "responsesSubmittedAt": "Eingegangen am",
@@ -419,9 +421,11 @@
       "submitted": "Danke! Deine Antwort ist gespeichert.",
       "notFound": "Dieses Formular gibt es nicht (mehr).",
       "required": "*",
+      "requiredLabel": "Pflichtfeld",
       "yes": "Ja",
       "no": "Nein",
-      "notAnswered": "Noch keine Angabe"
+      "clearChoice": "Auswahl zurücknehmen",
+      "changed": "Das Formular wurde inzwischen geändert. Bitte prüfe die markierten Felder und schicke es erneut ab."
     }
   }
 }

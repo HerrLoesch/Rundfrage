@@ -13,7 +13,8 @@ follow rather than restate.
 
 ## 1. Navigation (007 FR-002a to FR-005)
 
-`AdminNav.vue` gains one entry, in the middle section, after "Ersteller".
+`AdminNav.vue` gains one entry, in the middle section, after "Wunschlisten" and before "Ersteller"
+(the content areas first, then the area that hands out access to them).
 
 | Position | Label (catalogue key) | Route names owned | `data-testid` |
 |---|---|---|---|

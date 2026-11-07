@@ -1,14 +1,19 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, watch } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useFormFillStore } from '../../stores/formFill'
-import { isAnswered, isValidValue } from '../../composables/useFormFieldValidation'
+import { useProblemText } from '../../composables/useProblemText'
+import { isAnswered, isValidValue, normalizeValue } from '../../composables/useFormFieldValidation'
 import type { FormFieldDetail } from '../../api/client'
 
 const props = defineProps<{ formToken: string }>()
 
 const { t } = useI18n()
 const store = useFormFillStore()
+const problemText = useProblemText()
+
+/** Set when the server rejected a field this page had not loaded - the operator changed the form. */
+const formChanged = ref(false)
 
 /** fieldId -> the value as entered so far. Absent/null means "not yet answered" (research R-13). */
 const answers = reactive<Record<string, string | null>>({})
@@ -18,13 +23,17 @@ const errors = reactive<Record<string, 'required' | 'invalid_format' | null>>({}
 
 onMounted(() => store.load(props.formToken))
 
+/**
+ * Starts every field the page has not seen yet as unanswered. A field already present keeps what
+ * was typed into it, so re-reading a changed form does not wipe the participant's answers.
+ */
 watch(
   () => store.definition,
   (definition) => {
     if (!definition) return
     for (const field of definition.fields) {
-      answers[field.id] = null
-      errors[field.id] = null
+      if (!(field.id in answers)) answers[field.id] = null
+      if (!(field.id in errors)) errors[field.id] = null
     }
   },
 )
@@ -35,10 +44,16 @@ const unavailable = computed(
 )
 const maintenance = computed(() => store.loadProblem?.code === 'maintenance')
 
-function fieldError(field: FormFieldDetail): 'required' | 'invalid_format' | null {
+/** The value as it will be validated and sent, or null while the field is unanswered. */
+function submittedValue(field: FormFieldDetail): string | null {
   const value = answers[field.id]
+  return isAnswered(value) ? normalizeValue(field.type, value!) : null
+}
 
-  if (!isAnswered(value)) {
+function fieldError(field: FormFieldDetail): 'required' | 'invalid_format' | null {
+  const value = submittedValue(field)
+
+  if (value === null) {
     return field.required ? 'required' : null
   }
 
@@ -70,30 +85,55 @@ function validate(): boolean {
 async function submit() {
   if (!validate() || !store.definition) return
 
+  formChanged.value = false
+
   const values = store.definition.fields
-    .filter((field) => isAnswered(answers[field.id]))
-    .map((field) => ({ fieldId: field.id, value: answers[field.id]! }))
+    .map((field) => ({ fieldId: field.id, value: submittedValue(field) }))
+    .filter((entry): entry is { fieldId: string; value: string } => entry.value !== null)
 
   const ok = await store.submit(values)
+  const rejected = store.submitProblem?.fields
+  if (ok || !rejected) return
 
-  if (!ok && store.submitProblem?.fields) {
+  // The operator can add a required field while a participant already has the form open. The
+  // server then names a field this page never rendered, so an error stored against it would be
+  // shown nowhere: re-read the form first, then mark the fields.
+  const known = new Set(store.definition.fields.map((field) => field.id))
+  if (rejected.some((fieldError) => !known.has(fieldError.fieldId))) {
+    await store.refresh()
+    formChanged.value = true
+  }
+
+  for (const fieldError of rejected) {
     // The server's error codes carry the "field_" prefix that ErrorCodes.cs defines
-    // (e.g. "field_required"); `errors` stores only the bare suffix the template's
-    // `error.field_${...}` lookup re-adds, matching the shape client-side errors already use.
-    // This case is reachable in ordinary use, not just from a bypassing client: the operator can
-    // add a new required field while a participant already has the form open, so the server
-    // rejects something the participant's stale, already-loaded field list never validated.
-    for (const fieldError of store.submitProblem.fields) {
-      errors[fieldError.fieldId] = fieldError.error.replace(/^field_/, '') as
-        | 'required'
-        | 'invalid_format'
-    }
+    // (e.g. "field_required"); `errors` stores only the bare suffix, matching the shape
+    // client-side errors already use.
+    errors[fieldError.fieldId] = fieldError.error.replace(/^field_/, '') as
+      | 'required'
+      | 'invalid_format'
   }
 }
 
-function setBoolean(fieldId: string, value: 'yes' | 'no') {
+function setBoolean(fieldId: string, value: 'yes' | 'no' | null) {
   answers[fieldId] = value
 }
+
+/** What a failed submission says above the button - nothing while the page itself is to blame. */
+const submitMessage = computed(() => {
+  if (formChanged.value) return t('form.fill.changed')
+  return store.submitProblem ? problemText(store.submitProblem) : ''
+})
+
+function inputModeFor(field: FormFieldDetail): 'numeric' | 'decimal' | 'text' {
+  // "decimal" is the one keyboard that offers a separator; "numeric" has none on iOS, so a
+  // decimal field could not be filled in on an iPhone at all.
+  if (field.type === 'decimal') return 'decimal'
+  if (field.type === 'integer' || field.type === 'postalCode') return 'numeric'
+  return 'text'
+}
+
+const inputId = (field: FormFieldDetail) => `form-field-${field.id}`
+const labelId = (field: FormFieldDetail) => `form-field-label-${field.id}`
 
 /**
  * A message specific to what is actually wrong with this field, rather than the one generic
@@ -163,30 +203,47 @@ function fieldErrorMessage(field: FormFieldDetail, error: 'required' | 'invalid_
         data-testid="form-fill-field"
         :data-field-id="field.id"
       >
-        <label class="d-block mb-1">
+        <!-- A real <label for> for text inputs; a radio group is named through aria-labelledby,
+             because a <label> can only point at one control. -->
+        <label :id="labelId(field)" :for="field.type === 'boolean' ? undefined : inputId(field)" class="d-block mb-1">
           {{ field.label }}
-          <span v-if="field.required" data-testid="form-fill-required-marker" :aria-label="t('form.fill.required')">
-            {{ t('form.fill.required') }}
+          <span v-if="field.required" data-testid="form-fill-required-marker">
+            <span aria-hidden="true">{{ t('form.fill.required') }}</span>
+            <span class="d-sr-only">{{ t('form.fill.requiredLabel') }}</span>
           </span>
         </label>
 
         <!-- Boolean: a radio group with nothing pre-selected, never a checkbox (research R-13). -->
-        <v-radio-group
-          v-if="field.type === 'boolean'"
-          :model-value="answers[field.id]"
-          inline
-          hide-details
-          @update:model-value="(v) => v && setBoolean(field.id, v as 'yes' | 'no')"
-        >
-          <v-radio :label="t('form.fill.yes')" value="yes" />
-          <v-radio :label="t('form.fill.no')" value="no" />
-        </v-radio-group>
+        <template v-if="field.type === 'boolean'">
+          <v-radio-group
+            :model-value="answers[field.id]"
+            :aria-labelledby="labelId(field)"
+            inline
+            hide-details
+            @update:model-value="(v) => v && setBoolean(field.id, v as 'yes' | 'no')"
+          >
+            <v-radio :label="t('form.fill.yes')" value="yes" />
+            <v-radio :label="t('form.fill.no')" value="no" />
+          </v-radio-group>
+          <!-- An optional question must be returnable to "no answer": a radio button, once
+               chosen, cannot be un-chosen by itself. -->
+          <v-btn
+            v-if="!field.required && answers[field.id] !== null"
+            variant="text"
+            size="small"
+            data-testid="form-fill-clear-choice"
+            @click="setBoolean(field.id, null)"
+          >
+            {{ t('form.fill.clearChoice') }}
+          </v-btn>
+        </template>
 
         <v-text-field
           v-else
+          :id="inputId(field)"
           v-model="answers[field.id]"
           :type="field.type === 'email' ? 'email' : field.type === 'phone' ? 'tel' : 'text'"
-          :inputmode="field.type === 'integer' || field.type === 'decimal' || field.type === 'postalCode' ? 'numeric' : 'text'"
+          :inputmode="inputModeFor(field)"
           :maxlength="field.type === 'text' ? (field.maxLength ?? undefined) : undefined"
           :counter="field.type === 'text' ? (field.maxLength ?? undefined) : undefined"
           hide-details
@@ -201,7 +258,17 @@ function fieldErrorMessage(field: FormFieldDetail, error: 'required' | 'invalid_
         </div>
       </div>
 
-      <v-btn color="primary" type="submit" data-testid="form-fill-submit">
+      <v-alert
+        v-if="submitMessage"
+        type="error"
+        density="compact"
+        class="mb-4"
+        data-testid="form-fill-submit-error"
+      >
+        {{ submitMessage }}
+      </v-alert>
+
+      <v-btn color="primary" type="submit" :loading="store.submitting" data-testid="form-fill-submit">
         {{ t('form.fill.submit') }}
       </v-btn>
     </v-form>

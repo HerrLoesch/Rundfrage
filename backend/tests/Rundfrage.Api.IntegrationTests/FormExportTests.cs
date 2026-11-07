@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text;
 using System.Text.Json;
 
 namespace Rundfrage.Api.IntegrationTests;
@@ -9,6 +10,14 @@ namespace Rundfrage.Api.IntegrationTests;
 /// </summary>
 public class FormExportTests(SqliteFixture storage) : IClassFixture<SqliteFixture>
 {
+    /// <summary>A clock the test moves by hand, so "the moment of export" is a known value.</summary>
+    private sealed class SettableTime(DateTimeOffset now) : TimeProvider
+    {
+        public DateTimeOffset Now { get; set; } = now;
+
+        public override DateTimeOffset GetUtcNow() => Now;
+    }
+
     private static async Task<(Guid FormId, string Token, Guid NameFieldId, Guid AgeFieldId, Guid RsvpFieldId)>
         BuildFormAsync(HttpClient admin)
     {
@@ -244,5 +253,49 @@ public class FormExportTests(SqliteFixture storage) : IClassFixture<SqliteFixtur
             (await anonymous.GetAsync($"/api/v1/admin/forms/{Guid.NewGuid()}/export/csv")).StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized,
             (await anonymous.GetAsync($"/api/v1/admin/forms/{Guid.NewGuid()}/export/json")).StatusCode);
+    }
+
+    [Fact]
+    public async Task The_csv_download_is_named_for_the_moment_of_export_not_the_forms_creation()
+    {
+        // Named for the creation time, every CSV download of one form had the same name and each
+        // overwrote the last - the opposite of what the timestamp in the name is for (FR-035).
+        var time = new SettableTime(new DateTimeOffset(2026, 3, 1, 9, 0, 0, TimeSpan.Zero));
+        using var factory = new ApiFactory(storage.DataDirectory, timeProvider: time);
+        var admin = await factory.CreateSignedInClientAsync();
+        var (formId, _, _, _, _) = await BuildFormAsync(admin);
+
+        // Minutes, not days, later: the session cookie runs on the same clock and would expire.
+        time.Now = new DateTimeOffset(2026, 3, 1, 9, 30, 5, TimeSpan.Zero);
+        var first = await admin.GetAsync($"/api/v1/admin/forms/{formId}/export/csv");
+        time.Now = time.Now.AddMinutes(1);
+        var second = await admin.GetAsync($"/api/v1/admin/forms/{formId}/export/csv");
+        Assert.Equal(HttpStatusCode.OK, first.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, second.StatusCode);
+
+        static string NameOf(HttpResponseMessage r) =>
+            r.Content.Headers.ContentDisposition?.FileNameStar
+            ?? r.Content.Headers.ContentDisposition?.FileName?.Trim('"') ?? "";
+
+        Assert.Equal("export-2026-03-01T093005Z.csv", NameOf(first));
+        Assert.Equal("export-2026-03-01T093105Z.csv", NameOf(second));
+    }
+
+    [Fact]
+    public async Task The_csv_file_starts_with_a_utf8_byte_order_mark_so_excel_keeps_the_umlauts()
+    {
+        using var factory = new ApiFactory(storage.DataDirectory);
+        var admin = await factory.CreateSignedInClientAsync();
+        var created = await admin.PostAsJsonAsync("/api/v1/admin/forms", new { title = "Größe" });
+        var formId = (await created.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetGuid();
+        await admin.PostAsJsonAsync($"/api/v1/admin/forms/{formId}/fields", new
+        {
+            type = "text", label = "Straße", required = false, maxLength = 50,
+        });
+
+        var bytes = await admin.GetByteArrayAsync($"/api/v1/admin/forms/{formId}/export/csv");
+
+        Assert.Equal(Encoding.UTF8.GetPreamble(), bytes[..3]);
+        Assert.Equal("Straße\r\n", Encoding.UTF8.GetString(bytes[3..]));
     }
 }

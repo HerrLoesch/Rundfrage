@@ -8,6 +8,7 @@ import { useProblemText } from '../../composables/useProblemText'
 import PageHeader from '../layout/PageHeader.vue'
 import DeleteConfirm from './DeleteConfirm.vue'
 import type { FormSummary } from '../../api/client'
+import { shareUrl } from '../../shareUrl'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -33,10 +34,6 @@ onMounted(async () => {
 const storageUnavailable = computed(
   () => store.loadProblem !== null && store.loadProblem.code !== 'unauthorized',
 )
-
-function share(formToken: string): string {
-  return `${window.location.origin}/f/${formToken}`
-}
 
 function reveal() {
   revealed.value = !revealed.value
@@ -102,6 +99,17 @@ async function confirmDelete() {
       </v-card-text>
     </v-card>
 
+    <!-- A refused delete, or any other failure outside the create card - which is usually closed
+         when one happens, so its own message would never be seen. -->
+    <v-alert
+      v-if="store.problem && !revealed"
+      type="error"
+      class="mb-4"
+      data-testid="form-list-error"
+    >
+      {{ problemText(store.problem) }}
+    </v-alert>
+
     <v-alert
       v-if="storageUnavailable"
       type="warning"
@@ -165,12 +173,12 @@ async function confirmDelete() {
           <a
             v-else
             class="rf-address mt-2"
-            :href="share(form.formToken)"
+            :href="shareUrl('f', form.formToken)"
             target="_blank"
             rel="noopener noreferrer"
             :aria-describedby="`newtab-${form.id}`"
             data-testid="form-link"
-            >{{ share(form.formToken) }}</a
+            >{{ shareUrl('f', form.formToken) }}</a
           >
           <span :id="`newtab-${form.id}`" class="d-sr-only">{{ t('share.newTab') }}</span>
         </div>
@@ -200,7 +208,6 @@ async function confirmDelete() {
     <DeleteConfirm
       v-if="deleting"
       :title="deleting.title"
-      :response-count="deleting.responseCount"
       :body="t('form.deleteConfirm', { title: deleting.title, count: deleting.responseCount })"
       testid="form-delete-confirm"
       @confirm="confirmDelete"
@@ -208,31 +215,3 @@ async function confirmDelete() {
     />
   </v-container>
 </template>
-
-<style scoped>
-.rf-row + .rf-row { margin-block-start: var(--rf-stack); }
-
-.rf-row__body {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  gap: 24px;
-  padding: var(--rf-card-pad);
-}
-
-.rf-row__main { flex: 1 1 auto; min-width: 0; }
-
-.rf-row__actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
-  flex-shrink: 0;
-}
-
-@media (max-width: 600px) {
-  .rf-row__body { flex-direction: column; gap: 16px; }
-  .rf-row__actions { width: 100%; justify-content: space-between; }
-}
-</style>

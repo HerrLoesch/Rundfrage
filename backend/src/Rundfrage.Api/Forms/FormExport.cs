@@ -1,7 +1,6 @@
 using System.Globalization;
 using Rundfrage.Api.Data.Entities;
 using Rundfrage.Api.Http;
-using Rundfrage.Api.Time;
 
 namespace Rundfrage.Api.Forms;
 
@@ -24,15 +23,16 @@ public sealed record ExportedFormResponse(
 /// <remarks>
 /// Builds from data already fetched by <see cref="FormService"/> - <c>FindAsync</c> for the
 /// ordered fields, <c>ListResponsesAsync</c> for the responses - rather than a second querying
-/// path over the same tables (Principle III).
+/// path over the same tables (Principle III). Pure, like <see cref="FormCsvExport"/>: the caller
+/// passes the moment of export, so neither builder needs a service of its own.
 /// </remarks>
-public sealed class FormExport(BerlinClock clock)
+public static class FormExport
 {
     /// <summary>Additive changes keep this number, matching PollExport's own convention.</summary>
     public const int FormatVersion = 1;
 
-    public FormExportDocument Build(
-        Form form, IReadOnlyList<FormResponseSummary> responses)
+    public static FormExportDocument Build(
+        Form form, IReadOnlyList<FormResponseSummary> responses, DateTime exportedAt)
     {
         var fieldsInOrder = form.Fields.OrderBy(f => f.DisplayOrder).ToList();
         var labeled = FormLabels.Disambiguate(fieldsInOrder);
@@ -58,13 +58,22 @@ public sealed class FormExport(BerlinClock clock)
             return new ExportedFormResponse(response.SubmittedAt, values);
         }).ToList();
 
-        return new FormExportDocument(FormatVersion, clock.Now, exportedForm, exportedResponses);
+        return new FormExportDocument(FormatVersion, exportedAt, exportedForm, exportedResponses);
     }
 
+    /// <remarks>
+    /// A stored number that no longer parses as a finite value - accepted before validation
+    /// refused "NaN", "Infinity" and out-of-range integers - is exported as its raw text instead:
+    /// the JSON writer cannot represent either, and one such row must not make the whole export
+    /// fail.
+    /// </remarks>
     private static object? TypedValue(FormField field, string rawValue) => field.Type switch
     {
-        FieldType.Integer => long.Parse(rawValue, CultureInfo.InvariantCulture),
-        FieldType.Decimal => double.Parse(rawValue, CultureInfo.InvariantCulture),
+        FieldType.Integer when long.TryParse(
+            rawValue, NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out var whole) => whole,
+        FieldType.Decimal when double.TryParse(
+            rawValue, NumberStyles.Float, CultureInfo.InvariantCulture, out var number)
+            && double.IsFinite(number) => number,
         // 010 FR-026: the canonical stored string is "yes"/"no" (research the boolean fix note in
         // FormFieldValidation.cs); the JSON export still renders a real boolean per FR-037.
         FieldType.Boolean => rawValue == "yes",

@@ -54,7 +54,7 @@ public static class WishListAdminEndpoints
 
             if (error is not null)
             {
-                return Results.BadRequest(new { code = error.Code, limit = error.Limit, detail = error.Detail });
+                return Refusal.BadRequest(error);
             }
 
             var list = await lists.CreateAsync(
@@ -96,40 +96,20 @@ public static class WishListAdminEndpoints
                 return NeutralNotFound.Result();
             }
 
-            // A patch is an object or it is nothing. `null`, `[]`, `5` and `"x"` are all valid
-            // JSON and none of them is a change to make, so they are refused like any other
-            // defective request - before TryGetProperty, which throws on anything but an object.
-            if (body.ValueKind != JsonValueKind.Object)
+            if (!PatchBody.TryRead<WishListPatch>(body, out var patch))
             {
-                return Results.BadRequest(new { code = ErrorCodes.MalformedRequest });
-            }
-
-            WishListPatch? patch;
-            try
-            {
-                patch = JsonSerializer.Deserialize<WishListPatch>(
-                    body.GetRawText(), new JsonSerializerOptions(JsonSerializerDefaults.Web));
-            }
-            catch (JsonException)
-            {
-                // A property of the right name but the wrong type - targetDate: "gestern".
-                return Results.BadRequest(new { code = ErrorCodes.MalformedRequest });
-            }
-
-            if (patch is null)
-            {
-                return Results.BadRequest(new { code = ErrorCodes.MalformedRequest });
+                return Refusal.BadRequest(ErrorCodes.MalformedRequest);
             }
 
             // Read from the raw document, because a null Description in the record means both
             // "clear it" and "not mentioned", and those are different instructions.
-            var descriptionGiven = body.TryGetProperty("description", out _);
+            var descriptionGiven = PatchBody.Mentions(body, "description");
 
             var (updated, error) = await lists.UpdateAsync(
                 list, patch.Title, patch.Description, patch.TargetDate, descriptionGiven, ct);
 
             return error is not null
-                ? Results.BadRequest(new { code = error.Code, limit = error.Limit, detail = error.Detail })
+                ? Refusal.BadRequest(error)
                 : Results.Ok(projection.Detail(updated!));
         })
         .WithName("updateWishList");
@@ -151,7 +131,7 @@ public static class WishListAdminEndpoints
                 list, new WishItemDraft(request.Name, request.WantedCount), ct);
 
             return error is not null
-                ? Results.BadRequest(new { code = error.Code, limit = error.Limit, detail = error.Detail })
+                ? Refusal.BadRequest(error)
                 : Results.Created(
                     $"/api/v1/admin/wish-lists/{wishListId}", projection.Detail(updated!));
         })
@@ -175,7 +155,7 @@ public static class WishListAdminEndpoints
                 list, itemId, request.Name, request.WantedCount, ct);
 
             return error is not null
-                ? Results.BadRequest(new { code = error.Code, limit = error.Limit, detail = error.Detail })
+                ? Refusal.BadRequest(error)
                 : Results.Ok(projection.Detail(updated!));
         })
         .WithName("updateWishItem");

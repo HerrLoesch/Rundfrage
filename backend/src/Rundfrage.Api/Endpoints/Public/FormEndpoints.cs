@@ -41,16 +41,7 @@ public static class FormEndpoints
             return Results.Ok(new
             {
                 title = form.Title,
-                fields = form.Fields.OrderBy(f => f.DisplayOrder).Select(f => new
-                {
-                    id = f.Id,
-                    type = f.Type,
-                    label = f.Label,
-                    required = f.Required,
-                    maxLength = f.MaxLength,
-                    minLength = f.MinLength,
-                    displayOrder = f.DisplayOrder,
-                }),
+                fields = form.Fields.OrderBy(f => f.DisplayOrder).Select(FormFieldView.Of),
             });
         })
         .AllowAnonymous()
@@ -63,6 +54,20 @@ public static class FormEndpoints
             BerlinClock clock,
             CancellationToken ct) =>
         {
+            var values = request.Values ?? [];
+
+            // One value per field. A second entry for the same field has no meaning to pick
+            // between, and ToDictionary below would otherwise throw and answer 500.
+            if (values.Select(v => v.FieldId).Distinct().Count() != values.Length)
+            {
+                return Refusal.BadRequest(ErrorCodes.MalformedRequest);
+            }
+
+            // The form is read inside the write lock, so the field list validated here is the one
+            // the values are stored against: an operator removing a field between the read and
+            // the insert would otherwise turn a valid submission into a foreign-key failure.
+            await using var transaction = await SqliteWriteTransaction.BeginAsync(db, ct);
+
             var form = await LoadAsync(db, formToken, ct);
 
             if (form is null)
@@ -70,21 +75,15 @@ public static class FormEndpoints
                 return NeutralNotFound.Result();
             }
 
-            var submitted = (request.Values ?? [])
-                .ToDictionary(v => v.FieldId, v => Canonicalize(v.Value));
+            var submitted = values.ToDictionary(v => v.FieldId, v => Canonicalize(v.Value));
 
             var fieldErrors = new List<object>();
 
             foreach (var field in form.Fields)
             {
-                // An empty string counts as "not answered", matching the frontend's own
-                // isAnswered() - otherwise a required Text field with no MinLength could be
-                // satisfied by submitting "", bypassing FR-017 for any client that sends the
-                // field explicitly rather than omitting it.
-                var hasValue = submitted.TryGetValue(field.Id, out var value)
-                    && !string.IsNullOrEmpty(value);
+                var value = submitted.GetValueOrDefault(field.Id);
 
-                if (!hasValue)
+                if (!FormFieldValidation.IsAnswered(value))
                 {
                     // FR-017: a required field with no value at all is refused. An optional field
                     // left unanswered is fine for every type, Boolean included (research R-13).
@@ -114,7 +113,7 @@ public static class FormEndpoints
                 FormId = form.Id,
                 SubmittedAt = clock.Now,
                 Values = [.. form.Fields
-                    .Where(f => submitted.TryGetValue(f.Id, out var v) && !string.IsNullOrEmpty(v))
+                    .Where(f => FormFieldValidation.IsAnswered(submitted.GetValueOrDefault(f.Id)))
                     .Select(f => new FormFieldValue
                     {
                         Id = Guid.CreateVersion7(),
@@ -125,6 +124,7 @@ public static class FormEndpoints
 
             db.FormResponses.Add(response);
             await db.SaveChangesAsync(ct);
+            await transaction.CommitAsync(ct);
 
             return Results.Created($"/api/v1/f/{formToken}/responses/{response.Id}", new { id = response.Id });
         })

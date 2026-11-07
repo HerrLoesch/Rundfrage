@@ -7,6 +7,7 @@ import { useSessionStore } from '../../stores/session'
 import DeleteConfirm from './DeleteConfirm.vue'
 import PageHeader from '../layout/PageHeader.vue'
 import type { CreatorSummary } from '../../api/client'
+import { shareUrl } from '../../shareUrl'
 
 const { t, d } = useI18n()
 const router = useRouter()
@@ -43,15 +44,6 @@ onMounted(async () => {
 const storageUnavailable = computed(
   () => store.loadProblem !== null && store.loadProblem.code !== 'unauthorized',
 )
-
-/**
- * The absolute address, as the poll and wish-list areas build theirs: this is the text the
- * operator selects and sends in a message, and a bare `/e/...` path is useless outside the browser
- * that rendered it.
- */
-function share(linkToken: string): string {
-  return `${window.location.origin}/e/${linkToken}`
-}
 
 function reveal() {
   revealed.value = !revealed.value
@@ -250,12 +242,12 @@ const problemText = computed(() => {
             <template v-if="creator.hasLink && creator.linkToken">
               <a
                 class="rf-address mt-2"
-                :href="share(creator.linkToken)"
+                :href="shareUrl('e', creator.linkToken)"
                 target="_blank"
                 rel="noopener noreferrer"
                 :aria-describedby="`newtab-${creator.id}`"
                 data-testid="creator-link"
-                >{{ share(creator.linkToken) }}</a
+                >{{ shareUrl('e', creator.linkToken) }}</a
               >
               <span :id="`newtab-${creator.id}`" class="d-sr-only">{{ t('share.newTab') }}</span>
             </template>
@@ -369,39 +361,3 @@ const problemText = computed(() => {
     />
   </v-container>
 </template>
-
-<style scoped>
-/* Identical to the poll and wish-list rows, because they are the same kind of thing (007 FR-002). */
-.rf-row + .rf-row { margin-block-start: var(--rf-stack); }
-
-.rf-row__body {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  gap: 24px;
-  padding: var(--rf-card-pad);
-}
-
-.rf-row__main { flex: 1 1 auto; min-width: 0; }
-
-.rf-row__title {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-}
-
-.rf-row__actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
-  flex-shrink: 0;
-}
-
-@media (max-width: 600px) {
-  .rf-row__body { flex-direction: column; gap: 16px; }
-  .rf-row__actions { width: 100%; justify-content: space-between; }
-}
-</style>

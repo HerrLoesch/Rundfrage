@@ -127,7 +127,7 @@ public static class CreatorEndpoints
             var error = PollService.Validate(request.Title, request.Message, days);
             if (error is not null)
             {
-                return Results.BadRequest(new { code = error.Code, limit = error.Limit });
+                return Refusal.BadRequest(error);
             }
 
             var poll = await polls.CreateAsync(
@@ -163,7 +163,7 @@ public static class CreatorEndpoints
 
             var document = await export.BuildAsync(poll, ct);
             var json = JsonSerializer.SerializeToUtf8Bytes(
-                document, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+                document, JsonDefaults.Web);
 
             return Results.File(
                 json,
@@ -231,7 +231,7 @@ public static class CreatorEndpoints
 
             if (error is not null)
             {
-                return Results.BadRequest(new { code = error.Code, limit = error.Limit, detail = error.Detail });
+                return Refusal.BadRequest(error);
             }
 
             var list = await lists.CreateAsync(
@@ -263,34 +263,18 @@ public static class CreatorEndpoints
                 return NeutralNotFound.Result();
             }
 
-            if (body.ValueKind != JsonValueKind.Object)
+            if (!PatchBody.TryRead<WishListAdminEndpoints.WishListPatch>(body, out var patch))
             {
-                return Results.BadRequest(new { code = ErrorCodes.MalformedRequest });
+                return Refusal.BadRequest(ErrorCodes.MalformedRequest);
             }
 
-            WishListAdminEndpoints.WishListPatch? patch;
-            try
-            {
-                patch = JsonSerializer.Deserialize<WishListAdminEndpoints.WishListPatch>(
-                    body.GetRawText(), new JsonSerializerOptions(JsonSerializerDefaults.Web));
-            }
-            catch (JsonException)
-            {
-                return Results.BadRequest(new { code = ErrorCodes.MalformedRequest });
-            }
-
-            if (patch is null)
-            {
-                return Results.BadRequest(new { code = ErrorCodes.MalformedRequest });
-            }
-
-            var descriptionGiven = body.TryGetProperty("description", out _);
+            var descriptionGiven = PatchBody.Mentions(body, "description");
 
             var (updated, error) = await lists.UpdateAsync(
                 list, patch.Title, patch.Description, patch.TargetDate, descriptionGiven, ct);
 
             return error is not null
-                ? Results.BadRequest(new { code = error.Code, limit = error.Limit, detail = error.Detail })
+                ? Refusal.BadRequest(error)
                 : Results.Ok(projection.Detail(updated!));
         })
         .RequireRateLimiting(RateLimiting.CreatorWritePolicy)
@@ -310,7 +294,7 @@ public static class CreatorEndpoints
                 list, new WishItemDraft(request.Name, request.WantedCount), ct);
 
             return error is not null
-                ? Results.BadRequest(new { code = error.Code, limit = error.Limit, detail = error.Detail })
+                ? Refusal.BadRequest(error)
                 : Results.Created($"/api/v1/e/x/wish-lists/{wishListId}", projection.Detail(updated!));
         })
         .RequireRateLimiting(RateLimiting.CreatorWritePolicy)
@@ -331,7 +315,7 @@ public static class CreatorEndpoints
                 list, itemId, request.Name, request.WantedCount, ct);
 
             return error is not null
-                ? Results.BadRequest(new { code = error.Code, limit = error.Limit, detail = error.Detail })
+                ? Refusal.BadRequest(error)
                 : Results.Ok(projection.Detail(updated!));
         })
         .RequireRateLimiting(RateLimiting.CreatorWritePolicy)

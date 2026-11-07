@@ -8,6 +8,7 @@ import { parseDateOnly } from '../../dates'
 import WishListForm from './WishListForm.vue'
 import PageHeader from '../layout/PageHeader.vue'
 import type { WishListSummary } from '../../api/client'
+import { shareUrl } from '../../shareUrl'
 
 const { t, d } = useI18n()
 const route = useRoute()
@@ -45,15 +46,6 @@ const storageUnavailable = computed(
  * area uses (007 FR-014g).
  */
 const listIsGone = computed(() => route.query.gone === '1')
-
-/**
- * The absolute address, as `PollList.vue` builds it for a poll and for the same reason: this is
- * the text the operator selects and pastes into a chat, and a bare `/w/...` path is useless
- * anywhere outside the browser that rendered it (FR-017).
- */
-function share(listToken: string): string {
-  return `${window.location.origin}/w/${listToken}`
-}
 
 /** `targetDate` is a bare `DateOnly` string; formatted here rather than at each call site. */
 function formatTargetDate(targetDate: string): string {
@@ -218,12 +210,12 @@ async function confirmDelete() {
                banners stacked down a list is not that component's job. -->
           <a
             class="rf-address mt-2"
-            :href="share(list.listToken)"
+            :href="shareUrl('w', list.listToken)"
             target="_blank"
             rel="noopener noreferrer"
             :aria-describedby="`newtab-${list.id}`"
             :data-testid="`wish-share-${list.id}`"
-            >{{ share(list.listToken) }}</a
+            >{{ shareUrl('w', list.listToken) }}</a
           >
           <span :id="`newtab-${list.id}`" class="d-sr-only">{{ t('share.newTab') }}</span>
         </div>
@@ -284,40 +276,3 @@ async function confirmDelete() {
     </v-dialog>
   </v-container>
 </template>
-
-<style scoped>
-/* The list itself: one gap between rows, spent from the shared scale. */
-.rf-row + .rf-row { margin-block-start: var(--rf-stack); }
-
-.rf-row__body {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  gap: 24px;
-  padding: var(--rf-card-pad);
-}
-
-.rf-row__main { flex: 1 1 auto; min-width: 0; }
-
-.rf-row__title {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-}
-
-.rf-row__actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
-  flex-shrink: 0;
-}
-
-/* Below the breakpoint the actions go under the content rather than squeezing it (FR-058). */
-@media (max-width: 600px) {
-  .rf-row__body { flex-direction: column; gap: 16px; }
-  .rf-row__actions { width: 100%; justify-content: space-between; }
-}
-</style>

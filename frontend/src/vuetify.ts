@@ -1,7 +1,25 @@
 import { createVuetify } from 'vuetify'
-import * as components from 'vuetify/components'
-import * as directives from 'vuetify/directives'
+import {
+  VAlert, VApp, VAppBar, VAppBarNavIcon, VBtn, VCard, VCardActions, VCardItem, VCardSubtitle,
+  VCardText, VCardTitle, VCheckboxBtn, VChip, VCol, VContainer, VDialog, VDivider, VFileInput,
+  VForm, VIcon, VLabel, VList, VListItem, VMain, VNavigationDrawer, VProgressCircular,
+  VProgressLinear, VRadio, VRadioGroup, VRow, VSelect, VSheet, VSpacer, VSwitch, VTable,
+  VTextField, VTextarea,
+} from 'vuetify/components'
 import { de } from 'vuetify/locale'
+
+/**
+ * Exactly the components the templates use. Registering `* as components` put every Vuetify
+ * component into the main chunk whether a page used it or not (over 700 kB); a component added
+ * to a template must be added here too, or it renders as an unknown element.
+ */
+const components = {
+  VAlert, VApp, VAppBar, VAppBarNavIcon, VBtn, VCard, VCardActions, VCardItem, VCardSubtitle,
+  VCardText, VCardTitle, VCheckboxBtn, VChip, VCol, VContainer, VDialog, VDivider, VFileInput,
+  VForm, VIcon, VLabel, VList, VListItem, VMain, VNavigationDrawer, VProgressCircular,
+  VProgressLinear, VRadio, VRadioGroup, VRow, VSelect, VSheet, VSpacer, VSwitch, VTable,
+  VTextField, VTextarea,
+}
 
 /**
  * One theme, defined once.
@@ -12,7 +30,6 @@ import { de } from 'vuetify/locale'
  */
 export const vuetify = createVuetify({
   components,
-  directives,
   locale: {
     locale: 'de',
     messages: { de },

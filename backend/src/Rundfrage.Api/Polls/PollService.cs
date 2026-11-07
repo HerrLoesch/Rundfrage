@@ -1,13 +1,14 @@
 using Microsoft.EntityFrameworkCore;
 using Rundfrage.Api.Data;
 using Rundfrage.Api.Data.Entities;
+using Rundfrage.Api.Http;
 using Rundfrage.Api.Security;
 using Rundfrage.Api.Time;
 
 namespace Rundfrage.Api.Polls;
 
 /// <summary>A validation failure carrying the machine-readable code from the contract.</summary>
-public sealed record PollError(string Code, int? Limit = null);
+public sealed record PollError(string Code, int? Limit = null, string? Detail = null) : IRefusal;
 
 /// <summary>One row of the admin listing, with both counts computed by the database.</summary>
 /// <summary>

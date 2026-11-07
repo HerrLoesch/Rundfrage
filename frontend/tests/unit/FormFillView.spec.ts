@@ -195,4 +195,154 @@ describe('FormFillView', () => {
     const ageField = errorFields[2]!
     expect(ageField.find('[data-testid="form-fill-field-error"]').text()).toBe(de.error.field_required)
   })
+
+  it('shows why a submission failed when the server refuses it for a reason no field explains', async () => {
+    // Rate limit, maintenance or a dropped connection: before, the click simply did nothing.
+    vi.mocked(submitFormResponse).mockRejectedValue({ code: 'too_many_requests', retryAfterSeconds: 120 })
+
+    const wrapper = mountView()
+    await flush()
+    const inputs = wrapper.findAll('[data-testid="form-fill-field"] input')
+    await inputs[0]!.setValue('Anna')
+    await inputs[1]!.setValue('anna@example.com')
+
+    await wrapper.get('form').trigger('submit')
+    await flush()
+
+    expect(wrapper.get('[data-testid="form-fill-submit-error"]').text())
+      .toBe(de.error.too_many_requests.replace('{minutes}', '2'))
+    expect(wrapper.find('[data-testid="form-fill-confirmation"]').exists()).toBe(false)
+  })
+
+  it('re-reads a form that gained a required field and marks it, keeping what was typed', async () => {
+    // The server names field "d", which the participant's copy of the form never had: the error
+    // has to land on a field that is actually on screen.
+    const withNewField = aDefinition({
+      fields: [
+        ...aDefinition().fields,
+        { id: 'd', type: 'text', label: 'Telefon', required: true, maxLength: 30, minLength: null, displayOrder: 3 },
+      ],
+    })
+    vi.mocked(fetchFormByToken)
+      .mockResolvedValueOnce(aDefinition())
+      .mockResolvedValueOnce(withNewField)
+    vi.mocked(submitFormResponse).mockRejectedValue({
+      code: 'submission_invalid',
+      fields: [{ fieldId: 'd', error: 'field_required' }],
+    })
+
+    const wrapper = mountView()
+    await flush()
+    const inputs = wrapper.findAll('[data-testid="form-fill-field"] input')
+    await inputs[0]!.setValue('Anna')
+    await inputs[1]!.setValue('anna@example.com')
+
+    await wrapper.get('form').trigger('submit')
+    await flush()
+
+    const fields = wrapper.findAll('[data-testid="form-fill-field"]')
+    expect(fields).toHaveLength(4)
+    expect(fields[3]!.get('[data-testid="form-fill-field-error"]').text()).toBe(de.error.field_required)
+    expect(wrapper.get('[data-testid="form-fill-submit-error"]').text()).toBe(de.form.fill.changed)
+    expect((fields[0]!.get('input').element as HTMLInputElement).value).toBe('Anna')
+  })
+
+  it('accepts a decimal typed with a comma and sends it with a point', async () => {
+    vi.mocked(fetchFormByToken).mockResolvedValue(aDefinition({
+      fields: [
+        { id: 'p', type: 'decimal', label: 'Betrag', required: true, maxLength: null, minLength: null, displayOrder: 0 },
+      ],
+    }))
+    vi.mocked(submitFormResponse).mockResolvedValue(undefined)
+
+    const wrapper = mountView()
+    await flush()
+    await wrapper.get('[data-testid="form-fill-field"] input').setValue('12,50')
+
+    await wrapper.get('form').trigger('submit')
+    await flush()
+
+    expect(submitFormResponse).toHaveBeenCalledWith('tok', [{ fieldId: 'p', value: '12.50' }])
+  })
+
+  it('offers the keyboard each number type needs', async () => {
+    vi.mocked(fetchFormByToken).mockResolvedValue(aDefinition({
+      fields: [
+        { id: 'd', type: 'decimal', label: 'Betrag', required: false, maxLength: null, minLength: null, displayOrder: 0 },
+        { id: 'i', type: 'integer', label: 'Anzahl', required: false, maxLength: null, minLength: null, displayOrder: 1 },
+      ],
+    }))
+
+    const wrapper = mountView()
+    await flush()
+    const inputs = wrapper.findAll('[data-testid="form-fill-field"] input')
+
+    // "numeric" offers no decimal separator on iOS, so only "decimal" lets a decimal be typed.
+    expect(inputs[0]!.attributes('inputmode')).toBe('decimal')
+    expect(inputs[1]!.attributes('inputmode')).toBe('numeric')
+  })
+
+  it('treats a required text answer of only spaces as unanswered', async () => {
+    const wrapper = mountView()
+    await flush()
+    const inputs = wrapper.findAll('[data-testid="form-fill-field"] input')
+    await inputs[0]!.setValue('   ')
+    await inputs[1]!.setValue('anna@example.com')
+
+    await wrapper.get('form').trigger('submit')
+    await flush()
+
+    expect(submitFormResponse).not.toHaveBeenCalled()
+    expect(wrapper.findAll('[data-testid="form-fill-field"]')[0]!
+      .get('[data-testid="form-fill-field-error"]').text()).toBe(de.error.field_required)
+  })
+
+  it('lets an optional yes/no answer be taken back, but offers no such way out of a required one', async () => {
+    vi.mocked(fetchFormByToken).mockResolvedValue(aDefinition({
+      fields: [
+        { id: 'o', type: 'boolean', label: 'Vegetarisch?', required: false, maxLength: null, minLength: null, displayOrder: 0 },
+        { id: 'r', type: 'boolean', label: 'Kommst du?', required: true, maxLength: null, minLength: null, displayOrder: 1 },
+      ],
+    }))
+    vi.mocked(submitFormResponse).mockResolvedValue(undefined)
+
+    const wrapper = mountView()
+    await flush()
+    const [optional, required] = wrapper.findAll('[data-testid="form-fill-field"]')
+
+    // Nothing to take back before anything is chosen.
+    expect(optional!.find('[data-testid="form-fill-clear-choice"]').exists()).toBe(false)
+
+    await optional!.findAll('input[type="radio"]')[0]!.setValue(true)
+    await required!.findAll('input[type="radio"]')[0]!.setValue(true)
+    expect(required!.find('[data-testid="form-fill-clear-choice"]').exists()).toBe(false)
+
+    await optional!.get('[data-testid="form-fill-clear-choice"]').trigger('click')
+    await wrapper.get('form').trigger('submit')
+    await flush()
+
+    // The optional answer is gone again - absent, not "no" (research R-13).
+    expect(submitFormResponse).toHaveBeenCalledWith('tok', [{ fieldId: 'r', value: 'yes' }])
+  })
+
+  it('names every input by its label, for a screen reader as much as for the eye', async () => {
+    vi.mocked(fetchFormByToken).mockResolvedValue(aDefinition({
+      fields: [
+        { id: 'a', type: 'text', label: 'Name', required: true, maxLength: 100, minLength: null, displayOrder: 0 },
+        { id: 'x', type: 'boolean', label: 'Kommst du?', required: false, maxLength: null, minLength: null, displayOrder: 1 },
+      ],
+    }))
+
+    const wrapper = mountView()
+    await flush()
+    const [text, yesNo] = wrapper.findAll('[data-testid="form-fill-field"]')
+
+    const label = text!.get('label')
+    expect(label.attributes('for')).toBe(text!.get('input').attributes('id'))
+    // The marker reads "Pflichtfeld", not a bare asterisk.
+    expect(label.get('.d-sr-only').text()).toBe(de.form.fill.requiredLabel)
+
+    const group = yesNo!.get('[role="radiogroup"]')
+    expect(group.attributes('aria-labelledby')).toBe(yesNo!.get('label').attributes('id'))
+  })
 })

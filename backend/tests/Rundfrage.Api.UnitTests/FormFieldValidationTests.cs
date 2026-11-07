@@ -15,7 +15,9 @@ public class FormFieldValidationTests
 
     public sealed record FixtureCase(string Type, FixtureField? Field, string Value, bool ExpectedValid);
 
-    private sealed record Fixture(FixtureCase[] Cases);
+    public sealed record AnsweredCase(string? Value, bool ExpectedAnswered);
+
+    private sealed record Fixture(FixtureCase[] Cases, AnsweredCase[] AnsweredCases);
 
     private static readonly Fixture SharedFixture = Load();
 
@@ -83,6 +85,17 @@ public class FormFieldValidationTests
         };
 
         Assert.Equal(testCase.ExpectedValid, FormFieldValidation.IsValid(field, testCase.Value));
+    }
+
+    public static IEnumerable<object[]> AnsweredCases() =>
+        SharedFixture.AnsweredCases.Select(c => new object[] { c });
+
+    /// <summary>FR-017: the same notion of "answered" as the frontend's <c>isAnswered</c>.</summary>
+    [Theory]
+    [MemberData(nameof(AnsweredCases))]
+    public void Decides_what_counts_as_an_answer_like_the_shared_fixture(AnsweredCase testCase)
+    {
+        Assert.Equal(testCase.ExpectedAnswered, FormFieldValidation.IsAnswered(testCase.Value));
     }
 
     [Fact]

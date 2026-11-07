@@ -1,8 +1,8 @@
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using Rundfrage.Api.Data.Entities;
 using Rundfrage.Api.Forms;
 using Rundfrage.Api.Http;
+using Rundfrage.Api.Time;
 
 namespace Rundfrage.Api.Endpoints.Admin;
 
@@ -46,18 +46,7 @@ public static class FormAdminEndpoints
         fieldCount = form.Fields.Count,
         responseCount,
         formToken = form.FormToken,
-        fields = form.Fields.OrderBy(f => f.DisplayOrder).Select(ToFieldDetail),
-    };
-
-    private static object ToFieldDetail(FormField field) => new
-    {
-        id = field.Id,
-        type = field.Type,
-        label = field.Label,
-        required = field.Required,
-        maxLength = field.MaxLength,
-        minLength = field.MinLength,
-        displayOrder = field.DisplayOrder,
+        fields = form.Fields.OrderBy(f => f.DisplayOrder).Select(FormFieldView.Of),
     };
 
     private static object ToSummary(FormSummary summary) => new
@@ -78,7 +67,7 @@ public static class FormAdminEndpoints
             var error = FormService.ValidateTitle(request.Title);
             if (error is not null)
             {
-                return Results.BadRequest(new { code = error.Code, limit = error.Limit });
+                return Refusal.BadRequest(error);
             }
 
             var form = await forms.CreateAsync(request.Title!, ct);
@@ -117,7 +106,7 @@ public static class FormAdminEndpoints
             var (updated, error) = await forms.RenameAsync(form, request.Title, ct);
             if (error is not null)
             {
-                return Results.BadRequest(new { code = error.Code, limit = error.Limit });
+                return Refusal.BadRequest(error);
             }
 
             var responseCount = await forms.CountResponsesAsync(formId, ct);
@@ -144,8 +133,8 @@ public static class FormAdminEndpoints
             var (field, error) = await forms.AddFieldAsync(form, draft, ct);
 
             return error is not null
-                ? Results.BadRequest(new { code = error.Code, limit = error.Limit })
-                : Results.Created($"/api/v1/admin/forms/{formId}", ToFieldDetail(field!));
+                ? Refusal.BadRequest(error)
+                : Results.Created($"/api/v1/admin/forms/{formId}", FormFieldView.Of(field!));
         })
         .WithName("addFormField");
 
@@ -158,25 +147,15 @@ public static class FormAdminEndpoints
                 return NeutralNotFound.Result();
             }
 
-            if (body.ValueKind != JsonValueKind.Object)
+            var field = form.Fields.FirstOrDefault(f => f.Id == fieldId);
+            if (field is null)
             {
-                return Results.BadRequest(new { code = ErrorCodes.MalformedRequest });
+                return NeutralNotFound.Result();
             }
 
-            FieldPatch? patch;
-            try
+            if (!PatchBody.TryRead<FieldPatch>(body, out var patch))
             {
-                patch = JsonSerializer.Deserialize<FieldPatch>(
-                    body.GetRawText(), new JsonSerializerOptions(JsonSerializerDefaults.Web));
-            }
-            catch (JsonException)
-            {
-                return Results.BadRequest(new { code = ErrorCodes.MalformedRequest });
-            }
-
-            if (patch is null)
-            {
-                return Results.BadRequest(new { code = ErrorCodes.MalformedRequest });
+                return Refusal.BadRequest(ErrorCodes.MalformedRequest);
             }
 
             // Read from the raw document, because a null MinLength in the record means both
@@ -185,22 +164,17 @@ public static class FormAdminEndpoints
             // Without this, minLength could be set once but never cleared: UpdateFieldAsync's
             // fallback-to-old-value-when-omitted logic would treat an explicit null exactly like
             // an absent property.
-            var minLengthGiven = body.TryGetProperty("minLength", out _);
+            var minLengthGiven = PatchBody.Mentions(body, "minLength");
 
             // A "type" in the request body is silently ignored: there is no property for it in
             // FieldPatch, so there is no code path that could apply one (010 FR-008).
-            var (field, error) = await forms.UpdateFieldAsync(
-                form, fieldId, patch.Label, patch.Required, patch.MaxLength, patch.MinLength,
+            var error = await forms.UpdateFieldAsync(
+                field, patch.Label, patch.Required, patch.MaxLength, patch.MinLength,
                 minLengthGiven, ct);
 
-            if (error is not null)
-            {
-                return error.Code == ErrorCodes.FieldSetMismatch
-                    ? NeutralNotFound.Result()
-                    : Results.BadRequest(new { code = error.Code, limit = error.Limit });
-            }
-
-            return Results.Ok(ToFieldDetail(field!));
+            return error is not null
+                ? Refusal.BadRequest(error)
+                : Results.Ok(FormFieldView.Of(field));
         })
         .WithName("editFormField");
 
@@ -223,7 +197,7 @@ public static class FormAdminEndpoints
             var (updated, error) = await forms.ReorderFieldsAsync(form, request.FieldIds ?? [], ct);
             if (error is not null)
             {
-                return Results.BadRequest(new { code = error.Code });
+                return Refusal.BadRequest(error.Code);
             }
 
             var responseCount = await forms.CountResponsesAsync(formId, ct);
@@ -259,7 +233,7 @@ public static class FormAdminEndpoints
             .WithName("deleteFormResponse");
 
         routes.MapGet("/forms/{formId:guid}/export/csv", async (
-            Guid formId, FormService forms, CancellationToken ct) =>
+            Guid formId, FormService forms, BerlinClock clock, CancellationToken ct) =>
         {
             var form = await forms.FindAsync(formId, ct);
             if (form is null)
@@ -271,12 +245,14 @@ public static class FormAdminEndpoints
             var csv = FormCsvExport.Build(form.Fields.OrderBy(f => f.DisplayOrder).ToList(), responses);
 
             return Results.File(csv, contentType: "text/csv",
-                fileDownloadName: FormExport.FileNameFor(form.Title, form.CreatedAt, "csv"));
+                // The moment of export, as for JSON - the form's creation time would give every
+                // download of the same form one name, and each would overwrite the last.
+                fileDownloadName: FormExport.FileNameFor(form.Title, clock.Now, "csv"));
         })
         .WithName("exportFormCsv");
 
         routes.MapGet("/forms/{formId:guid}/export/json", async (
-            Guid formId, FormService forms, FormExport export, CancellationToken ct) =>
+            Guid formId, FormService forms, BerlinClock clock, CancellationToken ct) =>
         {
             var form = await forms.FindAsync(formId, ct);
             if (form is null)
@@ -285,14 +261,12 @@ public static class FormAdminEndpoints
             }
 
             var responses = await forms.ListResponsesAsync(formId, ct);
-            var document = export.Build(form, responses);
+            var document = FormExport.Build(form, responses, clock.Now);
 
             // Serialised here rather than returned as an object, because this is a download and
             // not an API response: Results.Json cannot set the file name FR-035 asks for, and
             // Results.File can (mirrors Polls/PollAdminEndpoints.cs's own JSON export).
-            var options = new JsonSerializerOptions(JsonSerializerDefaults.Web);
-            options.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.CamelCase));
-            var json = JsonSerializer.SerializeToUtf8Bytes(document, options);
+            var json = JsonSerializer.SerializeToUtf8Bytes(document, JsonDefaults.WebWithEnumNames);
 
             return Results.File(
                 json,

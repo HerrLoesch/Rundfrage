@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { mountComponent } from '../support/mount'
+import { mountComponent, de } from '../support/mount'
 
 vi.mock('../../src/api/client', () => ({
   listForms: vi.fn(),
@@ -314,5 +314,111 @@ describe('FormBuilderView', () => {
     // The field added after this response has no value for it - an empty cell, not a guessed one.
     const secondRowCells = rows[1]!.findAll('[data-testid="form-response-cell"]').map((c) => c.text())
     expect(secondRowCells).toEqual(['Ben', ''])
+  })
+
+  it('keeps a refused label as typed and marks it, rather than pretending it was saved', async () => {
+    vi.mocked(updateFormField).mockRejectedValue({ code: 'label_too_long', limit: 200 })
+
+    const wrapper = mountView()
+    await flush()
+
+    const labelField = wrapper.findAll('[data-testid="form-field-label-input"]')[0]!
+    const tooLong = 'x'.repeat(201)
+    await labelField.get('input').setValue(tooLong)
+    await labelField.get('input').trigger('blur')
+    await flush()
+
+    // Still what the operator typed, so it can be shortened - and visibly not accepted.
+    expect((labelField.get('input').element as HTMLInputElement).value).toBe(tooLong)
+    expect(labelField.classes()).toContain('v-input--error')
+  })
+
+  it('clears the refused mark once the corrected label is saved', async () => {
+    vi.mocked(updateFormField)
+      .mockRejectedValueOnce({ code: 'label_too_long', limit: 200 })
+      .mockResolvedValueOnce({
+        id: 'a', type: 'text', label: 'Vorname', required: true, maxLength: 100, minLength: null, displayOrder: 0,
+      })
+
+    const wrapper = mountView()
+    await flush()
+    const labelField = wrapper.findAll('[data-testid="form-field-label-input"]')[0]!
+
+    await labelField.get('input').setValue('x'.repeat(201))
+    await labelField.get('input').trigger('blur')
+    await flush()
+    await labelField.get('input').setValue('Vorname')
+    await labelField.get('input').trigger('blur')
+    await flush()
+
+    expect(labelField.classes()).not.toContain('v-input--error')
+    expect((labelField.get('input').element as HTMLInputElement).value).toBe('Vorname')
+  })
+
+  it('puts the stored label back when the input is emptied, without sending anything', async () => {
+    // A label is required (FR-004); an emptied input is not an edit to make.
+    const wrapper = mountView()
+    await flush()
+
+    const input = wrapper.findAll('[data-testid="form-field-label-input"] input')[0]!
+    await input.setValue('')
+    await input.trigger('blur')
+    await flush()
+
+    expect(updateFormField).not.toHaveBeenCalled()
+    expect((input.element as HTMLInputElement).value).toBe('Name')
+  })
+
+  it('clears a minimum length when its input is emptied, and keeps a typed 0 as 0', async () => {
+    vi.mocked(fetchForm).mockResolvedValue(aForm({
+      fields: [
+        { id: 'a', type: 'text', label: 'Name', required: true, maxLength: 100, minLength: 5, displayOrder: 0 },
+      ],
+    }))
+    vi.mocked(updateFormField).mockImplementation(async (_form, _field, patch) => ({
+      id: 'a', type: 'text', label: 'Name', required: true,
+      maxLength: patch.maxLength ?? 100, minLength: patch.minLength ?? null, displayOrder: 0,
+    }))
+
+    const wrapper = mountView()
+    await flush()
+    const minInput = wrapper.get('[data-testid="form-field-min-length-input"] input')
+
+    await minInput.setValue('')
+    await minInput.trigger('blur')
+    await flush()
+    expect(updateFormField).toHaveBeenLastCalledWith('f1', 'a', { maxLength: 100, minLength: null })
+
+    await minInput.setValue('0')
+    await minInput.trigger('blur')
+    await flush()
+    expect(updateFormField).toHaveBeenLastCalledWith('f1', 'a', { maxLength: 100, minLength: 0 })
+  })
+
+  it('sends nothing when a length input is left without a change', async () => {
+    const wrapper = mountView()
+    await flush()
+
+    await wrapper.get('[data-testid="form-field-max-length-input"] input').trigger('blur')
+    await flush()
+
+    expect(updateFormField).not.toHaveBeenCalled()
+  })
+
+  it('moves a field with the arrow keys on its drag handle, so dragging is not the only way', async () => {
+    const wrapper = mountView()
+    await flush()
+
+    await wrapper.findAll('[data-testid="form-field-drag-handle"]')[0]!.trigger('keydown', { key: 'ArrowDown' })
+    await flush()
+
+    expect(reorderFormFields).toHaveBeenCalledWith('f1', ['b', 'a'])
+  })
+
+  it('heads the field list as the fields, not as the add-field action', async () => {
+    const wrapper = mountView()
+    await flush()
+
+    expect(wrapper.findAll('h2').map((h) => h.text())).toContain(de.form.fieldsTitle)
   })
 })

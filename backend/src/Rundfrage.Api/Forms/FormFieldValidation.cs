@@ -16,11 +16,32 @@ namespace Rundfrage.Api.Forms;
 /// </remarks>
 public static partial class FormFieldValidation
 {
-    [GeneratedRegex(@"^[^\s@]+@[^\s@]+\.[^\s@]+$")]
+    // Anchored with \z rather than $, and with [0-9] rather than \d, so each pattern means what
+    // its JavaScript twin means: .NET's $ also matches before a trailing "\n", and its \d also
+    // matches non-ASCII digits such as "١٢٣٤٥" - either difference alone lets the server accept
+    // a value the browser refuses (FR-030).
+    [GeneratedRegex(@"^[^\s@]+@[^\s@]+\.[^\s@]+\z")]
     private static partial Regex EmailPattern();
 
-    [GeneratedRegex(@"^\d{5}$")]
+    [GeneratedRegex(@"^[0-9]{5}\z")]
     private static partial Regex PostalCodePattern();
+
+    [GeneratedRegex(@"^[+-]?[0-9]+\z")]
+    private static partial Regex IntegerPattern();
+
+    /// <summary>
+    /// Plain positional notation only. <c>double.TryParse</c> alone would also take "NaN",
+    /// "Infinity" and "1e5", and the first two cannot be written into the JSON export at all
+    /// (FR-037).
+    /// </summary>
+    [GeneratedRegex(@"^[+-]?([0-9]+\.?[0-9]*|\.[0-9]+)\z")]
+    private static partial Regex DecimalPattern();
+
+    /// <summary>
+    /// FR-017: whether a submitted value counts as an answer at all. Empty or whitespace-only
+    /// text is "not answered" - otherwise a required field could be satisfied by a blank.
+    /// </summary>
+    public static bool IsAnswered(string? rawValue) => !string.IsNullOrWhiteSpace(rawValue);
 
     /// <summary>
     /// Whether <paramref name="rawValue"/> is a well-formed value for <paramref name="field"/>.
@@ -37,8 +58,8 @@ public static partial class FormFieldValidation
         return field.Type switch
         {
             FieldType.Text => IsValidText(field, rawValue),
-            FieldType.Integer => long.TryParse(rawValue, NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out _),
-            FieldType.Decimal => double.TryParse(rawValue, NumberStyles.Float, CultureInfo.InvariantCulture, out _),
+            FieldType.Integer => IsValidInteger(rawValue),
+            FieldType.Decimal => IsValidDecimal(rawValue),
             FieldType.Boolean => rawValue is "yes" or "no",
             FieldType.Email => EmailPattern().IsMatch(rawValue),
             FieldType.Phone => IsValidPhone(rawValue),
@@ -46,6 +67,20 @@ public static partial class FormFieldValidation
             _ => false,
         };
     }
+
+    /// <summary>Digits with an optional sign, within the range the export writes as a number.</summary>
+    private static bool IsValidInteger(string value) =>
+        IntegerPattern().IsMatch(value)
+        && long.TryParse(value, NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out _);
+
+    /// <summary>
+    /// Positional notation that also stays finite once parsed - a few hundred digits are
+    /// well-formed text but overflow a double to infinity.
+    /// </summary>
+    private static bool IsValidDecimal(string value) =>
+        DecimalPattern().IsMatch(value)
+        && double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed)
+        && double.IsFinite(parsed);
 
     private static bool IsValidText(FormField field, string value)
     {

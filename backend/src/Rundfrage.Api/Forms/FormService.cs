@@ -8,7 +8,7 @@ using Rundfrage.Api.Time;
 namespace Rundfrage.Api.Forms;
 
 /// <summary>A refusal carrying the machine-readable code from the contract.</summary>
-public sealed record FormError(string Code, int? Limit = null, string? Detail = null);
+public sealed record FormError(string Code, int? Limit = null, string? Detail = null) : IRefusal;
 
 /// <summary>A field as it arrives from the client when it is first added (010 FR-003 to FR-006).</summary>
 public sealed record FormFieldDraft(
@@ -92,7 +92,7 @@ public sealed class FormService(RundfrageDbContext db, BerlinClock clock, ILogge
 
     /// <summary>
     /// FR-006: a Text field must have a maximum length, within the system's bound, and a minimum
-    /// (when given) must not exceed it. Every other type must carry neither.
+    /// (when given) must be neither negative nor above it. Every other type must carry neither.
     /// </summary>
     private static FormError? ValidateTextLengths(
         FieldType type, int? maxLength, int? minLength, bool isNew)
@@ -110,6 +110,11 @@ public sealed class FormService(RundfrageDbContext db, BerlinClock clock, ILogge
         }
 
         if (maxLength is { } max && (max < 1 || max > FormField.TextLengthCeiling))
+        {
+            return new FormError(ErrorCodes.TextLengthRangeInvalid);
+        }
+
+        if (minLength is < 0)
         {
             return new FormError(ErrorCodes.TextLengthRangeInvalid);
         }
@@ -308,23 +313,21 @@ public sealed class FormService(RundfrageDbContext db, BerlinClock clock, ILogge
     /// field for as long as the field exists, so there is no valid "cleared" state for it to
     /// reach - an edit that does not mention it always means "leave it as it is".
     /// </remarks>
-    public async Task<(FormField? Field, FormError? Error)> UpdateFieldAsync(
-        Form form, Guid fieldId, string? label, bool? required, int? maxLength, int? minLength,
+    /// <para>
+    /// Takes the field itself: finding it is the caller's business, and "no such field" is a
+    /// neutral 404 there rather than a refusal code here.
+    /// </para>
+    public async Task<FormError?> UpdateFieldAsync(
+        FormField field, string? label, bool? required, int? maxLength, int? minLength,
         bool minLengthGiven, CancellationToken ct)
     {
-        var field = form.Fields.FirstOrDefault(f => f.Id == fieldId);
-        if (field is null)
-        {
-            return (null, new FormError(ErrorCodes.FieldSetMismatch));
-        }
-
         var newMaxLength = maxLength ?? field.MaxLength;
         var newMinLength = minLengthGiven ? minLength : field.MinLength;
 
         var error = ValidateFieldEdit(field.Type, label, newMaxLength, newMinLength);
         if (error is not null)
         {
-            return (null, error);
+            return error;
         }
 
         if (label is not null)
@@ -344,9 +347,9 @@ public sealed class FormService(RundfrageDbContext db, BerlinClock clock, ILogge
         }
 
         await db.SaveChangesAsync(ct);
-        logger.LogInformation("Form field updated {FieldId}", fieldId);
+        logger.LogInformation("Form field updated {FieldId}", field.Id);
 
-        return (field, null);
+        return null;
     }
 
     /// <summary>
@@ -384,22 +387,34 @@ public sealed class FormService(RundfrageDbContext db, BerlinClock clock, ILogge
     /// FR-007: replaces the field order from a dragged (or button-reordered) sequence. The
     /// request must name exactly the form's current fields, once each (010 research.md R-4).
     /// </summary>
+    /// <remarks>
+    /// The field set is re-read inside an immediate write transaction rather than taken from
+    /// <paramref name="form"/>.Fields, for the reason <see cref="AddFieldAsync"/> gives: a field
+    /// added or removed after that collection was loaded would otherwise slip past the "exactly
+    /// the current fields" check and leave DisplayOrder with a gap or a duplicate.
+    /// </remarks>
     public async Task<(Form? Form, FormError? Error)> ReorderFieldsAsync(
         Form form, IReadOnlyList<Guid> fieldIds, CancellationToken ct)
     {
-        var current = form.Fields.Select(f => f.Id).ToHashSet();
+        await using var transaction = await SqliteWriteTransaction.BeginAsync(db, ct);
 
-        if (fieldIds.Count != current.Count || !current.SetEquals(fieldIds))
+        var current = await db.FormFields.Where(f => f.FormId == form.Id).ToListAsync(ct);
+        var currentIds = current.Select(f => f.Id).ToHashSet();
+
+        if (fieldIds.Count != currentIds.Count || !currentIds.SetEquals(fieldIds))
         {
+            await transaction.RollbackAsync(ct);
             return (null, new FormError(ErrorCodes.FieldSetMismatch));
         }
 
+        var byId = current.ToDictionary(f => f.Id);
         for (var position = 0; position < fieldIds.Count; position++)
         {
-            form.Fields.First(f => f.Id == fieldIds[position]).DisplayOrder = position;
+            byId[fieldIds[position]].DisplayOrder = position;
         }
 
         await db.SaveChangesAsync(ct);
+        await transaction.CommitAsync(ct);
         logger.LogInformation("Form fields reordered {FormId}", form.Id);
 
         return (form, null);

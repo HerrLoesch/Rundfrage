@@ -28,16 +28,17 @@ describe('Admin navigation', () => {
     // Six since feature 010 added Formulare. Still no entry for anything unbuilt: FR-004 forbids
     // a placeholder, and this list is the assertion that none has appeared.
     //
-    // Ersteller and Formulare sit in the middle section rather than inside Einstellungen, because
-    // each is a capability of the installation and not a setting of it (009 FR-043, 010).
+    // Formulare and Ersteller sit in the middle section rather than inside Einstellungen, because
+    // each is a capability of the installation and not a setting of it (009 FR-043, 010). The
+    // content areas come first and Ersteller - which hands out access to them - after them.
     const wrapper = await nav('/admin')
 
     expect(labels(wrapper)).toEqual([
       de.nav.dashboard,
       de.poll.listTitle,
       de.nav.wishLists,
-      de.nav.creators,
       de.nav.forms,
+      de.nav.creators,
       de.nav.settings,
     ])
   })

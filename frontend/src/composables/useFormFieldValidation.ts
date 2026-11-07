@@ -21,9 +21,9 @@ export function isValidValue(
     case 'text':
       return isValidText(field, rawValue)
     case 'integer':
-      return /^[+-]?\d+$/.test(rawValue)
+      return isValidInteger(rawValue)
     case 'decimal':
-      return /^[+-]?(\d+\.?\d*|\.\d+)$/.test(rawValue)
+      return isValidDecimal(rawValue)
     case 'boolean':
       // 010 FR-026: exactly "yes" or "no" - matching the requirement's wording and this
       // codebase's existing wire vocabulary for answer-shaped booleans.
@@ -37,6 +37,21 @@ export function isValidValue(
     default:
       return assertNever(field.type)
   }
+}
+
+const INT64_MIN = -(2n ** 63n)
+const INT64_MAX = 2n ** 63n - 1n
+
+/** Digits with an optional sign, within the 64-bit range the server and the export use. */
+function isValidInteger(value: string): boolean {
+  if (!/^[+-]?\d+$/.test(value)) return false
+  const parsed = BigInt(value.replace(/^\+/, ''))
+  return parsed >= INT64_MIN && parsed <= INT64_MAX
+}
+
+/** Positional notation that stays finite once parsed - a few hundred digits overflow to Infinity. */
+function isValidDecimal(value: string): boolean {
+  return /^[+-]?(\d+\.?\d*|\.\d+)$/.test(value) && Number.isFinite(Number(value))
 }
 
 function isValidText(
@@ -72,9 +87,21 @@ function assertNever(value: never): never {
   throw new Error(`Unhandled field type: ${String(value)}`)
 }
 
-/** 010 FR-016, FR-017: a required field with no value is invalid, regardless of type. */
+/**
+ * 010 FR-016, FR-017: a required field with no value is invalid, regardless of type. Empty or
+ * whitespace-only text is not an answer, matching the server's `FormFieldValidation.IsAnswered`.
+ */
 export function isAnswered(rawValue: string | null | undefined): boolean {
-  return rawValue !== null && rawValue !== undefined && rawValue !== ''
+  return rawValue !== null && rawValue !== undefined && rawValue.trim() !== ''
+}
+
+/**
+ * The value as it is validated and sent. A decimal typed the German way ("1,5") becomes "1.5":
+ * the wire format stays the culture-invariant one the server checks (data-model.md §5), but a
+ * participant is not refused for using the separator their keyboard offers.
+ */
+export function normalizeValue(type: FieldType, rawValue: string): string {
+  return type === 'decimal' ? rawValue.replace(',', '.') : rawValue
 }
 
 export type { FieldType }

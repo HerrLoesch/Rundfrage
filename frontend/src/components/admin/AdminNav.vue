@@ -81,7 +81,7 @@ const entries = computed(() => [
     testid: 'nav-wish-lists',
   },
   {
-    // The fourth middle entry (010 FR-043-equivalent, ui-contract.md §1). Two route names, like
+    // The third middle entry (010 FR-043-equivalent, ui-contract.md §1). Two route names, like
     // the poll and wish-list entries: a form's builder is a detail destination of its own
     // (/admin/formulare/:formId), unlike the single-route Ersteller area beside it.
     to: '/admin/formulare',
@@ -91,8 +91,9 @@ const entries = computed(() => [
     testid: 'nav-forms',
   },
   {
-    // The third middle entry (009 FR-043). One route name, unlike the two above: there is no
-    // detail destination, because an Ersteller is a row rather than a page.
+    // The fourth middle entry (009 FR-043), after the three content areas it hands out access
+    // to. One route name, unlike the three above: there is no detail destination, because an
+    // Ersteller is a row rather than a page.
     to: '/admin/ersteller',
     owns: ['creators'],
     label: t('nav.creators'),

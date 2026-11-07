@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { useFormsStore } from '../../stores/forms'
@@ -12,8 +12,10 @@ import {
   formExportJsonUrl,
   type FieldType,
   type FormFieldDetail,
+  type FormFieldPatch,
   type FormResponseSummary,
 } from '../../api/client'
+import { shareUrl } from '../../shareUrl'
 
 const props = defineProps<{ formId: string }>()
 
@@ -75,8 +77,41 @@ const storageUnavailable = computed(
 
 const fields = computed(() => store.current?.fields ?? [])
 
-function share(formToken: string): string {
-  return `${window.location.origin}/f/${formToken}`
+/**
+ * What each field's inputs show, as typed. Kept apart from the stored field so a refused edit
+ * neither silently snaps back nor pretends to be saved: the typed text stays, marked as refused,
+ * until the operator corrects it - and a successful save writes the server's answer back here.
+ */
+interface FieldDraft { label: string; maxLength: string; minLength: string }
+const drafts = reactive<Record<string, FieldDraft>>({})
+const refused = reactive<Record<string, boolean>>({})
+
+function draftOf(field: FormFieldDetail): FieldDraft {
+  return {
+    label: field.label,
+    maxLength: field.maxLength === null ? '' : String(field.maxLength),
+    minLength: field.minLength === null ? '' : String(field.minLength),
+  }
+}
+
+watch(
+  fields,
+  (list) => {
+    for (const field of list) {
+      if (!(field.id in drafts)) drafts[field.id] = draftOf(field)
+    }
+  },
+  { immediate: true },
+)
+
+/** Sends one edit; on success the draft becomes the stored value, on refusal it is marked. */
+async function saveField(field: FormFieldDetail, patch: FormFieldPatch) {
+  const ok = await store.updateField(field.id, patch)
+  refused[field.id] = !ok
+  if (ok) {
+    const saved = store.current?.fields.find((f) => f.id === field.id)
+    if (saved) drafts[field.id] = draftOf(saved)
+  }
 }
 
 async function saveTitle() {
@@ -105,28 +140,37 @@ async function submitAddField() {
 }
 
 async function toggleRequired(field: FormFieldDetail) {
-  await store.updateField(field.id, { required: !field.required })
+  await saveField(field, { required: !field.required })
 }
 
-async function saveLabel(field: FormFieldDetail, newLabel: string) {
-  if (newLabel.trim() === '' || newLabel === field.label) return
-  await store.updateField(field.id, { label: newLabel })
-}
-
-async function saveLengths(field: FormFieldDetail, maxLength: number | null, minLength: number | null) {
-  await store.updateField(field.id, { maxLength, minLength })
+/** A label cannot be emptied - there is nothing to save, so the input shows the stored one again. */
+async function saveLabel(field: FormFieldDetail) {
+  const draft = drafts[field.id]!
+  if (draft.label.trim() === '') {
+    draft.label = field.label
+    return
+  }
+  if (draft.label === field.label) return
+  await saveField(field, { label: draft.label })
 }
 
 /**
- * Parses a length input, treating an emptied field as "leave the current value" rather than as
- * zero - `Number(raw) || fallback` would do that already for every other blank input, but it
- * also silently discards a deliberately typed "0" (0 is falsy), turning a would-be edit into a
- * no-op with nothing telling the operator it did not take effect.
+ * Parses a length input. An empty input means `whenEmpty` - "keep" for the maximum, which a Text
+ * field must always have, and "clear" (null) for the optional minimum. A typed "0" stays 0: it is
+ * sent and judged by the server rather than silently dropped as falsy.
  */
-function parseLength(raw: string, fallback: number | null): number | null {
-  if (raw === '') return fallback
+function parseLength(raw: string | number, whenEmpty: number | null): number | null {
+  if (raw === '' || raw === null) return whenEmpty
   const parsed = Number(raw)
-  return Number.isNaN(parsed) ? fallback : parsed
+  return Number.isNaN(parsed) ? whenEmpty : parsed
+}
+
+async function saveLengths(field: FormFieldDetail) {
+  const draft = drafts[field.id]!
+  const maxLength = parseLength(draft.maxLength, field.maxLength)
+  const minLength = parseLength(draft.minLength, null)
+  if (maxLength === field.maxLength && minLength === field.minLength) return
+  await saveField(field, { maxLength, minLength })
 }
 
 async function confirmRemoveField() {
@@ -233,14 +277,14 @@ async function confirmRemoveResponse() {
       <a
         v-else
         class="rf-address mb-4 d-block"
-        :href="share(store.current.formToken)"
+        :href="shareUrl('f', store.current.formToken)"
         target="_blank"
         rel="noopener noreferrer"
         data-testid="form-builder-link"
-        >{{ share(store.current.formToken) }}</a
+        >{{ shareUrl('f', store.current.formToken) }}</a
       >
 
-      <h2 class="text-h6 mb-2">{{ t('form.addField') }}</h2>
+      <h2 class="text-h6 mb-2">{{ t('form.fieldsTitle') }}</h2>
 
       <div data-testid="form-field-canvas">
         <v-alert v-if="fields.length === 0" type="info" class="mb-4" data-testid="form-field-canvas-empty">
@@ -250,7 +294,7 @@ async function confirmRemoveResponse() {
         <v-card
           v-for="(field, index) in fields"
           :key="field.id"
-          class="rf-row mb-3"
+          class="rf-row"
           data-testid="form-field-card"
           draggable="true"
           @dragstart="onDragStart(index)"
@@ -263,17 +307,20 @@ async function confirmRemoveResponse() {
               data-testid="form-field-drag-handle"
               :aria-label="t('form.dragHandle')"
               tabindex="0"
+              @keydown.up.prevent="moveField(index, -1)"
+              @keydown.down.prevent="moveField(index, 1)"
             />
 
             <v-chip data-testid="form-field-type">{{ fieldTypeLabel(field.type) }}</v-chip>
 
             <v-text-field
-              :model-value="field.label"
+              v-model="drafts[field.id]!.label"
               :label="t('form.fieldLabel')"
+              :error="refused[field.id]"
               data-testid="form-field-label-input"
               hide-details
               style="max-width: 240px"
-              @blur="(e: FocusEvent) => saveLabel(field, (e.target as HTMLInputElement).value)"
+              @blur="saveLabel(field)"
             />
 
             <v-switch
@@ -286,22 +333,24 @@ async function confirmRemoveResponse() {
 
             <template v-if="field.type === 'text'">
               <v-text-field
-                :model-value="field.maxLength"
+                v-model="drafts[field.id]!.maxLength"
                 type="number"
                 :label="t('form.fieldMaxLength')"
+                :error="refused[field.id]"
                 data-testid="form-field-max-length-input"
                 hide-details
                 style="max-width: 140px"
-                @blur="(e: FocusEvent) => saveLengths(field, parseLength((e.target as HTMLInputElement).value, field.maxLength), field.minLength)"
+                @blur="saveLengths(field)"
               />
               <v-text-field
-                :model-value="field.minLength"
+                v-model="drafts[field.id]!.minLength"
                 type="number"
                 :label="t('form.fieldMinLength')"
+                :error="refused[field.id]"
                 data-testid="form-field-min-length-input"
                 hide-details
                 style="max-width: 140px"
-                @blur="(e: FocusEvent) => saveLengths(field, field.maxLength, (e.target as HTMLInputElement).value === '' ? null : Number((e.target as HTMLInputElement).value))"
+                @blur="saveLengths(field)"
               />
             </template>
 
@@ -492,8 +541,6 @@ async function confirmRemoveResponse() {
 </template>
 
 <style scoped>
-.rf-row + .rf-row { margin-block-start: var(--rf-stack); }
-
 /* A form can hold up to 50 columns (010 FR-011a); the table scrolls inside itself rather than
    the page, matching ResultGrid.vue's own answer to the same problem for a poll's day columns. */
 .scroller { overflow-x: auto; }

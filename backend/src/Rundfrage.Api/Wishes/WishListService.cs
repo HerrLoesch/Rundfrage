@@ -19,7 +19,7 @@ namespace Rundfrage.Api.Wishes;
 /// removes the guess. It carries operator-written text only, never a participant's display name.
 /// </para>
 /// </remarks>
-public sealed record WishError(string Code, int? Limit = null, string? Detail = null);
+public sealed record WishError(string Code, int? Limit = null, string? Detail = null) : IRefusal;
 
 /// <summary>One item as it arrives from the client, before anything has been decided about it.</summary>
 public sealed record WishItemDraft(string? Name, int? WantedCount);

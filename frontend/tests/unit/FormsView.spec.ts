@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { mountComponent } from '../support/mount'
+import { mountComponent, de } from '../support/mount'
 
 vi.mock('../../src/api/client', () => ({
   listForms: vi.fn(),
@@ -138,6 +138,24 @@ describe('FormsView', () => {
     await flush()
 
     expect(deleteForm).toHaveBeenCalledWith('f1')
+    document.body.innerHTML = ''
+  })
+
+  it('shows why a delete failed, although the create card that used to hold the message is closed', async () => {
+    vi.mocked(deleteForm).mockRejectedValue({ code: 'unexpected' })
+
+    document.body.innerHTML = ''
+    const wrapper = mountView({ attachTo: document.body })
+    await flush()
+
+    await wrapper.get('[data-testid="form-delete"]').trigger('click')
+    await flush()
+    document.body.querySelector<HTMLButtonElement>('[data-testid="delete-confirm-button"]')?.click()
+    await flush()
+
+    expect(wrapper.get('[data-testid="form-list-error"]').text()).toBe(de.error.unexpected)
+    // The form is still there - nothing was removed on screen that the server kept.
+    expect(wrapper.findAll('[data-testid="form-row"]')).toHaveLength(1)
     document.body.innerHTML = ''
   })
 })

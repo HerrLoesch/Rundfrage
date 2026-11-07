@@ -28,10 +28,17 @@ export interface ApiProblem {
  * silently failed to load. One path, always the same shape.
  */
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const response = await fetch(`${BASE}${path}`, {
-    ...init,
-    headers: { 'Content-Type': 'application/json', ...(init.headers ?? {}) },
-  })
+  let response: Response
+  try {
+    response = await fetch(`${BASE}${path}`, {
+      ...init,
+      headers: { 'Content-Type': 'application/json', ...(init.headers ?? {}) },
+    })
+  } catch {
+    // fetch rejects with a bare TypeError when the server cannot be reached at all; the same
+    // promise as above applies, so it becomes a problem with a code too.
+    throw { code: 'network' } satisfies ApiProblem
+  }
 
   if (!response.ok) {
     let problem: ApiProblem = { code: 'unexpected' }
@@ -594,7 +601,7 @@ export async function createCreator(name: string): Promise<CreatorSummary> {
 }
 
 export async function renameCreator(creatorId: string, name: string): Promise<CreatorSummary> {
-  return request<CreatorSummary>(`/admin/creators/${creatorId}`, {
+  return request<CreatorSummary>(`/admin/creators/${encodeURIComponent(creatorId)}`, {
     method: 'PATCH',
     body: JSON.stringify({ name }),
   })
@@ -607,7 +614,7 @@ export async function renameCreator(creatorId: string, name: string): Promise<Cr
  * is the absence of a token and issuing one is its opposite.
  */
 export async function reissueCreatorLink(creatorId: string): Promise<CreatorSummary> {
-  return request<CreatorSummary>(`/admin/creators/${creatorId}/link`, { method: 'POST' })
+  return request<CreatorSummary>(`/admin/creators/${encodeURIComponent(creatorId)}/link`, { method: 'POST' })
 }
 
 /**
@@ -617,19 +624,19 @@ export async function reissueCreatorLink(creatorId: string): Promise<CreatorSumm
  * mistaken for {@link deleteCreator} - which is the one that destroys (FR-020b).
  */
 export async function revokeCreatorLink(creatorId: string): Promise<void> {
-  await request<void>(`/admin/creators/${creatorId}/link`, { method: 'DELETE' })
+  await request<void>(`/admin/creators/${encodeURIComponent(creatorId)}/link`, { method: 'DELETE' })
 }
 
 /** Destroys the Ersteller together with every poll and wish list it owns (FR-020a). */
 export async function deleteCreator(creatorId: string): Promise<void> {
-  await request<void>(`/admin/creators/${creatorId}`, { method: 'DELETE' })
+  await request<void>(`/admin/creators/${encodeURIComponent(creatorId)}`, { method: 'DELETE' })
 }
 
 // --- The creator surface ------------------------------------------------------------------
 // Anonymous by design, exactly like the participant calls above.
 
 export async function fetchCreatorSurface(token: string): Promise<CreatorSurface> {
-  return getJson<CreatorSurface>(`/e/${token}`)
+  return getJson<CreatorSurface>(`/e/${encodeURIComponent(token)}`)
 }
 
 export async function createPollAsCreator(
@@ -638,7 +645,7 @@ export async function createPollAsCreator(
   message: string | null,
   days: string[],
 ): Promise<PollSummary> {
-  return request<PollSummary>(`/e/${token}/polls`, {
+  return request<PollSummary>(`/e/${encodeURIComponent(token)}/polls`, {
     method: 'POST',
     body: JSON.stringify({ title, message, days }),
   })
@@ -649,11 +656,11 @@ export async function fetchPollResultsAsCreator(
   pollId: string,
   page = 1,
 ): Promise<PollView> {
-  return getJson<PollView>(`/e/${token}/polls/${pollId}?page=${page}`)
+  return getJson<PollView>(`/e/${encodeURIComponent(token)}/polls/${encodeURIComponent(pollId)}?page=${page}`)
 }
 
 export async function deletePollAsCreator(token: string, pollId: string): Promise<void> {
-  await request<void>(`/e/${token}/polls/${pollId}`, { method: 'DELETE' })
+  await request<void>(`/e/${encodeURIComponent(token)}/polls/${encodeURIComponent(pollId)}`, { method: 'DELETE' })
 }
 
 export async function deleteResponseAsCreator(
@@ -661,7 +668,7 @@ export async function deleteResponseAsCreator(
   pollId: string,
   responseId: string,
 ): Promise<void> {
-  await request<void>(`/e/${token}/polls/${pollId}/responses/${responseId}`, { method: 'DELETE' })
+  await request<void>(`/e/${encodeURIComponent(token)}/polls/${encodeURIComponent(pollId)}/responses/${encodeURIComponent(responseId)}`, { method: 'DELETE' })
 }
 
 /**
@@ -671,7 +678,7 @@ export async function deleteResponseAsCreator(
  * (FR-028a): it would put the upload-and-parse path behind the weakest credential in the system.
  */
 export function creatorExportUrl(token: string, pollId: string): string {
-  return `${BASE}/e/${token}/polls/${pollId}/export`
+  return `${BASE}/e/${encodeURIComponent(token)}/polls/${encodeURIComponent(pollId)}/export`
 }
 
 export async function createWishListAsCreator(
@@ -681,7 +688,7 @@ export async function createWishListAsCreator(
   targetDate: string,
   items: WishItemDraft[],
 ): Promise<WishListDetail> {
-  return request<WishListDetail>(`/e/${token}/wish-lists`, {
+  return request<WishListDetail>(`/e/${encodeURIComponent(token)}/wish-lists`, {
     method: 'POST',
     body: JSON.stringify({ title, description, targetDate, items }),
   })
@@ -691,7 +698,7 @@ export async function fetchWishListAsCreator(
   token: string,
   wishListId: string,
 ): Promise<WishListDetail> {
-  return getJson<WishListDetail>(`/e/${token}/wish-lists/${wishListId}`)
+  return getJson<WishListDetail>(`/e/${encodeURIComponent(token)}/wish-lists/${encodeURIComponent(wishListId)}`)
 }
 
 export async function updateWishListAsCreator(
@@ -699,7 +706,7 @@ export async function updateWishListAsCreator(
   wishListId: string,
   changes: { title?: string; description?: string | null; targetDate?: string },
 ): Promise<WishListDetail> {
-  return request<WishListDetail>(`/e/${token}/wish-lists/${wishListId}`, {
+  return request<WishListDetail>(`/e/${encodeURIComponent(token)}/wish-lists/${encodeURIComponent(wishListId)}`, {
     method: 'PATCH',
     body: JSON.stringify(changes),
   })
@@ -710,7 +717,7 @@ export async function addWishItemAsCreator(
   wishListId: string,
   item: WishItemDraft,
 ): Promise<WishListDetail> {
-  return request<WishListDetail>(`/e/${token}/wish-lists/${wishListId}/items`, {
+  return request<WishListDetail>(`/e/${encodeURIComponent(token)}/wish-lists/${encodeURIComponent(wishListId)}/items`, {
     method: 'POST',
     body: JSON.stringify(item),
   })
@@ -722,7 +729,7 @@ export async function updateWishItemAsCreator(
   itemId: string,
   changes: { name?: string; wantedCount?: number },
 ): Promise<WishListDetail> {
-  return request<WishListDetail>(`/e/${token}/wish-lists/${wishListId}/items/${itemId}`, {
+  return request<WishListDetail>(`/e/${encodeURIComponent(token)}/wish-lists/${encodeURIComponent(wishListId)}/items/${encodeURIComponent(itemId)}`, {
     method: 'PATCH',
     body: JSON.stringify(changes),
   })
@@ -733,7 +740,7 @@ export async function removeWishItemAsCreator(
   wishListId: string,
   itemId: string,
 ): Promise<void> {
-  await request<void>(`/e/${token}/wish-lists/${wishListId}/items/${itemId}`, { method: 'DELETE' })
+  await request<void>(`/e/${encodeURIComponent(token)}/wish-lists/${encodeURIComponent(wishListId)}/items/${encodeURIComponent(itemId)}`, { method: 'DELETE' })
 }
 
 export async function deleteWishClaimAsCreator(
@@ -741,11 +748,11 @@ export async function deleteWishClaimAsCreator(
   wishListId: string,
   claimId: string,
 ): Promise<void> {
-  await request<void>(`/e/${token}/wish-lists/${wishListId}/claims/${claimId}`, { method: 'DELETE' })
+  await request<void>(`/e/${encodeURIComponent(token)}/wish-lists/${encodeURIComponent(wishListId)}/claims/${encodeURIComponent(claimId)}`, { method: 'DELETE' })
 }
 
 export async function deleteWishListAsCreator(token: string, wishListId: string): Promise<void> {
-  await request<void>(`/e/${token}/wish-lists/${wishListId}`, { method: 'DELETE' })
+  await request<void>(`/e/${encodeURIComponent(token)}/wish-lists/${encodeURIComponent(wishListId)}`, { method: 'DELETE' })
 }
 
 // ---------------------------------------------------------------------------------------
@@ -917,14 +924,14 @@ export interface FormSubmissionProblem extends ApiProblem {
 }
 
 export async function fetchFormByToken(formToken: string): Promise<PublicFormDefinition> {
-  return getJson<PublicFormDefinition>(`/f/${formToken}`)
+  return getJson<PublicFormDefinition>(`/f/${encodeURIComponent(formToken)}`)
 }
 
 export async function submitFormResponse(
   formToken: string,
   values: { fieldId: string; value: FormFieldSubmissionValue }[],
 ): Promise<void> {
-  await request<void>(`/f/${formToken}/responses`, {
+  await request<void>(`/f/${encodeURIComponent(formToken)}/responses`, {
     method: 'POST',
     body: JSON.stringify({ values }),
   })

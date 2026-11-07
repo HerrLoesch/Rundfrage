@@ -127,6 +127,89 @@ public class FormSubmissionTests(SqliteFixture storage) : IClassFixture<SqliteFi
     }
 
     [Fact]
+    public async Task A_whitespace_only_value_for_a_required_field_is_refused_like_a_missing_one()
+    {
+        // FR-017: "   " is no more an answer than "" - FormFieldValidation.IsAnswered decides both.
+        using var factory = new ApiFactory(storage.DataDirectory);
+        var admin = await factory.CreateSignedInClientAsync();
+        var (formId, token, nameFieldId, emailFieldId, _) = await BuildFormAsync(admin);
+
+        var anonymous = factory.CreateClient();
+        var response = await anonymous.PostAsJsonAsync($"/api/v1/f/{token}/responses", new
+        {
+            values = new object[]
+            {
+                new { fieldId = nameFieldId, value = "   " },
+                new { fieldId = emailFieldId, value = "anna@example.com" },
+            },
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Contains(body.GetProperty("fields").EnumerateArray(), e =>
+            e.GetProperty("fieldId").GetGuid() == nameFieldId
+            && e.GetProperty("error").GetString() == ErrorCodes.FieldRequired);
+
+        var stored = await admin.GetFromJsonAsync<JsonElement>($"/api/v1/admin/forms/{formId}/responses");
+        Assert.Empty(stored.EnumerateArray());
+    }
+
+    [Fact]
+    public async Task Two_values_for_the_same_field_are_refused_as_malformed_not_answered_with_500()
+    {
+        using var factory = new ApiFactory(storage.DataDirectory);
+        var admin = await factory.CreateSignedInClientAsync();
+        var (formId, token, nameFieldId, emailFieldId, _) = await BuildFormAsync(admin);
+
+        var anonymous = factory.CreateClient();
+        var response = await anonymous.PostAsJsonAsync($"/api/v1/f/{token}/responses", new
+        {
+            values = new object[]
+            {
+                new { fieldId = nameFieldId, value = "Anna" },
+                new { fieldId = nameFieldId, value = "Berta" },
+                new { fieldId = emailFieldId, value = "anna@example.com" },
+            },
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(ErrorCodes.MalformedRequest, body.GetProperty("code").GetString());
+
+        var stored = await admin.GetFromJsonAsync<JsonElement>($"/api/v1/admin/forms/{formId}/responses");
+        Assert.Empty(stored.EnumerateArray());
+    }
+
+    [Theory]
+    [InlineData("NaN")]
+    [InlineData("Infinity")]
+    [InlineData("1e5")]
+    public async Task A_decimal_the_export_could_not_write_is_refused_and_the_export_keeps_working(string value)
+    {
+        using var factory = new ApiFactory(storage.DataDirectory);
+        var admin = await factory.CreateSignedInClientAsync();
+        var created = await admin.PostAsJsonAsync("/api/v1/admin/forms", new { title = "Preis" });
+        var formId = (await created.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetGuid();
+        var token = (await admin.GetFromJsonAsync<JsonElement>($"/api/v1/admin/forms/{formId}"))
+            .GetProperty("formToken").GetString();
+        var added = await admin.PostAsJsonAsync($"/api/v1/admin/forms/{formId}/fields", new
+        {
+            type = "decimal", label = "Betrag", required = true,
+        });
+        var fieldId = (await added.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetGuid();
+
+        var anonymous = factory.CreateClient();
+        var response = await anonymous.PostAsJsonAsync($"/api/v1/f/{token}/responses", new
+        {
+            values = new object[] { new { fieldId, value } },
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var export = await admin.GetAsync($"/api/v1/admin/forms/{formId}/export/json");
+        Assert.Equal(HttpStatusCode.OK, export.StatusCode);
+    }
+
+    [Fact]
     public async Task A_malformed_value_is_refused_naming_the_field_and_stores_nothing()
     {
         using var factory = new ApiFactory(storage.DataDirectory);

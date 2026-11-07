@@ -121,6 +121,47 @@ public class FormFieldTests(SqliteFixture storage) : IClassFixture<SqliteFixture
     }
 
     [Fact]
+    public async Task Editing_a_field_that_is_not_on_this_form_answers_the_neutral_payload()
+    {
+        // A field of another form is as unknown here as one that never existed.
+        using var factory = new ApiFactory(storage.DataDirectory);
+        var admin = await factory.CreateSignedInClientAsync();
+        var formId = await CreateFormAsync(admin);
+        var otherFormId = await CreateFormAsync(admin, "Anderes");
+        var foreignField = await AddFieldAsync(admin, otherFormId);
+
+        foreach (var fieldId in new[] { foreignField.GetProperty("id").GetGuid(), Guid.NewGuid() })
+        {
+            var response = await admin.PatchAsJsonAsync(
+                $"/api/v1/admin/forms/{formId}/fields/{fieldId}", new { label = "Neu" });
+
+            Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+            var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+            Assert.Equal("not_found", body.GetProperty("code").GetString());
+        }
+    }
+
+    [Theory]
+    [InlineData("null")]
+    [InlineData("[]")]
+    [InlineData("{\"required\": \"ja\"}")]
+    public async Task An_edit_body_that_is_not_a_change_is_refused_as_malformed(string body)
+    {
+        using var factory = new ApiFactory(storage.DataDirectory);
+        var admin = await factory.CreateSignedInClientAsync();
+        var formId = await CreateFormAsync(admin);
+        var fieldId = (await AddFieldAsync(admin, formId)).GetProperty("id").GetGuid();
+
+        var response = await admin.PatchAsync(
+            $"/api/v1/admin/forms/{formId}/fields/{fieldId}",
+            new StringContent(body, System.Text.Encoding.UTF8, "application/json"));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(ErrorCodes.MalformedRequest, problem.GetProperty("code").GetString());
+    }
+
+    [Fact]
     public async Task A_type_included_in_an_edit_request_is_silently_ignored()
     {
         // 010 FR-008, spec clarification 2026-09-22: there is no code path that changes a

@@ -16,7 +16,7 @@ namespace Rundfrage.Api.Creators;
 /// character limit, the hundred of FR-009, or the name a duplicate collides with (FR-002).
 /// Operator-written text only - there is no participant anywhere near this type.
 /// </remarks>
-public sealed record CreatorError(string Code, int? Limit = null, string? Detail = null);
+public sealed record CreatorError(string Code, int? Limit = null, string? Detail = null) : IRefusal;
 
 /// <summary>
 /// Creating, renaming, reissuing, revoking and deleting Ersteller (009 FR-001 to FR-020c).

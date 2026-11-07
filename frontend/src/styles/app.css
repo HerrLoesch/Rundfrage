@@ -104,6 +104,47 @@
   white-space: nowrap;
 }
 
+/* --- A list row ------------------------------------------------------------------------ */
+
+/*
+ * One row of an admin or Ersteller list - a poll, a wish list, an Ersteller, a form. They are the
+ * same kind of thing (007 FR-002), so they share one layout here instead of five scoped copies:
+ * content on the left, actions on the right, and below the breakpoint the actions go under the
+ * content rather than squeezing it (008 FR-058).
+ */
+.rf-row + .rf-row { margin-block-start: var(--rf-stack); }
+
+.rf-row__body {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 24px;
+  padding: var(--rf-card-pad);
+}
+
+.rf-row__main { flex: 1 1 auto; min-width: 0; }
+
+.rf-row__title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.rf-row__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+@media (max-width: 600px) {
+  .rf-row__body { flex-direction: column; gap: 16px; }
+  .rf-row__actions { width: 100%; justify-content: space-between; }
+}
+
 /* --- A participant address ------------------------------------------------------------ */
 
 /*
